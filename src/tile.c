@@ -101,6 +101,12 @@ int main ( int argc, char * argv[]){
 	XFILE * fp = xfopen(argv[2],XFILE_UNKNOWN,"r");
 	TILE tile = read_known_TILE(fp,ncycle);
 	show_TILE(xstdout,tile,10);
+	fputs("Reversing list inplace\n",stdout);
+        tile->clusterlist = reverse_inplace_list_CLUSTER(tile->clusterlist);
+	show_TILE(xstdout,tile,10);
+	fputs("Reversing list\n",stdout);
+	LIST(CLUSTER) newrcl = reverse_list_CLUSTER(tile->clusterlist);
+	show_LIST(CLUSTER)(xstdout,newrcl,10);
 	free_TILE(tile);
 	xfclose(fp);
 	return EXIT_SUCCESS;

@@ -116,14 +116,16 @@ static inline struct X(_list_) * X(copy_list_)(const struct X(_list_) * list){
 // Macros for quoting type.
 #define Q_(A) #A            // Quote argument
 #define Q(A)  Q_(A)         // Expand argument and call quoting
-static inline void  X(show_list_)(XFILE * fp, struct X(_list_) * list){
+static inline void  X(show_list_)(XFILE * fp, struct X(_list_) * list, const unsigned int maxdepth){
     if(NULL==list){ xfputs("Empty list\n",fp); }
     xfputs("List of " Q(X()) ":\n",fp);
     struct X(_list_) * node = list;
-    while(NULL!=node){
+    unsigned int n=0;
+    while(NULL!=node && (maxdepth==0 || n<maxdepth)){
         X(show_)(fp,node->elt);
         xfputc('\n',fp);
         node = node->nxt;
+        n++;
     }
 }
 #undef Q
@@ -159,4 +161,25 @@ static inline struct X(_list_) * X(cons_list_)(const X() elt, struct X(_list_) *
         return node;
 }
 
+
+// Reverse a list inplace (destroys original list). Returns new head
+static inline struct X(_list_) * X(reverse_inplace_list_)(struct X(_list_) *list){
+    if(NULL==list){ return NULL;}
+    struct X(_list_) * newhead = list->nxt;
+    list->nxt = NULL;
+    while(NULL!=newhead){
+        struct X(_list_) * nxt = newhead->nxt;
+        newhead->nxt = list;
+        list = newhead;
+        newhead = nxt;
+    }
+    return list;
+}
+
+// Reverse list, copying
+static inline struct X(_list_) * X(reverse_list_)(struct X(_list_) *list){
+    if(NULL==list){ return NULL;}
+    struct X(_list_) * rlist = X(deep_copy_list_)(list);
+    return X(reverse_inplace_list_)(rlist);
+}
 
