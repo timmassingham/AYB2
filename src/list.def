@@ -1,0 +1,145 @@
+/* Generic linked lists
+ * NULL is treated as the empty list
+ */
+#ifndef _LIST_GH
+#define _LIST_GH
+    #include <stdio.h>
+	#include <stdlib.h>
+	#include <err.h>
+	#include <errno.h>
+	
+	#define LIST(A)	struct _list_ ## A *
+	#define null_LIST(A)	(LIST(A)){NULL,0}
+	#define new_LIST(A)	    new_list_ ## A
+	#define free_LIST(A)	free_list_ ## A
+	#define	copy_LIST(A)	copy_list_ ## A
+	#define cons_LIST(A)    cons_list_ ## A
+	#define show_LIST(A)    show_list_ ## A
+#endif
+
+struct X(_list_){
+	X() elt;
+	struct X(_list_) * nxt;
+};
+
+// The empty list is NULL
+static inline struct X(_list_) * X(new_list_)(void){
+    return NULL;
+}
+
+// Free list but not elements
+static inline void X(shallow_free_list_)(struct X(_list_) * list ){
+    if(NULL==list){ return;}
+    while(NULL!=list){
+        struct X(_list_) * nxt = list->nxt;
+        free(list);
+        list = nxt;
+    }
+}
+
+// Free list and elements
+static inline void X(deep_free_list_)(struct X(_list_) * list ){
+    if(NULL==list){ return;}
+    while(NULL!=list){
+        struct X(_list_) * nxt = list->nxt;
+        X(free_)(list->elt);
+        free(list);
+        list = nxt;
+    }
+}
+
+// Default free is deep
+static inline void X(free_list_)(struct X(_list_) * list ){
+     X(deep_free_list_)(list);
+}
+
+// Shallow copy of list
+static inline struct X(_list_) * X(shallow_copy_list_)(const struct X(_list_) * list){
+    if(NULL==list){ return NULL;}
+
+    struct X(_list_) * clist = calloc(1,sizeof(struct X(_list_)));
+    clist->elt = list->elt;
+
+    struct X(_list_) * node = list->nxt;
+    struct X(_list_) * newnode = clist;
+    while(NULL!=node){
+        struct X(_list_) * newnode2 = calloc(1,sizeof(struct X(_list_)));
+        newnode2->elt = node->elt;
+        newnode->nxt = newnode2;
+        newnode = newnode2;
+        node = node->nxt;
+    }
+    return clist;
+}
+
+// Deep copy of list
+static inline struct X(_list_) * X(deep_copy_list_)(const struct X(_list_) * list){
+    if(NULL==list){ return NULL;}
+
+    struct X(_list_) * clist = calloc(1,sizeof(struct X(_list_)));
+    clist->elt = X(copy_)(list->elt);
+
+    struct X(_list_) * node = list->nxt;
+    struct X(_list_) * newnode = clist;
+    while(NULL!=node){
+        struct X(_list_) * newnode2 = calloc(1,sizeof(struct X(_list_)));
+        newnode2->elt = X(copy_)(node->elt);
+        newnode->nxt = newnode2;
+        newnode = newnode2;
+        node = node->nxt;
+    }
+    return clist;
+}
+
+// Default copy is deep
+static inline struct X(_list_) * X(copy_list_)(const struct X(_list_) * list){
+    return X(deep_copy_list_)(list);
+}
+
+// Macros for quoting type.
+#define Q_(A) #A            // Quote argument
+#define Q(A)  Q_(A)         // Expand argument and call quoting
+static inline void  X(show_list_)(XFILE * fp, struct X(_list_) * list){
+    if(NULL==list){ xfputs("Empty list\n",fp); }
+    xfputs("List of " Q(X()) ":\n",fp);
+    struct X(_list_) * node = list;
+    while(NULL!=node){
+        X(show_)(fp,node->elt);
+        xfputc('\n',fp);
+        node = node->nxt;
+    }
+}
+#undef Q
+#undef Q_
+
+
+static inline X() X(head_list_)(const struct X(_list_) *list){
+    // Taking the head of empty list is an error
+	if(NULL!=list){ errx(EINVAL,"Taking head of empty list at %s (%s:%d)",__func__,__FILE__,__LINE__);}
+	return list->elt;
+}
+
+static inline struct X(_list_) * X(tail_list_)(const struct X(_list_) *list){
+    // Assumed that the tail of an empty list is the empty list
+	return (NULL!=list)?list->nxt:NULL;
+}
+
+// Cons a new element, copying it
+static inline struct X(_list_) * X(conscopy_list_)(const X() elt, struct X(_list_) *list){
+	struct X(_list_) * node = calloc(1,sizeof(struct X(_list_)));
+	if(NULL==node){return NULL;}
+	node->elt = X(copy_)(elt);
+	node->nxt = list;
+	return node;
+}
+
+// Cons a new element, keeping as input
+static inline struct X(_list_) * X(cons_list_)(const X() elt, struct X(_list_) *list){
+        struct X(_list_) * node = calloc(1,sizeof(struct X(_list_)));
+        if(NULL==node){return NULL;}
+        node->elt = elt;
+        node->nxt = list;
+        return node;
+}
+
+
