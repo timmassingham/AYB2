@@ -27,7 +27,8 @@ test-tile: $(objects)
 	g77 -O3 -o $@ -c $<
 
 clean:
-	rm -f *~ *.o  *.obj  *.exe *.lib  
+	rm -f *~ *.o  *.obj  *.exe *.lib
+	mkdir -p ../bin
 
 archive: clean
 	cd ../.. && tar zcf ayb.tgz --exclude=.git --exclude=bin --exclude=archive --exclude=test ayb
