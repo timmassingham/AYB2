@@ -41,3 +41,4 @@ CLUSTER read_known_CLUSTER( XFILE * fp, const unsigned int ncycle);
 CLUSTER read_unknown_CLUSTER( XFILE * fp);
 
 #endif /* _CLUSTER_H */
+

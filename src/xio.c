@@ -17,6 +17,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <zlib.h>
@@ -282,3 +283,4 @@ char * xfgetln( XFILE * fp, size_t * len ){
 	
 	return str;
 }
+

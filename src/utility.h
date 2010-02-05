@@ -45,3 +45,4 @@ static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr);} }
 #endif
  
 #endif /* _UTILITY_H */
+
