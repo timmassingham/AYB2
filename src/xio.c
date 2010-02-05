@@ -241,8 +241,8 @@ int xfputs ( const char * restrict str, XFILE * fp){
 }
 
 
-int xfgetc (XFILE * fp){
-    int c;
+int xfgetc(XFILE * fp){
+    char c=0;
     int ret = xfread(&c,sizeof(char),1,fp);
     return (ret!=0)?c:EOF;
 }
@@ -263,7 +263,7 @@ char * xfgetln( XFILE * fp, size_t * len ){
     int size = 0;
     int c = 0;
     *len = 0;
-    while ( c=xfgetc(fp), c!=EOF && c!='\n' && c!='\r'){
+    while ( c=xfgetc(fp), (c!=EOF) && (c!='\n') && (c!='\r') ){
     	if(size<=*len){
     	    size += 80;
             str = reallocf(str, size);
