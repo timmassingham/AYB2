@@ -224,7 +224,7 @@ static inline struct X(_list_) * X(filtercopy_list_)( bool (*f)(const X(), const
     return newlist;
 }
 
-// Split list
+// Split list into categories according to function f.
 static inline struct X(_list_) ** X(split_list_)( unsigned int (*f)(const X(), const void *),
                                                   struct X(_list_) * list, const unsigned int ncat,
                                                   const void * fdat)
