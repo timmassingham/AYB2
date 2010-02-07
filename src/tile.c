@@ -89,7 +89,27 @@ TILE read_known_TILE( XFILE * fp, unsigned int ncycle){
 #ifdef TEST
 #include <stdio.h>
 #include <err.h>
+
+const unsigned int nxcat = 4;
+const unsigned int nycat = 4;
+
+
+bool pick_spot( const CLUSTER cl, const void * bds){
+    int * ibds = (int *) bds;
+    if( cl->x>=ibds[0] && cl->x<ibds[1] && cl->y>=ibds[2] && cl->y<ibds[3] )
+        return true;
+    return false;
+}
+
+unsigned int whichquad( const CLUSTER cl, const void * dat){
+    unsigned int i= (unsigned int)( nxcat * ((float)cl->x / 1794.0));
+    unsigned int j= (unsigned int)( nycat * ((float)cl->y / 2048.0));
+    return i*nycat+j;
+}
+
+    
 int main ( int argc, char * argv[]){
+    int bds[4] = {0,1000,0,1000};
 	if(argc!=3){
 		fputs("Usage: test ncycle filename\n",stdout);
 		return EXIT_FAILURE;
@@ -101,12 +121,30 @@ int main ( int argc, char * argv[]){
 	XFILE * fp = xfopen(argv[2],XFILE_UNKNOWN,"r");
 	TILE tile = read_known_TILE(fp,ncycle);
 	show_TILE(xstdout,tile,10);
+	
 	fputs("Reversing list inplace\n",stdout);
         tile->clusterlist = reverse_inplace_list_CLUSTER(tile->clusterlist);
 	show_TILE(xstdout,tile,10);
+	
 	fputs("Reversing list\n",stdout);
 	LIST(CLUSTER) newrcl = reverse_list_CLUSTER(tile->clusterlist);
 	show_LIST(CLUSTER)(xstdout,newrcl,10);
+	free_LIST(CLUSTER)(newrcl);
+	
+	fputs("Filtering list\n",stdout);
+	LIST(CLUSTER) filteredlist = filter_list_CLUSTER(pick_spot,tile->clusterlist,(void *)bds);
+	show_LIST(CLUSTER)(xstdout,filteredlist,10);
+	shallow_free_list_CLUSTER(filteredlist);
+
+	LIST(CLUSTER) * spots = split_list_CLUSTER(whichquad,tile->clusterlist,nxcat*nycat,NULL);
+	for ( int i=0 ; i<nxcat ; i++){
+		for ( int j=0 ; j<nycat ; j++){
+			fprintf(stdout,"(%d,%d) has %u elements\n",i+1,j+1,length_LIST(CLUSTER)(spots[i*nycat+j]));
+			//show_LIST(CLUSTER)(xstdout,spots[i*nycat+j],10);
+			shallow_free_list_CLUSTER(spots[i*nycat+j]);
+		}
+	}
+
 	free_TILE(tile);
 	xfclose(fp);
 	return EXIT_SUCCESS;

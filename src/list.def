@@ -22,6 +22,8 @@
 #define _LIST_GH
     #include <stdio.h>
 	#include <stdlib.h>
+	#include <stdbool.h>
+	#include <assert.h>
 	#include <err.h>
 	#include <errno.h>
 	
@@ -32,6 +34,7 @@
 	#define	copy_LIST(A)	copy_list_ ## A
 	#define cons_LIST(A)    cons_list_ ## A
 	#define show_LIST(A)    show_list_ ## A
+	#define length_LIST(A)  length_list_ ## A
 #endif
 
 struct X(_list_){
@@ -131,6 +134,14 @@ static inline void  X(show_list_)(XFILE * fp, struct X(_list_) * list, const uns
 #undef Q
 #undef Q_
 
+static inline unsigned int X(length_list_)( struct X(_list_) * list ){
+    unsigned i=0;
+    while(NULL!=list){
+        i++;
+        list = list->nxt;
+    }
+    return i;
+}
 
 static inline X() X(head_list_)(const struct X(_list_) *list){
     // Taking the head of empty list is an error
@@ -177,9 +188,59 @@ static inline struct X(_list_) * X(reverse_inplace_list_)(struct X(_list_) *list
 }
 
 // Reverse list, copying
-static inline struct X(_list_) * X(reverse_list_)(struct X(_list_) *list){
+static inline struct X(_list_) * X(reverse_list_)(const struct X(_list_) *list){
     if(NULL==list){ return NULL;}
     struct X(_list_) * rlist = X(deep_copy_list_)(list);
     return X(reverse_inplace_list_)(rlist);
 }
 
+// Filter a list according to function
+static inline struct X(_list_) * X(filter_list_)( bool (*f)(const X(), const void *), struct X(_list_) * list, const void * fdat){
+    if(NULL==f){ return NULL;}
+    
+    struct X(_list_) * newlist = NULL;
+    struct X(_list_) * node = list;
+    while( NULL!=node ){
+        if( f(node->elt,fdat) ){
+            newlist = X(cons_list_)(node->elt,newlist);
+        }
+        node = node->nxt;
+    }
+    return newlist;
+}
+
+// Filter a list according to function, copying elements
+static inline struct X(_list_) * X(filtercopy_list_)( bool (*f)(const X(), const void *), struct X(_list_) * list, const void * fdat){
+    if(NULL==f){ return NULL;}
+    
+    struct X(_list_) * newlist = NULL;
+    struct X(_list_) * node = list;
+    while( NULL!=node ){
+        if( f(node->elt,fdat) ){
+            newlist = X(conscopy_list_)(node->elt,newlist);
+        }
+        node = node->nxt;
+    }
+    return newlist;
+}
+
+// Split list
+static inline struct X(_list_) ** X(split_list_)( unsigned int (*f)(const X(), const void *),
+                                                  struct X(_list_) * list, const unsigned int ncat,
+                                                  const void * fdat)
+{
+    if(NULL==f){return NULL;}
+    if(0==ncat){return NULL;}
+    struct X(_list_) ** listarray = calloc(ncat,sizeof(*listarray));
+    if(NULL==listarray){return NULL;}
+    
+    struct X(_list_) * node = list;
+    while( NULL!=node ){
+        unsigned cat = f(node->elt,fdat);
+        assert(cat<ncat);
+        listarray[cat] = X(cons_list_)(node->elt,listarray[cat]);
+        node = node->nxt;
+    }
+    return listarray;
+}
+                                                  
