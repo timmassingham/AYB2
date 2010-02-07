@@ -37,6 +37,7 @@
 	#define length_LIST(A)  length_list_ ## A
 #endif
 
+// List structure containing element
 struct X(_list_){
 	X() elt;
 	struct X(_list_) * nxt;
