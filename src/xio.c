@@ -176,6 +176,8 @@ XFILE * xfopen(const char * restrict fn, const XFILE_MODE mode, const char * mod
             break;
       case XFILE_BZIP2:
             fp->ptr.bzfh = BZ2_bzopen(fn,mode_str);
+	    if(NULL==fp->ptr.zfh){fail=1;}
+	    break;
       default: xnull_file(fp); fail=1;
     }
 
