@@ -1,0 +1,96 @@
+\documentclass[12pt]{amsart}
+\usepackage{geometry}                % See geometry.pdf to learn the layout options. There are lots.
+\geometry{a4paper}                   % ... or a4paper or a5paper or ... 
+%\geometry{landscape}                % Activate for for rotated page geometry
+%\usepackage[parfill]{parskip}    % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{epstopdf}
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+
+\title{Quick estimation of $\hat{M}$, $\hat{P}$, and $\hat{N}$}
+\author{Tim Massingham}
+%\date{}                                           % Activate to display a given date or no date
+
+\newcommand{\Id}{ {\rm I_D} }
+\newcommand{\reshape}{ {\rm Reshape} }
+\renewcommand{\vec}{ {\rm Vec} }
+\begin{document}
+\maketitle
+
+From before, the analytical solutions for $\hat{M},\hat{N}|\hat{P}$ and  $\hat{P},\hat{N}|\hat{M}$ can be written as:
+\begin{eqnarray}
+\label{Mhat}
+\hat{M'}^t & = & \left( \sum_i w_i S_i^P S_i^{P\,t} \right)^{-1} \left( \sum_i w_i S_i^P I_i^t \right) \\
+\label{Phat}
+\hat{P'}^t & = & \left( \sum_i w_i S_i^{M\,t} S_i^{M} \right)^{-1} \left( \sum_i w_i S_i^{M\,t} I_i \right)
+\end{eqnarray}
+where
+\begin{eqnarray*}
+M' 		& = & \left( M \quad N \right) \\
+P' 		& = & \left( \begin{array}{c} P \\ N \end{array} \right) \\
+S_i^M	& = & \left( \lambda_i M S_i \quad  \Id \right) \\
+S_i^P	& = & \left( \begin{array}{c}  \lambda_i S_i P \\  \Id \end{array} \right)
+\end{eqnarray*} 
+
+By breaking the matrices of each analytical solution into components, the summation over all clusters can be removed. Taking equation~(\ref{Mhat}) for example:
+\begin{eqnarray*}
+ \sum_i w_i S_i^P S_i^{P\,t} 
+ & = &
+          \left( \begin{array}{cc} 
+          		\sum_i w_i \lambda_i^2 S_i P P^t S_i^t  &  \sum_i w_i \lambda_i S_i P \\
+			\sum_i w_i \lambda_i P^t S_i^t			& \sum_i w_i \Id 
+			\end{array}
+          \right) \\
+& = &
+          \left( \begin{array}{cc} 
+          		\sum_i w_i \lambda_i^2 S_i P P^t S_i^t  &  \bar{S}P \\
+			P^t \bar{S}^t 			& \bar{w} \Id 
+			\end{array}
+          \right) \\
+\sum_i w_i S_i^P I_i^t
+& = &
+	\left( \begin{array}{c} \sum_i w_i \lambda_i S_i P I_i^t \\ \sum_i w_i I_i^t \end{array} \right) \\
+& = &
+	\left( \begin{array}{c} \sum_i w_i \lambda_i S_i P I_i^t \\ \bar{I}^t  \end{array} \right)
+\end{eqnarray*}
+where $\bar{S} = \sum_i w_i \lambda_i S_i$, $\bar{w} = \sum w_i$ and $\bar{I} = \sum_i w_i I_i$. There are two sums left in the components of the equation. From Minka we have the following identity:
+\[ \vec\left( A B C \right) = \left( C^t \otimes A \right) \vec(B) \]
+so
+\begin{eqnarray*}
+\vec \left( \sum_i w_i \lambda_i^2 S_i PP^t S_i^t\right)
+            & = & \left[ \sum_i w_i \lambda_i^2 \left( S_i \otimes S_i \right) \right] \vec\left( PP^t \right)  \\
+            & = & J \vec\left( PP^t \right) \quad \mbox{by appropriate definition of $J$.} \\
+\vec \left( \sum_i w_i \lambda_i S_i P I_i^t\right)
+            & = &  \left[ \sum_i w_i \lambda_i \left( I_i \otimes S_i \right) \right] \vec\left( P \right)  \\
+            & = & K \vec\left( P \right) \quad \mbox{by appropriate definition of $K$.} 
+\end{eqnarray*}
+
+Defining the $\reshape$ operator to be the inverse of $\vec$, the summation free matrices are:
+
+\begin{eqnarray*}
+\sum_i w_i S_i^P S_i^{P\,t}
+& = &
+          \left( \begin{array}{cc} 
+          		\reshape\left(J \vec(PP^t)\right)  &  \bar{S}P \\
+			P^t \bar{S}^t 			& \bar{w} \Id 
+			\end{array}
+          \right) \\
+\sum_i w_i S_i^P I_i^t
+& = & \left( \begin{array}{c} \reshape\left(K\vec(P)\right) \\ \bar{I}^t \end{array} \right)
+\end{eqnarray*}
+
+Similar solutions hold for equation~(\ref{Phat}):
+\begin{eqnarray*}
+\sum_i w_i S_i^{M\,t} S_i^M
+& = &
+          \left( \begin{array}{cc} 
+          		\reshape\left(J^t \vec(M^tM)\right)  &  \bar{S}^t M^t  \\
+			M\bar{S}					     & \bar{w} \Id 
+			\end{array}
+          \right) \\
+\sum_i w_i S_i^{M\,t} I_i
+& = & \left( \begin{array}{c} \reshape\left(K^t\vec(M^t)\right) \\ \bar{I} \end{array} \right)
+\end{eqnarray*}
+
+\end{document}  
