@@ -1,8 +1,9 @@
-/*
- *  File    : message.c
+/**
+ * \file message.c
+ * General Messaging Utility.
+ *//*
  *  Created : 26 Feb 2010
  *  Author  : Hazel Marsden
- *  Purpose : General Messaging Utility
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
  *
@@ -24,46 +25,69 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
 #include "message.h"
 
 
-/*
- * formatted text for each message type, to be used directly in a printf;
- * first parameter is severity; suffix indicates type of arguments required;
- * match list to MsgTypeT enum
- */
-const char *MSG_TEXT[] = {
-        "%s: An integer (%d)\n",                //E_INT_D
-        "%s: A float (%0.2f)\n",                //E_FLOAT_F
-        "%s: A string (%s)\n",                  //E_STRING_S
-        "%s: Give 2 integers: %d %d\n" };       //E_INT_DD
+/* constants */
 
-/* message severity text; match list to MsgSeverityT enum */
-const char *MSG_SEV_TEXT[] = {
+/**
+ * Formatted text for each message type. Used directly in a printf.
+ * Suffix indicates type of arguments required. Ensure list matches MsgTypeT enum.
+ */
+static const char *MSG_TEXT[] = {
+        "Number of cycles to analyse must be supplied as a positive integer\n", // E_NOCYCLES
+        "No file pattern match supplied\n",                                     // E_NOPATTERN
+        "File pattern selected: %s...\n",                                       // E_PATTERN_SELECT_S
+        "Memory allocation failed during %s\n",                                 // E_NOMEM_S
+        "No input files located matching pattern \'%s\'\n",                     // E_NOINPUT_S
+        "Input file found: %s\n",                                               // E_INPUTFOUND_S
+        "%s directory \'%s\' not found\n",                                      // E_NODIR_SS
+        "Number of cycles selected: %d\n",                                      // E_CYCLE_SELECT_D
+        "Input file contains less data than requested; "
+        "number of cycles changed from %d to %d\n",                             // E_CYCLESIZE_DD
+
+        "%s %20s\n",                                                            // E_GENERIC_SS
+        "%s %d\n",                                                              // E_GENERIC_SD
+        "%s %u\n",                                                              // E_GENERIC_SU
+        "%s %f\n",                                                              // E_GENERIC_SF
+        "%s %0.2f %0.2f %0.2f %0.2f\n",                                         // E_GENERIC_SFFFF
+
+        "%s (%s:%d): %s\n",                                                     // E_DEBUG_SSD_S
+        "%s (%s:%d): %s %s\n",                                                  // E_DEBUG_SSD_SS
+        "%s (%s:%d): %s %d\n"                                                   // E_DEBUG_SSD_SD
+        };
+
+/** Message severity text. Ensure list matches to MsgSeverityT enum. */
+static const char *MSG_SEV_TEXT[] = {
         "None",
         "Fatal",
         "Error",
         "Warning",
         "Information",
+        "Debug",
         ""};
 
-/* selected level of messages */
-int Msg_Level = MSG_WARN;
-
 /* location and name of message file */
-static const char *DEFAULT_PATH = "./";
-static const char PATH_DELIM = '/';
-static const char *NAME_EXT = ".log";
-static const char *TIME_SUFFIX = "%y%m%d_%H%M";
-static const size_t TIME_SUFFIX_LEN = 12;
+static const char *DEFAULT_PATH = "./";         ///< Use current directory if none supplied.
+static const char PATH_DELIM = '/';             ///< Path delimiter. For linux, other OS?
+static const char *NAME_EXT = ".log";           ///< Extension for log file.
+static const char *TIME_SUFFIX = "%y%m%d_%H%M"; ///< Log file suffix; gives yymmdd_hhmm.
+static const size_t TIME_SUFFIX_LEN = 12;       ///< Length of log file suffix.
 #define FILENAME_LEN 80
-char Msg_Path[FILENAME_LEN] = "";
+
+/* members */
+
+static int Msg_Level = MSG_WARN;                ///< Selected level of messages.
+static char Msg_Path[FILENAME_LEN] = "";        ///< Selected path for message file.
 
 
-/* generate a unique message file name including date and time */
+/* private functions */
+
+/** Generate a unique message file name including date and time. */
 void create_filename(const char* prefix, char *name) {
 
     /* check specified path exists */
@@ -101,8 +125,7 @@ void create_filename(const char* prefix, char *name) {
     printf("name: %s\n", name);
 }
 
-/* match a string to one of a list */
-/* return index of match or -1 if none match */
+/** Match a string to one of a list. Returns index of match or -1 if none. */
 int match_string(const char *string, const char *match[], int num) {
 
     int result = -1;
@@ -119,7 +142,26 @@ int match_string(const char *string, const char *match[], int num) {
 
 /* public functions */
 
-/* set the message level; must match one of the options */
+/** Output a log message. */
+int message(MSGTYPE type, MSGSEV sev, ...) {
+    va_list args;
+    int ret = 0;
+
+    /* ignore if this level not selected */
+    if (sev <= Msg_Level) {
+        /* the severity first */
+        ret = fprintf(stderr, "%s: ", MSG_SEV_TEXT[sev]);
+
+        /* the rest with the variable args */
+        va_start(args, sev);
+        ret += vfprintf(stderr, MSG_TEXT[type], args);
+        va_end(args);
+    }
+    /* returns number of characters printed */
+    return ret;
+}
+
+/** Set the message level. Text must match one of the severity text list. Ignores case. */
 bool set_message_level(const char *levelstr) {
 
     /* match to one of the possible options */
@@ -133,15 +175,15 @@ bool set_message_level(const char *levelstr) {
     }
 }
 
-/* set the message path */
+/** Set the message file path. */
 void set_message_path(const char *path) {
 
     /* validate later */
     strcpy(Msg_Path, path);
 }
 
-/* start a message file; call at program start */
-void start_message(const char *prefix) {
+/** Start up; call at program start after options. */
+void startup_message(const char *prefix) {
 
     if (strlen(Msg_Path) > 0) {
         /* error file specified, redirect stderr from within program*/
@@ -161,7 +203,7 @@ void start_message(const char *prefix) {
     }
 }
 
-/* tidy message file; call at program shutdown */
+/** Tidy up; call at program shutdown. */
 void tidyup_message () {
 
     /* close the message file */
