@@ -1,8 +1,9 @@
-/*
- *  File    : handler.c
+/**
+ * \file handler.c
+ * Signal Handler.
+ *//*
  *  Created : 10 Mar 2010
  *  Author  : Hazel Marsden
- *  Purpose : Signal Handler
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
  *
@@ -29,11 +30,17 @@
 #include "ayb_options.h"    // for PROGNAME
 
 
-/* control user request to terminate */
-volatile sig_atomic_t User_Interrupt = 0;
+/* constants */
+/* none      */
+
+/* members */
+
+volatile sig_atomic_t User_Interrupt = 0;       ///< Indicates user request to terminate.
 
 
-/* check if any signals have arrived */
+/* private functions */
+
+/** Check if any signals have arrived. */
 void checksignals() {
 
     /* check for user interrupt */
@@ -58,7 +65,10 @@ void checksignals() {
     }
 }
 
-/* handle floating point exception signal */
+
+/* public functions */
+
+/** Handle floating point exception signal. */
 void  FPEhandler(int sig) {
 
      /* disable interrupt */
@@ -69,7 +79,7 @@ void  FPEhandler(int sig) {
      exit(EXIT_FAILURE);
 }
 
-/* handle the SIGINT (Ctrl-C) signal */
+/** Handle the SIGINT (Ctrl-C) signal. */
 void  INThandler(int sig) {
 
     /* set flag and re-install */

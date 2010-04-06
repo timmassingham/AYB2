@@ -1,5 +1,6 @@
-/* 
- * Generic licence information
+/**
+ * \file copyright.h
+ * Generic licence information.
  *
  * To use define the following:
  *  PROGNAME:  name of program

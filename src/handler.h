@@ -1,8 +1,9 @@
-/*
- *  File    : handler.h
+/**
+ * \file handler.h
+ * Public Parts of Signal Handler.
+ *//*
  *  Created : 10 Mar 2010
  *  Author  : Hazel Marsden
- *  Purpose : Header containing public parts of Signal Handler
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
  *
@@ -27,6 +28,7 @@
 
 
 /* function prototypes */
+
 void checksignals();
 void FPEhandler(int sig);
 void INThandler(int sig);
