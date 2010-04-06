@@ -1,4 +1,10 @@
-/*
+/**
+ * \file xio.c
+ * Generic File Access including Compressed.
+ *//*
+ *  Created : 2010
+ *  Authors : Tim Massingham/Hazel Marsden
+ *
  *  Copyright (C) 2008-2010 by Tim Massingham
  *  tim.massingham@ebi.ac.uk
  *
@@ -25,6 +31,21 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <string.h>
+
+
+/* constants */
+/* none      */
+
+/* members */
+/* below */
+
+
+/* private functions */
+/* undetermined */
+
+/* public functions */
+/* undetermined */
+
 
 #ifndef HAS_REALLOCF
 void * reallocf(void * ptr, size_t t){
@@ -143,17 +164,36 @@ int xnotnull_file(XFILE * fp){
     return 1;
 }
 
+/*hmhm*/
+int xisnull_file(XFILE * fp) {
+    if (NULL==fp) { return 1;};
+    switch( fp->mode ){
+      case XFILE_UNKNOWN:
+      case XFILE_RAW:   if(NULL==fp->ptr.fh){ return 1;} break;
+      case XFILE_GZIP:  if(NULL==fp->ptr.zfh){ return 1;} break;
+      case XFILE_BZIP2: if(NULL==fp->ptr.bzfh){ return 1;} break;
+    }
+
+    return 0;
+}
+
 void xfclose(XFILE * fp){
     if(!_xinit){initialise_aybstd();}
-    if( ! xnotnull_file(fp) ){return;}
+    /*hmhm*/
+//    if( ! xnotnull_file(fp) ){return;}
+    if (NULL==fp) {return;}
 
-    switch( fp->mode ){
-	  case XFILE_UNKNOWN:
-      case XFILE_RAW:     fclose(fp->ptr.fh); break;
-      case XFILE_GZIP:  gzclose(fp->ptr.zfh); break;
-      case XFILE_BZIP2: BZ2_bzclose(fp->ptr.bzfh); break;
+    if(xnotnull_file(fp)) {
+        switch( fp->mode ){
+          case XFILE_UNKNOWN:
+          case XFILE_RAW:     fclose(fp->ptr.fh); break;
+          case XFILE_GZIP:  gzclose(fp->ptr.zfh); break;
+          case XFILE_BZIP2: BZ2_bzclose(fp->ptr.bzfh); break;
+        }
     }
     free(fp);
+    /*hmhm*/
+    fp=NULL;
 }
 
 XFILE * xfopen(const char * restrict fn, const XFILE_MODE mode, const char * mode_str){

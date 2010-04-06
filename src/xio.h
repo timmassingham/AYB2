@@ -1,4 +1,9 @@
 /*
+ *  File    : xio.h
+ *  Created : 2010
+ *  Authors : Tim Massingham/Hazel Marsden
+ *  Purpose : Header containing public parts of Generic File Access including Compressed
+ *
  *  Copyright (C) 2008-2010 by Tim Massingham
  *  tim.massingham@ebi.ac.uk
  *
@@ -33,7 +38,7 @@ extern XFILE * xstderr;
 XFILE * xfopen(const char * restrict fn, const XFILE_MODE mode, const char * mode_str);
 void xfclose(XFILE * fp);
 void xnull_file(XFILE * fp);
-
+int xisnull_file(XFILE * fp);
 
 // Helper routine to guess type of file from suffix
 XFILE_MODE guess_mode_from_filename ( const char * restrict fn );
