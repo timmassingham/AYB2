@@ -1,8 +1,9 @@
-/*
- *  File    : ayb_main.c
+/**
+ * \file ayb_main.c
+ * Main AYB module.
+ *//*
  *  Created : 23 Feb 2010
  *  Author  : Hazel Marsden
- *  Purpose : Main AYB module
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
  *
@@ -27,22 +28,35 @@
 #include <stdbool.h>
 #include <signal.h>
 #include "ayb_options.h"
+#include "dirio.h"
 #include "handler.h"
 #include "message.h"
+#include "tile.h"
+#include "xio.h"
 
 #include <unistd.h>         // temp for sleep
 
 
-/* prefix required on log file */
-static const char *LOG_PREFIX = "ayb_";
+/* constants */
+
+static const char *LOG_PREFIX = "ayb_";         ///< Log file prefix, pass to Message startup.
+
+/* members */
+/* none    */
 
 
-/* tidy up before exit */
-void tidyup() {
+/* private functions */
+
+/** Tidy up before exit. Include all module tidyup routines here. */
+static void tidyup() {
     /* message files file */
+    tidyup_dirio();
     tidyup_message();
 }
 
+/* public functions */
+
+/** Main AYB routine. What does it do? */
 int main(int argc, char **argv) {
     AYBOPT *p_opt;
 
@@ -57,8 +71,65 @@ int main(int argc, char **argv) {
     /* get a pointer to the program options */
     p_opt = myopt();
 
+    /* check number of cycles supplied - hmhm move to module when decide where ncycle to live */
+    message(E_GENERIC_SD, MSG_DEBUG, "ncycle:", p_opt->ncycle);
+    if (p_opt->ncycle <= 0) {
+        message(E_NOCYCLES, MSG_FATAL);;
+        return EXIT_FAILURE;
+    }
+    message(E_CYCLE_SELECT_D, MSG_INFO, p_opt->ncycle);
+
     /* create a message log */
-    start_message(LOG_PREFIX);
+    startup_message(LOG_PREFIX);
+
+    /* scan the input directory */
+    if (!startup_dirio()) {
+        return EXIT_FAILURE;
+    }
+
+    /**** test file access ****/
+
+    XFILE *fpin = NULL;
+    XFILE *fpout = NULL;
+    bool found = true;
+//    int c;
+
+    while (found) {
+        fpin = open_next(fpin);
+
+        if (xisnull_file(fpin)) {
+            found = false;
+        }
+        else {
+            /* create an output file from the input */
+            fpout = open_output("out");
+            if (xisnull_file(fpout)) {
+                found = false;
+            }
+            else {
+                /* read and store input */
+                TILE tile;
+                unsigned int nc = p_opt->ncycle;
+                tile = read_known_TILE(fpin, &nc);
+                if (nc < p_opt->ncycle) {
+                    message(E_CYCLESIZE_DD, MSG_WARN, p_opt->ncycle, nc);
+                }
+                if (tile != NULL) {
+                    /* output from store */
+                    show_TILE(fpout, tile, 20);
+                }
+
+//                while ((c = xfgetc(fpin)) != EOF) {
+//                    xfputc(c, fpout);
+//                }
+                free_TILE(tile);
+                xfclose(fpout);
+            }
+        }
+    }
+
+
+    /********/
 
     /**** this part is for testing of log and signal handling ****/
     /* convert boolean value to string */
@@ -66,14 +137,9 @@ int main(int argc, char **argv) {
     //  fprintf(stdout, "A value argument is %d\n", p_opt->aval);
     //  fprintf(stdout, "A flag argument is %s\n", BOOLSTR(p_opt->aflag));
 
+    /*
     int anint = 3;
     float afloat = 123.45;
-    char astring[] = "Hi There";
-
-    MSG1(E_STRING_S, MSG_INFO, astring);
-    MSG1(E_FLOAT_F, MSG_WARN, afloat);
-    MSG1(E_INT_D, MSG_ERR, anint);
-    MSG2(E_INT_DD, MSG_FATAL, anint, 22);
 
     for (int i = 0; i < 5; i++) {
         printf("Sleep for %d seconds; divisor = %d\n", p_opt->aval, anint);
@@ -82,6 +148,7 @@ int main(int argc, char **argv) {
         printf("float = %0.2f\n", afloat);
         checksignals();
     }
+*/
     /********/
 
     /* tidy up before exit */
