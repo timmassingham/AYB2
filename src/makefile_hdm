@@ -1,0 +1,22 @@
+# makefile for AYB
+
+CC = gcc
+CFLAGS = -Wall -O3 -DNDEBUG -std=gnu99
+INCFLAGS = 
+DEFINES =
+objects =  ayb_main.o ayb_options.o handler.o message.o
+
+AYB: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(objects)
+
+.c.o:
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $@ -c $<
+
+clean:
+	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib
+	find .. -name "*.log" -exec rm {} \;
+	
+archive: clean
+	cd ../.. && tar zcf AYB.tgz --exclude=archive --exclude=Debug --exclude=test --exclude=runfiles AYB \
+	--exclude=.git --exclude=.cproject --exclude=.project --exclude=RemoteSystemsTempFiles --exclude=.metadata
+
