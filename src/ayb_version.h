@@ -1,8 +1,10 @@
-/*
- *  File    : ayb_version.h
+/**
+ * \file ayb_version.h
+ * AYB version number.
+ * Before making a release, ensure this file is updated.
+  *//*
  *  Created : 5 Mar 2010
  *  Author  : Hazel Marsden
- *  Purpose : Header containing AYB version number
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
  *
@@ -25,13 +27,10 @@
 #ifndef AYB_VERSION_H_
 #define AYB_VERSION_H_
 
-/*
- * Program Version
- * Before making a release, ensure this file is updated
- */
-
-const float Version = 1.00;      // First version
-const char* VersionDate = "20100312";
+/** Program Version. */
+const float Version = 1.01;      // File I/O and Data Structures
+/** Release date. */
+const char* VersionDate = "20100406";
 
 /* keep a history */
 // Version 1.00     20100312    Initial with basic infrastructure
