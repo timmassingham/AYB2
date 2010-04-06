@@ -1,8 +1,9 @@
-/*
- *  File    : ayb_options.h
+/**
+ * \file ayb_options.h
+ * Public parts of AYB specific Options.
+ *//*
  *  Created : 23 Feb 2010
  *  Author  : Hazel Marsden
- *  Purpose : Header containing public parts of AYB specific Options
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
  *
@@ -25,21 +26,23 @@
 #ifndef AYB_OPTIONS_H_
 #define AYB_OPTIONS_H_
 
-#include <stdbool.h>
+#include <stdbool.h>        // temp for flag
 
 
-#define PROGNAME "AYB"
-#define AUTHOR "Hazel Marsden"
-#define CONTACT "hazelm@ebi.ac.uk"
+#define PROGNAME "AYB"                          ///< Program name in generic text.
+#define AUTHOR "Hazel Marsden"                  ///< Author in generic text.
+#define CONTACT "hazelm@ebi.ac.uk"              ///< Contact details in generic text.
 
-/* ayb options structure */
+/** AYB options structure; any here hmhm?. */
 typedef struct {
     bool aflag;
     int aval;
+    int ncycle;
 } AYBOPT;
 
 
 /* function prototypes */
+
 bool read_options(const int argc, char ** const argv);
 AYBOPT *myopt();
 

@@ -1,8 +1,9 @@
-/*
- *  File    : ayb_options.2
+/**
+ * \file ayb_options.c
+ * AYB specific Options.
+ *//*
  *  Created : 23 Feb 2010
  *  Author  : Hazel Marsden
- *  Purpose : AYB specific Options
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
  *
@@ -25,55 +26,60 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <getopt.h>
 #include "ayb_options.h"
 #include "ayb_version.h"
+#include "dirio.h"          // I/O for this run hm??
 #include "message.h"        // message file location and level
 
 
-/* print lines of help */
+/* constants */
+/* none      */
+
+/* private functions that output bulk text */
+
+/** Print help information. Includes text from ayb_help.h. */
 void print_help(FILE *fp) {
-    //    validate(NULL!=fp,);
+    validate(NULL!=fp,);
     fputs(""
 #include "ayb_help.h"
           , fp);
 }
 
+/** Print licence information. Includes text from copyright.h. */
 void print_licence(FILE *fp) {
-    //    validate(NULL!=fp,);
+    validate(NULL!=fp,);
     fputs("\n"
 PROGNAME " Advanced Base Calling for Next-Generation Sequencing Machines\n"
 #include "copyright.h"
           , fp);
 }
 
-/* print lines of help */
+/** Print usage information. Includes text from ayb_usage.h. */
 void print_usage(FILE *fp) {
-    //    validate(NULL!=fp,);
+    validate(NULL!=fp,);
     fputs(""
 #include "ayb_usage.h"
           , fp);
 }
 
 
-/* create options structure */
+/* members */
+
+/** AYB options structure; any here hmhm?. */
 static AYBOPT Options;
 
-/* set default values for ayb options defined here */
-void init_options() {
-    Options.aflag = false;
-    Options.aval = 2;
-}
-
-
-/* options with no short form */
+/** Options with no short form. */
 enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
 
-/* option structure for getopt_long */
+/** Long option structure used by getopt_long. */
 static struct option Longopts[] = {
     {"aval",        required_argument,  NULL, 'a'},
     {"aflag",       no_argument,        NULL, 'f'},
+    {"ncycles",     required_argument,  NULL, 'n'},
+    {"prefix",      required_argument,  NULL, 'x'},
+    {"input",       required_argument,  NULL, 'i'},
+    {"output",      required_argument,  NULL, 'o'},
     {"logfile",     required_argument,  NULL, 'e'},
     {"loglevel",    required_argument,  NULL, 'l'},
     {"help",        no_argument,        NULL, OPT_HELP },
@@ -82,9 +88,20 @@ static struct option Longopts[] = {
     {0,0,0,0}
 };
 
+
+/* private functions */
+
+/** Set default values for ayb options defined in this module. */
+void init_options() {
+    Options.aflag = false;
+    Options.aval = 2;
+    Options.ncycle = 0;
+}
+
+
 /* public functions */
 
-/* read options from command line arguments */
+/** Read options from command line arguments. Uses getopt_long to allow long and short forms. */
 bool read_options(const int argc, char ** const argv) {
     bool carryon = true;
 
@@ -94,7 +111,7 @@ bool read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "a:fe:l:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:fn:x:i:o:e:l:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'a':
@@ -105,6 +122,10 @@ bool read_options(const int argc, char ** const argv) {
             case 'f':
 //                printf("option -f\n");
                 Options.aflag = true;
+                break;
+
+            case 'n':
+                Options.ncycle = atoi(optarg);
                 break;
 
             case 'e':
@@ -118,6 +139,21 @@ bool read_options(const int argc, char ** const argv) {
                     fprintf(stderr, "Unrecognised error level option: \'%s\'\n\n", optarg);
                      carryon = false;
                 }
+                break;
+
+            case 'i':
+                /* input file location */
+                set_path(optarg, E_INPUT);
+                break;
+
+            case 'o':
+                /* output file location */
+                set_path(optarg, E_OUTPUT);
+                break;
+
+            case 'x':
+                /* file pattern match */
+                set_pattern(optarg);
                 break;
 
             case OPT_HELP:
@@ -147,7 +183,7 @@ bool read_options(const int argc, char ** const argv) {
     return carryon;
 }
 
-/* return a pointer to the options structure */
+/** Return a pointer to the options structure. */
 AYBOPT *myopt() {
     return &Options;
 }
