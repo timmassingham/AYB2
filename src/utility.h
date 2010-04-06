@@ -1,4 +1,15 @@
-/*
+/**
+ * \file utility.h
+ * Public parts of General Utilities.
+ *   - global constants
+ *   - xfree
+ *   - validate
+ *   - USEFLOAT switch
+ *   - CSTRING; a simple string type
+ *//*
+ *  Created : 16 Mar 2010
+ *  Authors : Tim Massingham/Hazel Marsden
+ *
  *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
  *  tim.massingham@ebi.ac.uk
  *
@@ -22,10 +33,18 @@
 #define _UTILITY_H
  
 #include <stdlib.h>
+#include <stdio.h>
 
+/** Number of sequence bases. */
 #define NBASE 4
-static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr);} }
 
+/** Safe Free memory. Checks supplied pointer not null and sets to null after. */
+static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr); ptr=NULL;} }
+
+/**
+ * Generic validation.
+ * Checks supplied boolean and forces a function return with any second parameter if evaluates to false.
+ */
 #ifdef FAILEARLY
     #define validate(A,B) { if( !(A) ){ fprintf(stderr,"Validation failure for %s in %s at %s:%d",#A,__func__,__FILE__,__LINE__); abort();} }
 #elif defined(SKIPVALIDATE)
@@ -34,14 +53,25 @@ static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr);} }
     #define validate(A,B) { if( !(A) ){ return B; } }
 #endif
 
-
+/** Define size of real data type to use. May be set to float or double.*/
 #ifdef USEFLOAT
     typedef float real_t;
+/** Match string to real converter to choice of real. */
     #define strtor strtof
 #else
     typedef double real_t;
+/** Match string to real converter to choice of real. */
     #define strtor strtod
 #endif
- 
+
+/** Simple string type */
+typedef char * CSTRING;
+CSTRING new_CSTRING(const size_t len);
+void free_CSTRING(CSTRING cstr);
+CSTRING copy_CSTRING(const CSTRING cstr);
+void extend_CSTRING(const CSTRING c, const size_t len);
+void show_CSTRING(FILE *fp, const CSTRING cstr);
+//CSTRING read_CSTRING(FILE *fp);
+
 #endif /* _UTILITY_H */
 
