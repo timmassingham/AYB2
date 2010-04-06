@@ -1,10 +1,16 @@
-/*
- *  Copyright (C) 2010 by Tim Massingham
+/** 
+ * \file tile.h
+ * Public parts of Tile Class.
+ *//* 
+ *  Created : 2010
+ *  Authors : Tim Massingham/Hazel Marsden
+ *
+ *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
  *  tim.massingham@ebi.ac.uk
  *
- *  This file is part of the AYB base-calling software.
+ *  This file is part of the AYB base calling software.
  *
- *  AYB is free software: you can redistribute it and/or modify
+ *  AYB is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
@@ -18,19 +24,19 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _TILE_H
-#define _TILE_H
+#ifndef TILE_H_
+#define TILE_H_
 
-#include "xio.h"
 #include "cluster.h"
+#include "xio.h"
 
 #define X(A) A ## CLUSTER
     #include "list.def"
 #undef X
 
 struct _struct_tile {
- 	unsigned int lane,tile,ncluster;
- 	LIST(CLUSTER) clusterlist;
+    unsigned int lane,tile,ncluster;
+    LIST(CLUSTER) clusterlist;
 };
 typedef struct _struct_tile * TILE;
 
@@ -41,7 +47,8 @@ TILE copy_TILE(const TILE tile);
 void show_TILE(XFILE * fp, const TILE tile, const unsigned int n);
 
 // Read tile from file in Illumina int.txt format
-TILE read_known_TILE( XFILE * fp, unsigned int ncycle);
+/*hmhm*/
+//TILE read_known_TILE( XFILE * fp, unsigned int ncycle);
+TILE read_known_TILE( XFILE * fp, unsigned int *ncycle);
 
-#endif /* _TILE_H */
-
+#endif /* TILE_H_ */

@@ -1,10 +1,16 @@
-/*
- *  Copyright (C) 2010 by Tim Massingham
+/** 
+ * \file cluster.h
+ * Public parts of Cluster Class.
+ *//* 
+ *  Created : 2010
+ *  Authors : Tim Massingham/Hazel Marsden
+ *
+ *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
  *  tim.massingham@ebi.ac.uk
+
+ *  This file is part of the AYB base calling software.
  *
- *  This file is part of the AYB base-calling software.
- *
- *  AYB is free software: you can redistribute it and/or modify
+ *  AYB is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
@@ -18,15 +24,15 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _CLUSTER_H
-#define _CLUSTER_H
+#ifndef CLUSTER_H_
+#define CLUSTER_H_
 
-#include "xio.h"
 #include "matrix.h"
+#include "xio.h"
 
 struct _struct_cluster {
-	unsigned long int x,y;
-	MAT signals;
+    unsigned long int x,y;
+    MAT signals;
 };
 typedef struct _struct_cluster * CLUSTER;
 
@@ -37,8 +43,9 @@ CLUSTER copy_CLUSTER(const CLUSTER cluster);
 void show_CLUSTER(XFILE * fp, const CLUSTER cluster);
 
 // Input
-CLUSTER read_known_CLUSTER( XFILE * fp, const unsigned int ncycle);
+/*hmhm*/
+//CLUSTER read_known_CLUSTER( XFILE * fp, const unsigned int ncycle);
+CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle);
 CLUSTER read_unknown_CLUSTER( XFILE * fp);
 
-#endif /* _CLUSTER_H */
-
+#endif /* CLUSTER_H_ */
