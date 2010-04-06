@@ -2,13 +2,14 @@
 
 CC = gcc
 CFLAGS = -Wall -O3 -DNDEBUG -std=gnu99
+LDFLAGS =  -lz -lbz2 -llapack
 INCFLAGS = 
-DEFINES =
-objects =  ayb_main.o ayb_options.o handler.o message.o
+DEFINES = -DUSEFLOAT
+objects =  ayb_main.o ayb_options.o cluster.o dirio.o handler.o matrix.o message.o tile.o utility.o xio.o
 
 AYB: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(objects)
-
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
+	
 .c.o:
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $@ -c $<
 
