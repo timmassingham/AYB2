@@ -46,9 +46,14 @@ void free_TILE(TILE tile);
 TILE copy_TILE(const TILE tile);
 void show_TILE(XFILE * fp, const TILE tile, const unsigned int n);
 
-// Read tile from file in Illumina int.txt format
+// Read tile from file in Illumina int.txt format, reverse order
 /*hmhm*/
 //TILE read_known_TILE( XFILE * fp, unsigned int ncycle);
-TILE read_known_TILE( XFILE * fp, unsigned int *ncycle);
+TILE read_known_TILE( XFILE * fp, unsigned int *ncycle) __attribute__((deprecated));
+
+// Read tile from file in Illumina int.txt format, forwards order
+/*hmhm*/
+//TILE read_TILE( XFILE * fp, unsigned int ncycle);
+TILE read_TILE( XFILE * fp, unsigned int *ncycle);
 
 #endif /* TILE_H_ */
