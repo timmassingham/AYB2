@@ -1,6 +1,8 @@
 /**
  * \file message.c
  * General Messaging Utility.
+ * Use function message (<message type>, <message severity>, <parameters...>) to output a message.
+ * Add new message types as required.
  *//*
  *  Created : 26 Feb 2010
  *  Author  : Hazel Marsden
@@ -36,19 +38,26 @@
 
 /**
  * Formatted text for each message type. Used directly in a printf.
- * Suffix indicates type of arguments required. Ensure list matches MsgTypeT enum.
+ * Ensure list matches MsgTypeT enum.
  */
 static const char *MSG_TEXT[] = {
         "Number of cycles to analyse must be supplied as a positive integer\n", // E_NOCYCLES
         "No file pattern match supplied\n",                                     // E_NOPATTERN
         "File pattern selected: %s...\n",                                       // E_PATTERN_SELECT_S
         "Memory allocation failed during %s\n",                                 // E_NOMEM_S
-        "No input files located matching pattern \'%s\'\n",                     // E_NOINPUT_S
-        "Input file found: %s\n",                                               // E_INPUTFOUND_S
+        "No input files located matching pattern: \'%s\'\n",                    // E_NOINPUT_S
+        "Input file found: %s\n",                                               // E_INPUT_FOUND_S
+        "Failed to read input file: %s\n",                                      // E_BAD_INPUT_S
+        "Failed to initialise model for input file: %s\n",                      // E_INIT_FAIL_S
         "%s directory \'%s\' not found\n",                                      // E_NODIR_SS
+        "%s file failed to open: %s\n",                                         // E_OPEN_FAIL_SS
+        "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
         "Number of cycles selected: %d\n",                                      // E_CYCLE_SELECT_D
-        "Input file contains less data than requested; "
-        "number of cycles changed from %d to %d\n",                             // E_CYCLESIZE_DD
+        "Intensity file contains less data than requested; "
+            "number of cycles changed from %d to %d\n",                         // E_CYCLESIZE_DD
+        "Matrix size incorrectly specified: read in as %d by %d\n",             // E_BAD_MATSIZE_DD
+        "Insufficient data or incorrect file format; "
+             "expected %d %s but found only %d\n",                              // E_READ_ERR_DSD
 
         "%s %20s\n",                                                            // E_GENERIC_SS
         "%s %d\n",                                                              // E_GENERIC_SD
@@ -88,7 +97,7 @@ static char Msg_Path[FILENAME_LEN] = "";        ///< Selected path for message f
 /* private functions */
 
 /** Generate a unique message file name including date and time. */
-void create_filename(const char* prefix, char *name) {
+static void create_filename(const char* prefix, char *name) {
 
     /* check specified path exists */
     struct stat st;
@@ -126,7 +135,7 @@ void create_filename(const char* prefix, char *name) {
 }
 
 /** Match a string to one of a list. Returns index of match or -1 if none. */
-int match_string(const char *string, const char *match[], int num) {
+static int match_string(const char *string, const char *match[], int num) {
 
     int result = -1;
 
