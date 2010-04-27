@@ -1,4 +1,10 @@
-/*
+/**
+ * \file lapack.h
+ * Description.
+ *//* 
+ *  Created : 2010
+ *  Author : Tim Massingham
+ *
  *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
  *  tim.massingham@ebi.ac.uk
  *
@@ -18,8 +24,8 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _LAPACK_H
-#define _LAPACK_H
+#ifndef LAPACK_H_
+#define LAPACK_H_
 
 #ifdef __linux
 #define F77_NAME(A) A ## _
@@ -36,19 +42,35 @@ const char LAPACK_NONUNITTRI[] = {'N'};
 void F77_NAME(spotrf)( const char * uplo, const int * n, float * A, const int * lda, int * info );
 void F77_NAME(strtri)( const char * uplo, const char * diag, const int * n, float * a, const int * lda, int * info);
 
+void F77_NAME(sgetrf)(const int * M, const int * N, float * A, const int * lda,
+                      int * ipiv, int * info);
+
+void F77_NAME(sgetri)(const int * N, float * A, const int * lda, const int * ipiv,
+                      float * work, const int * lwork, int * info);
+
 // Double functions
 void F77_NAME(dpotrf)( const char * uplo, const int * n, double * A, const int * lda, int * info );
 void F77_NAME(dtrtri)( const char * uplo, const char * diag, const int * n, double * a, const int * lda, int * info);
+
+void F77_NAME(dgetrf)(const int * M, const int * N, double * A, const int * lda,
+                      int * ipiv, int * info);
+
+void F77_NAME(dgetri)(const int * N, double * A, const int * lda, const int * ipiv,
+                      double * work, const int * lwork, int * info);
+
 
 
 // Generic definitions
 #ifdef USEFLOAT
     #define potrf   F77_NAME(spotrf)
     #define trtri   F77_NAME(strtri)
+    #define getrf   F77_NAME(sgetrf)
+    #define getri   F77_NAME(sgetri)
 #else
     #define potrf   F77_NAME(dpotrf)
     #define trtri   F77_NAME(dtrtri)
+    #define getrf   F77_NAME(dgetrf)
+    #define getri   F77_NAME(dgetri)
 #endif
 
-#endif
-
+#endif /* LAPACK_H_ */

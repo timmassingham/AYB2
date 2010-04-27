@@ -112,14 +112,24 @@ void show_MAT ( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t m
     if(NULL==fp){ return;}
     if(NULL==mat){ return;}
 
+#ifdef NDEBUG
+    char fmt[] = " %#8.2f";
+#else
+    char fmt[] = " %#10.4f";
+#endif
     const uint32_t nrow = mat->nrow;
     const uint32_t ncol = mat->ncol;
+#ifdef NDEBUG
     const uint32_t maxrow = (mrow!=0 && mrow<nrow)?mrow:nrow;
     const uint32_t maxcol = (mcol!=0 && mcol<ncol)?mcol:ncol;
+#else
+    const uint32_t maxrow = nrow;
+    const uint32_t maxcol = ncol;
+#endif
     for( int row=0 ; row<maxrow ; row++){
         xfprintf(fp,"%d:",row+1);
         for ( int col=0 ; col<maxcol ; col++){
-            xfprintf(fp," %#8.2f",mat->x[col*nrow+row]);
+            xfprintf(fp,fmt,mat->x[col*nrow+row]);
         }
         if(maxcol<ncol){ xfprintf(fp,"\t... (%u others)",ncol-maxcol); }
         xfputc('\n',fp);
@@ -176,6 +186,7 @@ MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr){
     return mat;
 }
 
+/** Create a new identity matrix of the specified size. */
 MAT identity_MAT( const int nrow){
     MAT mat = new_MAT(nrow,nrow);
     validate(NULL!=mat,NULL);
@@ -186,10 +197,21 @@ MAT identity_MAT( const int nrow){
 }
 
 MAT copyinto_MAT( MAT newmat, const MAT mat){
+    if(NULL==newmat || NULL==mat){ return NULL;}
     if(newmat->nrow!=mat->nrow){ return NULL;}
     if(newmat->ncol!=mat->ncol){ return NULL;}
     memcpy(newmat->x,mat->x,mat->nrow*mat->ncol*sizeof(real_t));
     return newmat;
+}
+
+/** Set all elements in a supplied matrix to the specified value. */
+MAT set_MAT( MAT mat, const real_t x){
+    if(NULL==mat){ return NULL;}
+    const uint32_t nelt = mat->nrow * mat->ncol;
+    for ( uint32_t i=0 ; i<nelt ; i++){
+        mat->x[i] = x;
+    }
+    return mat;
 }
 
 /**
@@ -405,4 +427,54 @@ MAT scale_MAT(MAT mat, const real_t f){
             mat->x[elt] *= f;
     }
     return mat;
+}
+
+/** Return the transpose of a supplied square matrix, replacing the original. */
+MAT transpose_inplace( MAT mat){
+    validate(NULL!=mat,NULL);
+    const uint32_t ncol = mat->ncol;
+    const uint32_t nrow = mat->nrow;
+    validate(ncol==nrow,NULL);
+
+    for ( uint32_t col=0 ; col<ncol ; col++){
+        for ( uint32_t row=0 ; row<col ; row++){
+            real_t x = mat->x[col*nrow + row];
+            mat->x[col*nrow + row] = mat->x[row*ncol + col];
+            mat->x[row*ncol + col] = x;
+        }
+    }
+    mat->nrow = ncol;
+    mat->ncol = nrow;
+    return mat;
+}
+
+/** Create a new matrix which is the inverse of a supplied square matrix. */
+MAT invert(const MAT mat){
+    validate(NULL!=mat,NULL);
+    validate(mat->nrow==mat->ncol,NULL);
+
+    int INFO;
+    int N;
+    int * IPIV=NULL;
+    int LWORK=0;
+    real_t * WORK=NULL,WORKSIZE=0;
+
+    N = mat->nrow;
+    // Get temporary memory for inversion
+    LWORK = -1;
+    getri(&N,mat->x,&N,IPIV,&WORKSIZE,&LWORK,&INFO);
+    LWORK=(int)WORKSIZE;
+    WORK = malloc(LWORK*sizeof(real_t));
+    IPIV = malloc(N*sizeof(int));
+
+    MAT matinv = copy_MAT(mat);
+    // LU decomposition required for inversion
+    getrf(&N,&N,matinv->x,&N,IPIV,&INFO);
+    // Invert
+    getri(&N,matinv->x,&N,IPIV,WORK,&LWORK,&INFO);
+
+    free(IPIV);
+    free(WORK);
+
+    return matinv;
 }

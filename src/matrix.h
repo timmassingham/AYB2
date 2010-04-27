@@ -56,6 +56,7 @@ MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t *
 MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr);
 MAT identity_MAT( const int nrow);
 MAT copyinto_MAT( MAT matout, const MAT matin);
+MAT set_MAT( MAT mat, const real_t x);
 
 // Input from stream
 MAT read_MAT_from_column_file(XFILE * fp);
@@ -71,5 +72,7 @@ MAT invert_cholesky( MAT mat);
 MAT trim_MAT( MAT mat, const int mrow, const int mcol, const bool forwards);
 MAT * block_diagonal_MAT( const MAT mat, const int n);
 MAT scale_MAT(MAT mat, const real_t f);
+MAT transpose_inplace( MAT mat);
+MAT invert(const MAT mat);
 
 #endif /* MATRIX_H_ */
