@@ -1,4 +1,10 @@
-/*
+/**
+ * \file matrix.c
+ * Matrix Class.
+ *//* 
+ *  Created : 2010
+ *  Authors : Tim Massingham/Hazel Marsden
+ *
  *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
  *  tim.massingham@ebi.ac.uk
  *
@@ -29,10 +35,26 @@
 #include <err.h>
 #include <string.h>
 #include "matrix.h"
+#include "message.h"
 #include "lapack.h"
 
 
 #define WARN_MEM(A) warn("Failed to allocation memory for %s at %s:%d.\n",(A),__FILE__,__LINE__)
+
+/* constants */
+/* None      */
+
+/* members */
+/* none */
+
+
+/* private functions */
+/* undetermined */
+
+
+/* public functions */
+/* undetermined */
+
 
 /*  First deal with allocation and deallocation of matrices  */
 /* Allocate memory for matrix of a specified size */
@@ -62,16 +84,8 @@ MAT new_MAT( const int nrow, const int ncol ){
              mat = NULL;
          }
      }
-     
-     return mat;
-}
 
-MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x){
-    if(NULL==x){ return NULL;}
-    MAT mat = new_MAT(nrow,ncol);
-    if(NULL==mat){return NULL;}
-    memcpy(mat->x,x,nrow*ncol*sizeof(real_t));
-    return mat;
+     return mat;
 }
 
 /* Free memory allocated for matrix */
@@ -84,58 +98,20 @@ void free_MAT ( MAT mat ){
     free(mat);
 }
 
-    
+MAT copy_MAT( const MAT mat){
+    if(NULL==mat){ return NULL;}
 
-/*  Vec transpose operation */
-MAT vectranspose ( const MAT mat, const unsigned int p ){
-    /* Simple checking of arguments */
-    if ( NULL==mat){
-        warn("Attempting to apply vec-transpose operation to a NULL matrix");
-        return NULL;
-    }
-    if ( 0==mat->nrow || 0==mat->ncol ){
-        warn("Vec-transpose of matrix with no columns or no rows is not completely defined\n");
-    }
-    if ( 0!=(mat->nrow % p) ){
-        warn("Invalid application of vec-transpose(%u) to a matrix with %u rows.\n",p,mat->nrow);
-        return NULL;
-    }
-    
-    
-    MAT vtmat = new_MAT(p*mat->ncol,mat->nrow/p);
-    if ( NULL==vtmat){
-        return NULL;
-    }
-    
-    /*  Iterate through columns of matrix doing necessary rearrangement.
-     * Note: assumed column-major format
-     * Each column is split into imaginary subcolumns of length p,
-     * which will form the submatrix corresponding to that column.
-     * Refer to external documentation for definition of vec-tranpose
-     * (give document reference here).
-     */
-    /* Routine is valid for matrices with zero columns or rows since it 
-     * it will never attempt to access elements in this case
-     */
-     for ( unsigned int col=0 ; col<mat->ncol ; col++){
-         /* offset represents where in the "matrix stack" that the column
-          * should be formed into.*/
-         unsigned int offset = col*p;
-         for ( unsigned int subcol=0 ; subcol<(mat->nrow/p) ; subcol++){
-             for ( unsigned int i=0 ; i<p ; i++){
-                 vtmat->x[ (subcol*vtmat->nrow) + offset + i ] 
-                        = mat->x[col*mat->nrow + subcol*p + i];
-             }
-         }
-     }
-     
-     return vtmat;
+    MAT newmat = new_MAT(mat->nrow,mat->ncol);
+    if(NULL==newmat){ return NULL;}
+
+    memcpy(newmat->x,mat->x,mat->nrow*mat->ncol*sizeof(real_t));
+    return newmat;
 }
 
 void show_MAT ( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol){
     if(NULL==fp){ return;}
     if(NULL==mat){ return;}
-    
+
     const uint32_t nrow = mat->nrow;
     const uint32_t ncol = mat->ncol;
     const uint32_t maxrow = (mrow!=0 && mrow<nrow)?mrow:nrow;
@@ -151,14 +127,62 @@ void show_MAT ( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t m
     if( maxrow<nrow){ xfprintf(fp,"... (%u others)\n",nrow-maxrow); }
 }
 
-MAT copy_MAT( const MAT mat){
-    if(NULL==mat){ return NULL;}
+MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x){
+    if(NULL==x){ return NULL;}
+    MAT mat = new_MAT(nrow,ncol);
+    if(NULL==mat){return NULL;}
+    memcpy(mat->x,x,nrow*ncol*sizeof(real_t));
+    return mat;
+}
 
-    MAT newmat = new_MAT(mat->nrow,mat->ncol);
-    if(NULL==newmat){ return NULL;}
-    
-    memcpy(newmat->x,mat->x,mat->nrow*mat->ncol*sizeof(real_t));
-    return newmat;
+/**
+ * Create a new matrix from tab separated sets of columns in a line of char.
+ * Return amended number of columns as reference parameter if not enough found.
+ */
+MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr){
+
+    if (ptr == NULL) {return NULL;}
+    MAT mat = new_MAT(nrow, *ncol);
+    if(mat == NULL) {return NULL;}
+
+    int nc = -1;
+    bool found = true;
+    /* read until number required or run out */
+    while (found && (++nc < *ncol)) {
+
+        /* should start with a tab */
+        if(ptr[0] != '\t'){
+            found = false;
+        }
+        else {
+            for (int nr = 0; nr < nrow; nr++) {
+                if (ptr[0] == 0) {
+                    found = false;
+                    break;
+                }
+                else {
+                    mat->x[nc * nrow + nr] = strtor(ptr, &ptr);
+                }
+            }
+        }
+   }
+
+    if (!found) {
+        /* resize the matrix to match number of columns found */
+        mat = trim_MAT(mat, nrow, nc, true);
+        *ncol = nc;
+    }
+
+    return mat;
+}
+
+MAT identity_MAT( const int nrow){
+    MAT mat = new_MAT(nrow,nrow);
+    validate(NULL!=mat,NULL);
+    for ( int i=0 ; i<nrow ; i++){
+        mat->x[i*nrow+i] = 1.0;
+    }
+    return mat;
 }
 
 MAT copyinto_MAT( MAT newmat, const MAT mat){
@@ -168,10 +192,116 @@ MAT copyinto_MAT( MAT newmat, const MAT mat){
     return newmat;
 }
 
+/**
+ * Create a new matrix from a list of columns in a file, one column per row.
+ * First row contains number of rows and columns.
+ * Possible errors: number of rows and columns not properly specified
+ *                  not enough elements
+ *                  if too many elements then remainder ignored
+ */
+MAT read_MAT_from_column_file(XFILE * fp){
+
+    if (xisnull_file(fp)) {return NULL;}
+
+    /* get first line from file */
+    char * line = NULL;
+    size_t len = 0;
+    line = xfgetln(fp, &len);
+
+    /* first line is number of rows and columns */
+    char * ptr = line;
+    int nrow = 0, ncol = 0;
+    nrow = strtol(ptr, &ptr, 0);
+    ncol = strtol(ptr, &ptr, 0);
+    xfree(line);
+    line = NULL;
+    if ((nrow <= 0) || (ncol <= 0)) {
+        message(E_BAD_MATSIZE_DD, MSG_ERR, nrow, ncol);
+        return NULL;
+    }
+
+    MAT mat = new_MAT(nrow, ncol);
+    if(mat == NULL) {return NULL;}
+
+    bool found = true;
+    int nc = -1;
+    while (found && (++nc < ncol)) {
+        /* get each column line */
+        line = xfgetln(fp, &len);
+        ptr = line;
+
+        /* extract values for this column and store */
+        for (int nr = 0; nr < nrow; nr++) {
+            if (ptr[0] == 0) {
+                found = false;
+                break;
+            }
+            else {
+                mat->x[nc * nrow + nr] = strtor(ptr, &ptr);
+            }
+        }
+        xfree(line);
+    }
+
+    if (!found) {
+        /* failed to read enough elements */
+        message(E_READ_ERR_DSD, MSG_ERR, ncol, "column rows", nc);
+        free_MAT(mat);
+        mat = NULL;
+    }
+    return mat;
+}
+
 bool is_square(const MAT mat){
     validate(NULL!=mat,false);
     if(mat->nrow!=mat->ncol){ return false;}
     return true;
+}
+
+/*  Vec transpose operation */
+MAT vectranspose ( const MAT mat, const unsigned int p ){
+    /* Simple checking of arguments */
+    if ( NULL==mat){
+        warn("Attempting to apply vec-transpose operation to a NULL matrix");
+        return NULL;
+    }
+    if ( 0==mat->nrow || 0==mat->ncol ){
+        warn("Vec-transpose of matrix with no columns or no rows is not completely defined\n");
+    }
+    if ( 0!=(mat->nrow % p) ){
+        warn("Invalid application of vec-transpose(%u) to a matrix with %u rows.\n",p,mat->nrow);
+        return NULL;
+    }
+
+
+    MAT vtmat = new_MAT(p*mat->ncol,mat->nrow/p);
+    if ( NULL==vtmat){
+        return NULL;
+    }
+
+    /*  Iterate through columns of matrix doing necessary rearrangement.
+     * Note: assumed column-major format
+     * Each column is split into imaginary subcolumns of length p,
+     * which will form the submatrix corresponding to that column.
+     * Refer to external documentation for definition of vec-tranpose
+     * (give document reference here).
+     */
+    /* Routine is valid for matrices with zero columns or rows since it
+     * it will never attempt to access elements in this case
+     */
+     for ( unsigned int col=0 ; col<mat->ncol ; col++){
+         /* offset represents where in the "matrix stack" that the column
+          * should be formed into.*/
+         unsigned int offset = col*p;
+         for ( unsigned int subcol=0 ; subcol<(mat->nrow/p) ; subcol++){
+             for ( unsigned int i=0 ; i<p ; i++){
+                 vtmat->x[ (subcol*vtmat->nrow) + offset + i ]
+                        = mat->x[col*mat->nrow + subcol*p + i];
+             }
+         }
+     }
+
+     return vtmat;
 }
 
 
@@ -206,15 +336,6 @@ MAT invert_cholesky( MAT mat){
     trtri(LAPACK_LOWER,LAPACK_NONUNITTRI,&mat->nrow,mat->x,&mat->nrow,&info);
     symmeteriseL2U(mat);
     return mat;
-}   
-
-MAT identity_MAT( const int nrow){
-    MAT mat = new_MAT(nrow,nrow);
-    validate(NULL!=mat,NULL);
-    for ( int i=0 ; i<nrow ; i++){
-        mat->x[i*nrow+i] = 1.0;
-    }
-    return mat;
 }
 
 MAT reshape_MAT( MAT mat, const int nrow){
@@ -247,7 +368,7 @@ MAT * block_diagonal_MAT( const MAT mat, const int n){
     validate(mat->ncol==mat->nrow,NULL);    // Ensure symmetry
     const int nelts = mat->ncol / n;        // Number of blocks on diagonal
     validate((mat->ncol % n)==0,NULL);      // Is parameter valid?
-    
+
     // Create memory
     MAT * mats = calloc(nelts,sizeof(*mats));
     if(NULL==mats){ goto cleanup; }
@@ -266,7 +387,7 @@ MAT * block_diagonal_MAT( const MAT mat, const int n){
         }
     }
     return mats;
-    
+
 cleanup:
     if(NULL!=mats){
         for ( uint32_t i=0 ; i<nelts ; i++){

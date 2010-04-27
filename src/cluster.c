@@ -25,6 +25,7 @@
  */
 
 #include "cluster.h"
+#include "nuc.h"
 #include "utility.h"
 
 
@@ -82,23 +83,6 @@ void show_CLUSTER(XFILE * fp, const CLUSTER cluster){
 /*
  * Basic input functions from file
  */
-/*hmhm*/
-/* Read next set of bases. Return if found and pointer to next char. */
-bool next_NBASE(real_t *quad, char **ptr) {
-    int i = -1;
-    bool found = true;
-
-    while ((++i < NBASE) && found) {
-        if (*ptr[0] == 0) {
-            found = false;
-        }
-        else {
-            quad[i] = strtor(*ptr, ptr);
-        }
-    }
-    return found;
-}
-
 /*  Reads a cluster from file pointer, assuming that the number of cycles is known.
  * Format should be that of Illumina's _int.txt
  * A little validation of the file format is performed.
@@ -125,41 +109,13 @@ CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle){
     x = strtoul(ptr,&ptr,0);
     if('\t'!=ptr[0]){ goto cleanup;}
     y = strtoul(ptr,&ptr,0);
-    /* Read signals, tab separated quads of numbers. */
-    /*hmhm*/
-    signals = new_MAT(NBASE,*ncycle);
-    if(NULL==signals){ goto cleanup;}
-    /*hmhm*/
-/*
-    for ( unsigned int i=0 ; i<ncycle ; i++){
-    if('\t'!=ptr[0]){ goto cleanup;}
-    signals->x[i*NBASE+0] = strtor(ptr,&ptr);
-    signals->x[i*NBASE+1] = strtor(ptr,&ptr);
-    signals->x[i*NBASE+2] = strtor(ptr,&ptr);
-    signals->x[i*NBASE+3] = strtor(ptr,&ptr);
-    }
-*/
-    int nc = -1;
-    bool found = true;
-    real_t quad[NBASE];
-    /* read until number required or run out */
-    while ((++nc < *ncycle) && found) {
-        found = next_NBASE((real_t*)&quad, &ptr);
-        if (found) {
-            for ( unsigned int i = 0 ; i < NBASE ; i++){
-                signals->x[nc * NBASE + i] = quad[i];
-            }
-        }
-    }
 
-    if (!found) {
-        /* resize the matrix to match what found */
-        /* count has been incremented in while loop */
-        --nc;
-        signals = trim_MAT(signals, NBASE, nc, true);
-        *ncycle = nc;
-    }
+    /* read cycle data */
+    int nc = *ncycle;
+    signals = new_MAT_from_line(NBASE, &nc, ptr);
+    if((NULL==signals) || (nc == 0)) {goto cleanup;}
 
+    /* store all the data in the cluster */
     cluster = new_CLUSTER();
     if(NULL==cluster){goto cleanup;}
     cluster->x = x;
@@ -167,6 +123,7 @@ CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle){
     cluster->signals = signals;
 
     xfree(line);
+    *ncycle = nc;
     return cluster;
 
 cleanup:

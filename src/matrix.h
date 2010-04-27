@@ -1,4 +1,10 @@
-/*
+/**
+ * \file matrix.h
+ * Public parts of Matrix Class.
+ *//* 
+ *  Created : 2010
+ *  Authors : Tim Massingham/Hazel Marsden
+ *
  *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
  *  tim.massingham@ebi.ac.uk
  *
@@ -18,11 +24,8 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* Standard copyright header here */
-/* Description of module */
-
-#ifndef _MATRIX_H
-#define _MATRIX_H
+#ifndef MATRIX_H_
+#define MATRIX_H_
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -32,7 +35,7 @@
 /*  Specification did not specify what type of input should be taken. Use a
  * typedef so it can be easily changed, although care must be taken with the
  * input and output routines (printf etc) to make sure types match.
- */ 
+ */
 
 struct _matrix_str {
     int    nrow, ncol;
@@ -42,21 +45,23 @@ struct _matrix_str {
 // Make future abstraction easier
 typedef struct _matrix_str * MAT;
 
-// create/free
+// standard functions
 MAT new_MAT( const int nrow, const int ncol );
 void free_MAT( MAT mat );
 MAT copy_MAT( const MAT mat);
-MAT copyinto_MAT( MAT matout, const MAT matin);
-MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x);
-
-// Input, output
 void show_MAT( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol);
+
+// standard variations
+MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x);
+MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr);
+MAT identity_MAT( const int nrow);
+MAT copyinto_MAT( MAT matout, const MAT matin);
+
+// Input from stream
+MAT read_MAT_from_column_file(XFILE * fp);
 
 // Identities
 bool is_square(const MAT mat);
-
-// Special matrices
-MAT identity_MAT( const int nrow);
 
 // Operations
 MAT vectranspose( const MAT mat, const unsigned int p );
@@ -67,4 +72,4 @@ MAT trim_MAT( MAT mat, const int mrow, const int mcol, const bool forwards);
 MAT * block_diagonal_MAT( const MAT mat, const int n);
 MAT scale_MAT(MAT mat, const real_t f);
 
-#endif
+#endif /* MATRIX_H_ */
