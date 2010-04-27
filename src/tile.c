@@ -27,9 +27,6 @@
 #include <stdlib.h>
 #include "tile.h"
 
-/*
- * Standard functions for tile structure
- */
 
 /* constants */
 /* None      */
@@ -45,6 +42,9 @@
 /* undetermined */
 
 
+/*
+ * Standard functions for tile structure
+ */
 TILE new_TILE(void){
     TILE tile = calloc(1,sizeof(*tile));
     return tile;
@@ -85,13 +85,14 @@ void show_TILE(XFILE * fp, const TILE tile, const unsigned int n){
         node = node->nxt;
         ncl++;
     }
+    if( maxcl<tile->ncluster){ xfprintf(fp,"... (%u others)\n",tile->ncluster-maxcl); }
 }
 
 
-/*
- * Read a tile from a Illumina int.txt file
- * Returns list of clusters, in reverse order compared to file.
- * read_known_TILE is deprecated in favour of read_TILE, which
+/**
+ * Read a tile from an Illumina int.txt file.
+ * Returns a list of clusters, in reverse order compared to file.
+ * \n read_known_TILE is deprecated in favour of read_TILE, which
  * preserves the order of the clusters.
  */
 /*hmhm*/
@@ -108,9 +109,9 @@ TILE read_known_TILE( XFILE * fp, unsigned int *ncycle){
     return tile;
 }
 
-/*
- * Read a tile from a Illumina int.txt file
- * Returns list of clusters, in same order as file
+/**
+ * Read a tile from an Illumina int.txt file.
+ * Returns a new TILE containing a list of clusters, in the same order as file.
  */
 /*hmhm*/
 //TILE read_TILE( XFILE * fp, unsigned int ncycle){
@@ -180,14 +181,13 @@ int main ( int argc, char * argv[]){
     LIST(CLUSTER) newrcl = reverse_list_CLUSTER(tile->clusterlist);
     show_LIST(CLUSTER)(xstdout,newrcl,10);
     free_LIST(CLUSTER)(newrcl);
-    
+
     fputs("Reading tile in normal order\n",stdout);
     fp = xfopen(argv[2],XFILE_UNKNOWN,"r");
     TILE tile_fwd = read_TILE(fp,&ncycle);
     xfclose(fp);
     show_TILE(xstdout,tile_fwd,10);
     free_TILE(tile_fwd);
-    
 
     fputs("Filtering list\n",stdout);
     LIST(CLUSTER) filteredlist = filter_list_CLUSTER(pick_spot,tile->clusterlist,(void *)bds);
