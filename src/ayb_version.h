@@ -28,11 +28,12 @@
 #define AYB_VERSION_H_
 
 /** Program Version. */
-const float Version = 1.01;      // File I/O and Data Structures
+const float Version = 1.02;      // AYB Initialisation
 /** Release date. */
-const char* VersionDate = "20100406";
+const char* VersionDate = "20100427";
 
 /* keep a history */
+// Version 1.01     20100406    File I/O and Data Structures
 // Version 1.00     20100312    Initial with basic infrastructure
 
 #endif /* AYB_VERSION_H_ */
