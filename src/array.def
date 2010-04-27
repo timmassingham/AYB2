@@ -26,13 +26,13 @@
     #include <string.h>
     #include "utility.h"
     
-    #define ARRAY(A)		struct _array_ ## A
-    #define null_ARRAY(A)	(ARRAY(A)){NULL,0};
-    #define new_ARRAY(A)	new_array_ ## A
-    #define free_ARRAY(A)	free_array_ ## A
-    #define copy_ARRAY(A)	copy_array_ ## A
-    #define show_ARRAY(A)	show_array_ ## A
-    #define read_ARRAY(A)	read_array_ ## A
+    #define ARRAY(A)        struct _array_ ## A
+    #define null_ARRAY(A)   (ARRAY(A)){NULL,0};
+    #define new_ARRAY(A)    new_array_ ## A
+    #define free_ARRAY(A)   free_array_ ## A
+    #define copy_ARRAY(A)   copy_array_ ## A
+    #define show_ARRAY(A)   show_array_ ## A
+    #define read_ARRAY(A)   read_array_ ## A
 #endif
 
 #if !defined(X)
@@ -40,51 +40,50 @@
 #endif
 
 struct X(_array_) {
-	X()   * elt;
-	uint32_t nelt;
+    X()   * elt;
+    uint32_t nelt;
 };
 
 static struct X(_array_) X(new_array_) ( uint32_t nelt){
-	struct X(_array_) arry = {0,0};
-	arry.elt = calloc(nelt,sizeof(*arry.elt));
-	if(NULL!=arry.elt){ arry.nelt = nelt;}
-	return arry;
+    struct X(_array_) arry = {0,0};
+    arry.elt = calloc(nelt,sizeof(*arry.elt));
+    if(NULL!=arry.elt){ arry.nelt = nelt;}
+    return arry;
 }
 
 static void X(free_array_) ( struct X(_array_) arry ){
-	safe_free(arry.elt);
+    xfree(arry.elt);
 }
 
 static struct X(_array_) X(copy_array_) ( const struct X(_array_) array ){
-	struct X(_array_) new_array = {0,0};
-	new_array.elt = calloc(array.nelt,sizeof(*new_array.elt));
-	if(NULL==new_array.elt){ return new_array; }
-	new_array.nelt = array.nelt;
-	memcpy(new_array.elt,array.elt,array.nelt*sizeof(*new_array.elt));
-	return new_array;
+    struct X(_array_) new_array = {0,0};
+    new_array.elt = calloc(array.nelt,sizeof(*new_array.elt));
+    if(NULL==new_array.elt){ return new_array; }
+    new_array.nelt = array.nelt;
+    memcpy(new_array.elt,array.elt,array.nelt*sizeof(*new_array.elt));
+    return new_array;
 }
 
 // Note: melt special value for printing all
-static void X(show_array_) ( FILE * fp, const struct X(_array_) array, const char * sep, const uint32_t melt ){
-	validate(NULL!=fp,);
-	validate(array.nelt>0,);
+static void X(show_array_) ( XFILE * fp, const struct X(_array_) array, const char * sep, const uint32_t melt ){
+    validate(NULL!=fp,);
+    validate(array.nelt>0,);
 
-	uint32_t ub = (melt!=0 && melt<array.nelt)?melt:array.nelt;
-	X(show_)(fp,array.elt[0]); 
-	for ( uint32_t i=1 ; i<ub ; i++){
-		fputs(sep,fp);
-		X(show_)(fp,array.elt[i]);
-	}
-	if( ub!=array.nelt ){ fprintf(fp," ... %u more",array.nelt-ub);}
-	fputc('\n',fp);
+    uint32_t ub = (melt!=0 && melt<array.nelt)?melt:array.nelt;
+    X(show_)(fp,array.elt[0]); 
+    for ( uint32_t i=1 ; i<ub ; i++){
+        xfputs(sep,fp);
+        X(show_)(fp,array.elt[i]);
+    }
+    if( ub!=array.nelt ){ xfprintf(fp," ... %u more",array.nelt-ub);}
+    xfputc('\n',fp);
 }
 
-static struct X(_array_) X(read_array_)( FILE * fp, const uint32_t nelt){
-	struct X(_array_) ary = X(new_array_)(nelt);
-	validate(NULL!=ary.elt,ary);
-	for ( uint32_t i=0 ; i<nelt ; i++){
-		ary.elt[i] = X(read_)(fp);
-	}
-	return ary;
+static struct X(_array_) X(read_array_)( XFILE * fp, const uint32_t nelt){
+    struct X(_array_) ary = X(new_array_)(nelt);
+    validate(NULL!=ary.elt,ary);
+    for ( uint32_t i=0 ; i<nelt ; i++){
+        ary.elt[i] = X(read_)(fp);
+    }
+    return ary;
 }
-	
