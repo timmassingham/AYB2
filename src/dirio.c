@@ -3,6 +3,7 @@
  * I/O Environment.
  *   - Directory search.
  *   - Input file pattern match.
+ *   - Predetermined matrix file locations.
  *   - File open/close
  *//*
  *  Created : 16 Mar 2010
@@ -52,13 +53,13 @@ static CSTRING Input_Path = NULL;               ///< Input path, default or prog
 static CSTRING Output_Path = NULL;              ///< Output path, default or program argument.
 static CSTRING Pattern = NULL;                  ///< File pattern match, currently a prefix, program argument.
 static size_t Pattern_Len = 0;                  ///< Length of pattern match, program exits if not > 0.
-
+static CSTRING Matrix[E_NMATRIX];               ///< Predetermined matrix input file locations.
 
 static struct dirent **Dir_List = NULL;         ///< The pattern matched directory list.
 static int Dir_Num = 0;                         ///< Number of pattern matched files found.
 static int Index = -1;                          ///< Current index to pattern matched files.
 
-static CSTRING Current;                         ///< Current input file, also used to create output filename.
+static CSTRING Current = NULL;                  ///< Current input file, also used to create output filename.
 
 
 /* private functions */
@@ -81,7 +82,7 @@ static bool full_path(const CSTRING dir, const CSTRING filename, CSTRING *filepa
 
     *filepath = new_CSTRING(len);
     if (*filepath == NULL) {
-        message(E_NOMEM_S, MSG_FATAL, " file path creation");
+        message(E_NOMEM_S, MSG_FATAL, "file path creation");
         return false;
     }
     else {
@@ -162,7 +163,7 @@ static int match_pattern(const struct dirent *list) {
 }
 
 /** Create a new file name from an original. Replaces the part beyond the last delimiter with a new tag. */
-CSTRING output_name(const CSTRING oldname, const CSTRING tag) {
+static CSTRING output_name(const CSTRING oldname, const CSTRING tag) {
 
     CSTRING newname = NULL;
 
@@ -223,7 +224,54 @@ static int scan_inputs() {
 
 /* public functions */
 
-/** Open the next input file in the directory. Return the file handle. Also closes previous file if any. */
+/** Return the name of the current input file */
+CSTRING get_current_file() {
+
+    if (Current == NULL) {
+        return "";
+    }
+    else {
+        return Current;
+    }
+}
+
+/**
+ * Open a predetermined input matrix file.
+ * Return the file handle or NULL if failed to open.
+ */
+XFILE * open_matrix(IOTYPE idx) {
+
+    CSTRING filepath = NULL;
+    XFILE *fp = NULL;
+
+    /* make a full path name */
+    if (Matrix[idx] == NULL) {
+        message(E_DEBUG_SSD_SD, MSG_DEBUG, __func__, __FILE__, __LINE__, "No Matrix file at position:", idx);
+    }
+    else {
+        if (full_path(Input_Path, Matrix[idx], &filepath)) {
+           fp =  xfopen(filepath, XFILE_UNKNOWN, "r" );
+
+           if (xisnull_file(fp)) {
+               message(E_OPEN_FAIL_SS, MSG_ERR, "Input matrix", filepath);
+               xfclose(fp);
+               fp = NULL;
+           }
+           else {
+               message(E_INPUT_FOUND_S, MSG_INFO, Matrix[idx] );
+           }
+        }
+        free_CSTRING(filepath);
+    }
+
+    return fp;
+}
+
+/**
+ * Open the next intensities file in the directory.
+ * Return the file handle or NULL if failed to open.
+ * Also closes previous intensities file if any.
+ */
 XFILE * open_next(XFILE *fplast) {
 
     CSTRING filepath = NULL;
@@ -232,6 +280,7 @@ XFILE * open_next(XFILE *fplast) {
     if (fplast != NULL) {
         xfclose(fplast);
         free_CSTRING(Current);
+        Current = NULL;
     }
 
     if (++Index < Dir_Num) {
@@ -243,11 +292,12 @@ XFILE * open_next(XFILE *fplast) {
            fp =  xfopen(filepath, XFILE_UNKNOWN, "r" );
 
            if (xisnull_file(fp)) {
+               message(E_OPEN_FAIL_SS, MSG_ERR, "Input", filepath);
                xfclose(fp);
-//               fp = NULL;
+               fp = NULL;
            }
            else {
-               message(E_INPUTFOUND_S, MSG_INFO, Current );
+               message(E_INPUT_FOUND_S, MSG_INFO, Current );
            }
         }
         free_CSTRING(filepath);
@@ -256,22 +306,34 @@ XFILE * open_next(XFILE *fplast) {
     return fp;
 }
 
-/** Open an output file corresponding to current input file with supplied tag. Return the file handle. */
+/**
+ * Open an output file corresponding to current input file with supplied tag.
+ * Return the file handle or NULL if failed to open.
+ */
 XFILE * open_output(const CSTRING tag) {
 
     CSTRING filename = NULL;
     CSTRING filepath = NULL;
     XFILE *fp = NULL;
 
-    /* create output file name */
-    filename = output_name(Current, tag);
+
+    if (Current == NULL) {
+        /* use the tag on its own */
+        filename = copy_CSTRING(tag);
+    }
+    else {
+        /* create output file name from current input */
+        filename = output_name(Current, tag);
+    }
 
     if (filename != NULL) {
         if (full_path(Output_Path, filename, &filepath)) {
            fp =  xfopen(filepath, XFILE_UNKNOWN, "w" );
 
            if (xisnull_file(fp)) {
+               message(E_OPEN_FAIL_SS, MSG_ERR, "Output", filepath);
                xfclose(fp);
+               fp = NULL;
            }
            else {
                message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, filename);
@@ -284,15 +346,20 @@ XFILE * open_output(const CSTRING tag) {
     return fp;
 }
 
-/** Set the input/output path. */
-void set_path(const CSTRING path, IOMODE mode){
+/** Set file location information. */
+void set_location(const CSTRING path, IOTYPE idx){
 
-    switch(mode) {
+    switch(idx) {
         case E_INPUT:
             Input_Path = copy_CSTRING(path);
             break;
         case E_OUTPUT:
             Output_Path = copy_CSTRING(path);
+            break;
+        case E_CROSSTALK:
+        case E_NOISE:
+        case E_PHASING:
+            Matrix[idx] = copy_CSTRING(path);
             break;
         default: ;
     }
@@ -347,4 +414,7 @@ void tidyup_dirio() {
     free_CSTRING(Input_Path);
     free_CSTRING(Output_Path);
     free_CSTRING(Pattern);
+    for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
+        free_CSTRING(Matrix[idx]);
+    }
 }

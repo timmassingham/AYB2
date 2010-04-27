@@ -33,28 +33,25 @@
 #include "utility.h"            // for CSTRING
 #include "xio.h"                // for XFILE
 
-/** Select input or output. Used in set_path. */
-typedef enum IOModeT {E_INPUT, E_OUTPUT} IOMODE;
+/**
+ * Types of file location information. Also used as index into predetermined input matrices.
+ * E_NMATRIX indicates number of such matrices.
+ */
+typedef enum IOTypeT {E_CROSSTALK, E_NOISE, E_PHASING, E_INPUT, E_OUTPUT, E_NMATRIX = 3} IOTYPE;
 
 
 /* function prototypes */
 
-/* open the next input file in the directory */
-XFILE * open_next(XFILE *fplast);
+CSTRING get_current_file();
 
-/* open an output file corresponding to current input file with supplied suffix */
+XFILE * open_matrix(IOTYPE mode);
+XFILE * open_next(XFILE *fplast);
 XFILE * open_output(CSTRING tag);
 
-/* set the input/output paths */
-void set_path(const CSTRING path, IOMODE mode);
-
-/* set the filename pattern to match to */
+void set_location(const CSTRING path, IOTYPE mode);
 void set_pattern(const CSTRING pattern);
 
-/* start up; call at program start after options */
 bool startup_dirio();
-
-/* tidy up; call at program shutdown */
 void tidyup_dirio();
 
 #endif /* DIRIO_H_ */

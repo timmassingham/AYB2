@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include "ayb_model.h"
 #include "ayb_options.h"
 #include "ayb_version.h"
 #include "dirio.h"          // I/O for this run hm??
@@ -82,6 +83,9 @@ static struct option Longopts[] = {
     {"output",      required_argument,  NULL, 'o'},
     {"logfile",     required_argument,  NULL, 'e'},
     {"loglevel",    required_argument,  NULL, 'l'},
+    {"M",           required_argument,  NULL, 'M'},
+    {"N",           required_argument,  NULL, 'N'},
+    {"P",           required_argument,  NULL, 'P'},
     {"help",        no_argument,        NULL, OPT_HELP },
     {"licence",     no_argument,        NULL, OPT_LICENCE },
     {"version",     no_argument,        NULL, OPT_VERSION },
@@ -92,10 +96,9 @@ static struct option Longopts[] = {
 /* private functions */
 
 /** Set default values for ayb options defined in this module. */
-void init_options() {
+static void init_options() {
     Options.aflag = false;
     Options.aval = 2;
-    Options.ncycle = 0;
 }
 
 
@@ -111,7 +114,7 @@ bool read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "a:fn:x:i:o:e:l:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:fn:x:i:o:e:l:M:N:P:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'a':
@@ -125,7 +128,23 @@ bool read_options(const int argc, char ** const argv) {
                 break;
 
             case 'n':
-                Options.ncycle = atoi(optarg);
+                /* number of cycles */
+                set_ncycle(optarg);
+                break;
+
+            case 'x':
+                /* file pattern match */
+                set_pattern(optarg);
+                break;
+
+            case 'i':
+                /* input file location */
+                set_location(optarg, E_INPUT);
+                break;
+
+            case 'o':
+                /* output file location */
+                set_location(optarg, E_OUTPUT);
                 break;
 
             case 'e':
@@ -141,19 +160,19 @@ bool read_options(const int argc, char ** const argv) {
                 }
                 break;
 
-            case 'i':
-                /* input file location */
-                set_path(optarg, E_INPUT);
+            case 'M':
+                /* crosstalk file name */
+                set_location(optarg, E_CROSSTALK);
                 break;
 
-            case 'o':
-                /* output file location */
-                set_path(optarg, E_OUTPUT);
+            case 'N':
+                /* crosstalk file name */
+                set_location(optarg, E_NOISE);
                 break;
 
-            case 'x':
-                /* file pattern match */
-                set_pattern(optarg);
+            case 'P':
+                /* crosstalk file name */
+                set_location(optarg, E_PHASING);
                 break;
 
             case OPT_HELP:
