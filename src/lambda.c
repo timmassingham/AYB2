@@ -35,7 +35,11 @@
 
 
 /* private functions */
-/* None              */
+
+/** Cauchy weighting function for IWLS. */
+static inline real_t cauchy(const real_t xsqr, const real_t v){
+    return 1.0/(1.0+ xsqr/v);
+}
 
 
 /* public functions */
@@ -44,8 +48,8 @@
  * Estimate brightness of a cluster using a Ordinary Least Squares approach.
  * Unlike the routine in the original AYB code, this uses processed intensities.
  * \n Used for initial estimate of brightness.
- *   -  p            Matrix of processed intensities
- *   -  base         Array of base calls, one per cycle
+ * - p:          Matrix of processed intensities
+ * - base:       Array of base calls, one per cycle
  */
 real_t estimate_lambdaOLS( const MAT p, const NUC * base){
     validate(NULL!=p,NAN);
@@ -60,5 +64,42 @@ real_t estimate_lambdaOLS( const MAT p, const NUC * base){
     }
 
     real_t lambda = numerator / ncycle;
+    return (lambda>0.)?lambda:0.;
+}
+
+/**
+ * Estimate brightness of a cluster using a Weighted Least Squares approach.
+ * (Actually a single step of an Iteratively reWeighted Least Squares.)
+ * Unlike the routine in the original AYB code, this uses processed intensities.
+ * - p            Matrix of processed intensities
+ * - base         Array of base calls, one per cycle
+ * - oldlambda    Previous estimate of lambda
+ * - v            Array of cycle specific scales, length ncycle
+ */
+real_t estimate_lambdaWLS( const MAT p, const NUC * base, const real_t oldlambda, const real_t * v){
+    validate(NULL!=p,NAN);
+    validate(NBASE==p->nrow,NAN);
+    validate(NULL!=base,NAN);
+    validate(oldlambda>=0.,NAN);
+    validate(NULL!=v,NAN);
+    const uint32_t ncycle = p->ncol;
+
+    real_t numerator = 0.0, denominator=0.0;
+    for (uint32_t cycle=0 ; cycle<ncycle ; cycle++){
+        const int cybase = base[cycle];
+        // Calculate Sum Squared Error, then weight
+        real_t sse = 0.0;
+        for ( int j=0 ; j<NBASE ; j++){
+            sse += p->x[cycle*NBASE+j] * p->x[cycle*NBASE+j];
+        }
+        sse -= 2.0 * oldlambda * p->x[cycle*NBASE+cybase];
+        sse += oldlambda*oldlambda;
+        real_t w = cauchy(sse,v[cycle]);
+        // Accumulate
+        numerator += p->x[cycle*NBASE+cybase] * w;
+        denominator += w;
+    }
+
+    real_t lambda = numerator / denominator;
     return (lambda>0.)?lambda:0.;
 }

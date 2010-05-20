@@ -33,5 +33,6 @@
 /* function prototypes */
 
 real_t estimate_lambdaOLS( const MAT p, const NUC * base);
+real_t estimate_lambdaWLS( const MAT p, const NUC * base, const real_t oldlambda, const real_t * v);
 
 #endif /* LAMBDA_H_ */
