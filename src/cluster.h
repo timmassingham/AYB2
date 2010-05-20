@@ -38,7 +38,7 @@ typedef struct _struct_cluster * CLUSTER;
 
 // Standard functions
 CLUSTER new_CLUSTER();
-void free_CLUSTER(CLUSTER cluster);
+CLUSTER free_CLUSTER(CLUSTER cluster);
 CLUSTER copy_CLUSTER(const CLUSTER cluster);
 void show_CLUSTER(XFILE * fp, const CLUSTER cluster);
 

@@ -51,10 +51,11 @@ CLUSTER new_CLUSTER ( void){
     return cl;
 }
 
-void free_CLUSTER(CLUSTER cluster){
-    if(NULL==cluster){return;}
+CLUSTER free_CLUSTER(CLUSTER cluster){
+    if(NULL==cluster){return NULL;}
     free_MAT(cluster->signals);
     xfree(cluster);
+    return NULL;
 }
 
 CLUSTER copy_CLUSTER(const CLUSTER cluster){

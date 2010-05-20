@@ -42,7 +42,7 @@ typedef struct _struct_tile * TILE;
 
 // Standard funcions
 TILE new_TILE(void);
-void free_TILE(TILE tile);
+TILE free_TILE(TILE tile);
 TILE copy_TILE(const TILE tile);
 void show_TILE(XFILE * fp, const TILE tile, const unsigned int n);
 

@@ -47,7 +47,7 @@ typedef struct _matrix_str * MAT;
 
 // standard functions
 MAT new_MAT( const int nrow, const int ncol );
-void free_MAT( MAT mat );
+MAT free_MAT( MAT mat );
 MAT copy_MAT( const MAT mat);
 void show_MAT( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol);
 

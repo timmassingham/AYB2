@@ -50,10 +50,11 @@ TILE new_TILE(void){
     return tile;
 }
 
-void free_TILE(TILE tile){
-    if(NULL==tile){ return;}
+TILE free_TILE(TILE tile){
+    if(NULL==tile){ return NULL;}
     free_LIST(CLUSTER)(tile->clusterlist);
     xfree(tile);
+    return NULL;
 }
 
 TILE copy_TILE(const TILE tile){

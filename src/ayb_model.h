@@ -37,7 +37,7 @@ typedef struct AybT * AYB;
 
 /* standard functions */
 AYB new_AYB(const uint32_t ncycle, const uint32_t ncluster);
-void free_AYB(AYB ayb);
+AYB free_AYB(AYB ayb);
 AYB copy_AYB(const AYB ayb);
 void show_AYB(XFILE * fp, const AYB ayb);
 

@@ -522,8 +522,8 @@ cleanup:
     return NULL;
 }
 
-void free_AYB(AYB ayb){
-    if(NULL==ayb){ return;}
+AYB free_AYB(AYB ayb){
+    if(NULL==ayb){ return NULL;}
     free_TILE(ayb->tile);
     free_ARRAY(NUC)(ayb->bases);
     free_ARRAY(PHREDCHAR)(ayb->quals);
@@ -534,6 +534,7 @@ void free_AYB(AYB ayb){
     free_MAT(ayb->cycle_var);
     free_MAT(ayb->lambda);
     xfree(ayb);
+    return NULL;
 }
 
 AYB copy_AYB(const AYB ayb){
@@ -615,8 +616,7 @@ void analyse_tile (XFILE *fp) {
     /* set initial model values */
     initialise_model();
     /* no longer need the raw data as read in */
-    free_TILE(Tile);
-    Tile = NULL;
+    Tile = free_TILE(Tile);
 
     if (Ayb == NULL) {
         message(E_INIT_FAIL_S, MSG_ERR, get_current_file());
@@ -642,8 +642,7 @@ void analyse_tile (XFILE *fp) {
     output_results ();
 
     /* free the structure ready for next */
-    free_AYB (Ayb);
-    Ayb = NULL;
+    Ayb = free_AYB(Ayb);
 }
 
 /** Set the number of cycles to analyse. */
@@ -691,6 +690,6 @@ void tidyup_model(){
 
     /* free memory */
     for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
-        free_MAT(Matrix[idx]);
+        Matrix[idx] = free_MAT(Matrix[idx]);
     }
 }

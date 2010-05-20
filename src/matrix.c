@@ -81,7 +81,7 @@ MAT new_MAT( const int nrow, const int ncol ){
          mat->x = calloc(nrow*ncol,sizeof(real_t));
          if ( NULL==mat->x){
              WARN_MEM("matrix elements");
-             free(mat);
+             xfree(mat);
              mat = NULL;
          }
      }
@@ -90,13 +90,14 @@ MAT new_MAT( const int nrow, const int ncol ){
 }
 
 /* Free memory allocated for matrix */
-void free_MAT ( MAT mat ){
-    if(NULL==mat){ return; }
+MAT free_MAT ( MAT mat ){
+    if(NULL==mat){ return NULL; }
     /* Memory for elements may be NULL if nrow or ncol equals zero */
     if ( NULL!=mat->x){
-        free(mat->x);
+        xfree(mat->x);
     }
-    free(mat);
+    xfree(mat);
+    return NULL;
 }
 
 MAT copy_MAT( const MAT mat){
@@ -269,8 +270,7 @@ MAT read_MAT_from_column_file(XFILE * fp){
     if (!found) {
         /* failed to read enough elements */
         message(E_READ_ERR_DSD, MSG_ERR, ncol, "column rows", nc);
-        free_MAT(mat);
-        mat = NULL;
+        mat = free_MAT(mat);
     }
     return mat;
 }
@@ -474,8 +474,8 @@ MAT invert(const MAT mat){
     // Invert
     getri(&N,matinv->x,&N,IPIV,WORK,&LWORK,&INFO);
 
-    free(IPIV);
-    free(WORK);
+    xfree(IPIV);
+    xfree(WORK);
 
     return matinv;
 }
