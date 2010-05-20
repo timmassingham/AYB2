@@ -77,7 +77,8 @@ enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
 static struct option Longopts[] = {
     {"aval",        required_argument,  NULL, 'a'},
     {"aflag",       no_argument,        NULL, 'f'},
-    {"ncycles",     required_argument,  NULL, 'n'},
+    {"cycles",      required_argument,  NULL, 'c'},
+    {"niter",       required_argument,  NULL, 'n'},
     {"prefix",      required_argument,  NULL, 'x'},
     {"input",       required_argument,  NULL, 'i'},
     {"output",      required_argument,  NULL, 'o'},
@@ -114,7 +115,7 @@ bool read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "a:fn:x:i:o:e:l:M:N:P:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:fc:n:x:i:o:e:l:M:N:P:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'a':
@@ -127,9 +128,14 @@ bool read_options(const int argc, char ** const argv) {
                 Options.aflag = true;
                 break;
 
-            case 'n':
+            case 'c':
                 /* number of cycles */
                 set_ncycle(optarg);
+                break;
+
+            case 'n':
+                /* number of cycles */
+                set_niter(optarg);
                 break;
 
             case 'x':
