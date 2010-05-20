@@ -75,4 +75,6 @@ MAT scale_MAT(MAT mat, const real_t f);
 MAT transpose_inplace( MAT mat);
 MAT invert(const MAT mat);
 
+real_t xMy( const real_t * x, const MAT M, const real_t * y);
+
 #endif /* MATRIX_H_ */

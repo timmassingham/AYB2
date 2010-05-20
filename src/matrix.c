@@ -34,6 +34,7 @@
 #include <stdint.h>
 #include <err.h>
 #include <string.h>
+#include <math.h>
 #include "matrix.h"
 #include "message.h"
 #include "lapack.h"
@@ -115,7 +116,7 @@ void show_MAT ( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t m
 #ifdef NDEBUG
     char fmt[] = " %#8.2f";
 #else
-    char fmt[] = " %#10.4f";
+    char fmt[] = " %#12.6f";
 #endif
     const uint32_t nrow = mat->nrow;
     const uint32_t ncol = mat->ncol;
@@ -477,4 +478,26 @@ MAT invert(const MAT mat){
     free(WORK);
 
     return matinv;
+}
+
+/**
+ * Return a vector * matrix * vector product.
+ * Assumes the supplied vectors are the appropriate size.
+ */
+real_t xMy( const real_t * x, const MAT M, const real_t * y){
+    validate(NULL!=x,NAN);
+    validate(NULL!=M,NAN);
+    validate(NULL!=y,NAN);
+    const uint32_t ncol = M->ncol;
+    const uint32_t nrow = M->nrow;
+
+    real_t res = 0.;
+    for ( uint32_t col=0 ; col<ncol ; col++){
+        real_t rowtot = 0.;
+        for ( uint32_t row=0 ; row<nrow ; row++){
+            rowtot += x[row] * M->x[col*nrow+row];
+        }
+        res += rowtot * y[col];
+    }
+    return res;
 }
