@@ -35,9 +35,6 @@
 #include "tile.h"
 
 
-/* constants */
-/* None      */
-
 /** AYB structure contains the data required for modelling. */
 struct AybT {
     uint32_t ncluster;
@@ -54,7 +51,8 @@ struct AybT {
 
 /* members */
 
-static unsigned long NCycle = 0;                ///< Number of cycles to analyse - move to Tile?.
+static unsigned long NCycle = 0;                ///< Number of cycles to analyse.
+static unsigned long NIter = 5;                 ///< Number of iterations in base call loop.
 static TILE Tile;                               ///< Intensities data read in as single Tile.
 
 static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
@@ -181,7 +179,6 @@ static void initialise_model() {
     unsigned int cl = 0;
     LIST(CLUSTER) node = Ayb->tile->clusterlist;
     while (NULL != node && cl < Ayb->ncluster){
-        /* process intensities */
         pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
 
 #ifndef NDEBUG
@@ -190,7 +187,7 @@ static void initialise_model() {
         }
 #endif
 
-        /* call initial bases */
+        /* call initial bases for each cycle */
         NUC * cl_bases = Ayb->bases.elt + cl * Ayb->ncycle;
         PHREDCHAR * cl_quals = Ayb->quals.elt + cl * Ayb->ncycle;
         for ( uint32_t cy = 0; cy < Ayb->ncycle; cy++){
@@ -198,9 +195,11 @@ static void initialise_model() {
             cl_quals[cy] = MIN_PHRED;
         }
         /* initial lambda */
-        Ayb->lambda->x[cl++] = estimate_lambdaOLS(pcl_int, cl_bases);
+        Ayb->lambda->x[cl] = estimate_lambdaOLS(pcl_int, cl_bases);
 
+        /* next cluster */
         node = node->nxt;
+        cl++;
     }
 
 #ifndef NDEBUG
@@ -210,6 +209,254 @@ static void initialise_model() {
     free_MAT(pcl_int);
     free_MAT(Pinv_t);
     free_MAT(Minv_t);
+}
+
+/*
+ * Routines to calculate covariance of errors, using the "fast approach".
+ * Working with processed intensities.
+ */
+
+/** Accumulate required variances (inner summation of variance calculation).
+ * \n Note: If V is NULL, the required memory is allocated.
+ * - p:        Matrix of processed intensities
+ * - lambda:   Brightness of cluster
+ * - base:     Current base call
+ * - V:        Array of covariance matrices into which accumulation occurs
+ */
+static MAT * accumulate_covariance( const real_t we, const MAT p, const real_t lambda, const NUC * base, MAT * V){
+    validate(NULL!=p,NULL);
+    validate(NBASE==p->nrow,NULL);
+    validate(lambda>=0.,NULL);
+    const uint32_t ncycle = p->ncol;
+    // Allocate memory for V if necessary
+    if ( NULL==V ){
+        V = calloc(ncycle+1,sizeof(*V));
+        if(NULL==V){ return NULL;}
+        for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
+            V[cycle] = new_MAT(NBASE,NBASE);
+            if(NULL==V[cycle]){ goto cleanup;}
+        }
+    }
+    // Perform accululation. V += R R^t
+    // Note: R = P - \lambda I_b, where I_b is unit vector with b'th elt = 1
+    //  so R R^t = P P^t - \lambda I_b P^t
+    //                   - \lambda P I_b^t + \lambda^2 I_b I_b^2
+    for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
+        const int cybase = base[cycle];
+        validate(cybase<NBASE,NULL);
+        // P P^t
+        for ( uint32_t i=0 ; i<NBASE ; i++){
+            for ( uint32_t j=0 ; j<NBASE ; j++){
+                V[cycle]->x[i*NBASE+j] += we * p->x[cycle*NBASE+i] * p->x[cycle*NBASE+j];
+            }
+        }
+        // \lambda I_b P^t and \lambda P I_b^t
+        for ( uint32_t i=0 ; i<NBASE ; i++){
+            V[cycle]->x[cybase*NBASE+i] -= we * lambda * p->x[cycle*NBASE+i];
+            V[cycle]->x[i*NBASE+cybase] -= we * lambda * p->x[cycle*NBASE+i];
+        }
+        // \lambda^2 I_b I_b^t
+        V[cycle]->x[cybase*NBASE+cybase] += we * lambda*lambda;
+    }
+    // Create residuals
+    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
+        p->x[cy*NBASE+base[cy]] -= lambda;
+    }
+
+    return V;
+
+cleanup:
+    for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
+        free_MAT(V[cycle]);
+    }
+    xfree(V);
+    return NULL;
+}
+
+/**
+ *  Calculate covariance of (processed) residuals.
+ *  Returns a pointer to array of matrices, one per cycle.
+ */
+static MAT * calculate_covariance(){
+
+    const uint32_t ncluster = Ayb->ncluster;
+    const uint32_t ncycle = Ayb->ncycle;
+
+    MAT * V = NULL;                     // memory allocated in accumulate
+    MAT pcl_int = NULL;                 // Shell for processed intensities
+    /* Create t(inverse(M)) and t(inverse(P)) */
+    MAT Minv_t = transpose_inplace(invert(Ayb->M));
+    MAT Pinv_t = transpose_inplace(invert(Ayb->P));
+
+    real_t wesum = 0.;
+
+#ifndef NDEBUG
+    XFILE *fpout;
+    fpout = open_output("cov_add");
+#endif
+
+    unsigned int cl = 0;
+    LIST(CLUSTER) node = Ayb->tile->clusterlist;
+    while (NULL != node && cl < ncluster){
+        const NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
+        pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
+        validate(NULL != pcl_int, NULL);
+
+        /* add this cluster values */
+        V = accumulate_covariance(Ayb->we->x[cl], pcl_int, Ayb->lambda->x[cl], cl_bases, V);
+        validate(NULL != V, NULL);
+
+        /* sum denominator */
+        wesum += Ayb->we->x[cl];
+
+        /* next cluster */
+        node = node->nxt;
+        cl++;
+
+#ifndef NDEBUG
+    if (!xisnull_file(fpout)) {
+        show_MAT(fpout, V[0], NBASE, NBASE);
+    }
+#endif
+
+    }
+
+    free_MAT(pcl_int);
+    free_MAT(Pinv_t);
+    free_MAT(Minv_t);
+
+    /* scale sum of squares to make covariance */
+    for ( uint32_t cy = 0; cy < ncycle; cy++){
+        for ( uint32_t i = 0; i < NBASE * NBASE; i++){
+            V[cy]->x[i] /= wesum;
+        }
+    }
+
+#ifndef NDEBUG
+    xfclose(fpout);
+#endif
+
+    return V;
+}
+
+/** Call bases. Includes calculate covariance and estimate lambda. */
+static void estimate_bases() {
+
+    validate(NULL != Ayb,);
+    const uint32_t ncluster = Ayb->ncluster;
+    const uint32_t ncycle = Ayb->ncycle;
+
+    /* calculate covariance */
+    MAT * V = calculate_covariance();
+
+#ifndef NDEBUG
+    XFILE *fpout;
+    fpout = open_output("cov");
+    if (!xisnull_file(fpout)) {
+        xfputs("covariance:\n", fpout);
+        for (uint32_t cy = 0; cy < ncycle; cy++){
+            show_MAT(fpout, V[cy], NBASE, NBASE);
+        }
+    }
+    xfclose(fpout);
+#endif
+
+    /* scale is variance of residuals; get from V matrices */
+    for (uint32_t cy = 0; cy < ncycle; cy++){
+        Ayb->cycle_var->x[cy] = 0.;
+        for (uint32_t b = 0; b < NBASE; b++){
+            Ayb->cycle_var->x[cy] += V[cy]->x[b * NBASE + b];
+        }
+        /* hmhm I have no idea why a reciprocal is taken here */
+//        Ayb->cycle_var->x[cy] = 1.0/Ayb->cycle_var->x[cy];
+    }
+
+#ifndef NDEBUG
+    fpout = open_output("ayb2");
+    if (!xisnull_file(fpout)) {
+        show_AYB(fpout, Ayb);
+    }
+    xfclose(fpout);
+#endif
+
+    /* invert variance matrices to get omega */
+    for (uint32_t cy = 0; cy < ncycle; cy++){
+        MAT a = V[cy];
+        V[cy] = invert(a);
+        free_MAT(a);
+    }
+
+#ifndef NDEBUG
+    fpout = open_output("om");
+    if (!xisnull_file(fpout)) {
+        xfputs("omega:\n", fpout);
+        for (uint32_t cy = 0; cy < ncycle; cy++){
+            show_MAT(fpout, V[cy], NBASE, NBASE);
+        }
+    }
+    xfclose(fpout);
+#endif
+
+    /* process intensities then estimate lambda and call bases for each cluster */
+    MAT pcl_int = NULL;                 // Shell for processed intensities
+    MAT Minv_t = transpose_inplace(invert(Ayb->M));
+    MAT Pinv_t = transpose_inplace(invert(Ayb->P));
+
+#ifndef NDEBUG
+    fpout = open_output("lam2");
+    if (!xisnull_file(fpout)) {
+        xfputs("lambda:\n", fpout);
+    }
+#endif
+
+    unsigned int cl = 0;
+    LIST(CLUSTER) node = Ayb->tile->clusterlist;
+    while (NULL != node && cl < ncluster){
+        NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
+        PHREDCHAR * cl_quals = Ayb->quals.elt + cl * ncycle;
+        pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
+
+        /* estimate lambda using Weighted Least Squares */
+//        Ayb->lambda->x[cl] = estimate_lambdaGWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x, V);
+        Ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x);
+
+#ifndef NDEBUG
+    if (!xisnull_file(fpout)) {
+        xfprintf(fpout, "%d: %#12.6f\n", cl + 1, Ayb->lambda->x[cl]);
+    }
+#endif
+
+        /* call bases for each cycle */
+        for (uint32_t cy = 0; cy < ncycle; cy++){
+            struct basequal bq = call_base(pcl_int->x+cy * NBASE, Ayb->lambda->x[cl], V[cy]);
+            cl_bases[cy] = bq.base;
+            cl_quals[cy] = bq.qual;
+        }
+
+        /* repeat estimate lambda with the new bases */
+        Ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x);
+
+        /* next cluster */
+        node = node->nxt;
+        cl++;
+    }
+
+#ifndef NDEBUG
+    xfclose(fpout);
+    fpout = open_output("ayb3");
+    if (!xisnull_file(fpout)) {
+        show_AYB(fpout, Ayb);
+    }
+    xfclose(fpout);
+#endif
+
+    free_MAT(pcl_int);
+    free_MAT(Pinv_t);
+    free_MAT(Minv_t);
+    for(uint32_t cy = 0; cy < ncycle; cy++){
+        free_MAT(V[cy]);
+    }
+    free(V);
 }
 
 /**
@@ -235,7 +482,7 @@ static void output_results () {
 //            fputs("\n+\n",fp);
             xfputs("\n", fpout);
 //            for (uint32_t cy = 0; cy < ncycle; cy++){
-//                show_PHREDCHAR(fp,ayb->quals.elt[cl*ncycle+cy]);
+//                show_PHREDCHAR(fpout, Ayb->quals.elt[cl * ncycle + cy]);
 //            }
 //            fputc('\n',fp);
         }
@@ -343,7 +590,7 @@ void show_AYB(XFILE * fp, const AYB ayb){
     xfputs("lambda:\n",fp); show_MAT(fp,ayb->lambda,8,1);
     xfputs("Bases:\n",fp); show_ARRAY(NUC)(fp,ayb->bases,"",ayb->ncycle);
     xfputc('\n',fp);
-    xfputs("Quality:\n",fp); show_ARRAY(PHREDCHAR)(fp,ayb->quals,"",ayb->ncycle);
+    xfputs("Quality:\n",fp); show_ARRAY(PHREDCHAR)(fp,ayb->quals,"",ayb->ncycle*10);
     xfputc('\n',fp);
 #ifdef NDEBUG
     xfputs("Tile:\n",fp); show_TILE(fp,ayb->tile,10);
@@ -375,21 +622,21 @@ void analyse_tile (XFILE *fp) {
         message(E_INIT_FAIL_S, MSG_ERR, get_current_file());
         return;
     }
-/*
-for 1 to niter
-    estimate_MPC (ayb)
-    estimate_Bases (ayb)
-end for
-dump_fastq (AYB)
-*/
+
 #ifndef NDEBUG
     XFILE *fpout;
-    fpout = open_output("ayb");
+    fpout = open_output("ayb1");
     if (!xisnull_file(fpout)) {
         show_AYB(fpout, Ayb);
     }
     xfclose(fpout);
 #endif
+
+    /* base calling loop */
+    for (int i = 0; i < NIter; i++){
+    //    estimate_MPC(ayb);
+        estimate_bases();
+    }
 
     /* output the results */
     output_results ();
@@ -406,6 +653,13 @@ void set_ncycle(const char *ncycle_str) {
     NCycle = strtoul(ncycle_str, &endptr, 0);
 }
 
+/** Set the number of cycles to analyse. */
+void set_niter(const char *niter_str) {
+
+    char *endptr;
+    NIter = strtoul(niter_str, &endptr, 0);
+}
+
 /** Start up; call at program start after options. */
 bool startup_model(){
 
@@ -416,8 +670,17 @@ bool startup_model(){
         return false;
     }
     else {
-        message(E_CYCLE_SELECT_D, MSG_INFO, NCycle);
+        message(E_OPT_SELECT_SD, MSG_INFO, "cycles", NCycle);
 
+        /* check number of iterations supplied - may be left at default */
+        message(E_GENERIC_SD, MSG_DEBUG, "niter:", NIter);
+        if (NIter == 0) {
+            message(E_BADITER, MSG_FATAL);
+            return false;
+        }
+        else {
+            message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
+        }
         /* initialise M, N, P */
         return init_matrix();
     }
