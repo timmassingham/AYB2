@@ -81,6 +81,7 @@ void show_TILE(XFILE * fp, const TILE tile, const unsigned int n){
     unsigned int ncl=0, maxcl=(n!=0 && n<tile->ncluster)?n:tile->ncluster;
     LIST(CLUSTER) node = tile->clusterlist;
     while (NULL!=node && ncl<maxcl){
+        xfprintf(fp,"%d: ",ncl+1);
         show_CLUSTER(fp,node->elt);
         node = node->nxt;
         ncl++;
