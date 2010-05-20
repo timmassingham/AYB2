@@ -42,6 +42,9 @@ XFILE * xfopen(const char * restrict fn, const XFILE_MODE mode, const char * mod
 XFILE * xfclose(XFILE * fp);
 int xfisnull(XFILE * fp);
 
+// Helper routine to guess type of file from suffix
+XFILE_MODE guess_mode_from_filename ( const char * fn );
+
 // Functions to read / write as binary
 size_t xfread(void *ptr, size_t size, size_t nmemb, XFILE *fp);
 //size_t xfwrite(const void *ptr, size_t size, size_t nmemb, XFILE * fp);

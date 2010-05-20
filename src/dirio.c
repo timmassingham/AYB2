@@ -1,10 +1,13 @@
 /**
  * \file dirio.c
  * I/O Environment.
- *   - Directory search.
- *   - Input file pattern match.
- *   - Predetermined matrix file locations.
- *   - File open/close
+ *   - Input and output file locations (parameters).
+ *   - Input file pattern match for prefix (parameter) and substring (fixed).
+ *   - Search input directory for pattern match files.
+ *   - Generate output file name.
+ *   - File open and close.
+ *
+ * Used as a singleton class with local functions accessing global member data.
  *//*
  *  Created : 16 Mar 2010
  *  Author  : Hazel Marsden
@@ -33,6 +36,7 @@
 #include <string.h>
 #include <ctype.h>          // for toupper
 #include <dirent.h>
+#include <sys/stat.h>
 #include "dirio.h"
 #include "message.h"
 
@@ -43,8 +47,13 @@ static const char *DEFAULT_PATH = "./";         ///< Use current directory if no
 static const char *PATH_DELIMSTR = "/";         ///< Path delimiter. For linux, other OS?
 static const char DOT = '.';                    ///< Before file extension, used for tag location.
 static const char DELIM = '_';                  ///< Before tag, used for tag location.
-static const char *INT_TAG = "int";             ///< Intensities tag. Should this be an argument hmhm?
-static const int INT_TAG_LEN = 3;               ///< Length of Intensities tag.
+static const char *INTEN_TAG = "int";           ///< Fixed Intensities file tag.
+static const char *INTEN_SUF = "txt";           ///< Fixed Intensities file suffix.
+/**
+ * Permission flags for a directory; owner/group all plus other read/execute.
+ * Used by output directory create but seems to be ignored in favour of parent adoption.
+ */
+static const mode_t DIR_MODE = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
 
 /* members */
 
@@ -53,13 +62,14 @@ static CSTRING Input_Path = NULL;               ///< Input path, default or prog
 static CSTRING Output_Path = NULL;              ///< Output path, default or program argument.
 static CSTRING Pattern = NULL;                  ///< File pattern match, currently a prefix, program argument.
 static size_t Pattern_Len = 0;                  ///< Length of pattern match, program exits if not > 0.
+static CSTRING IntenSubstr = NULL;              ///< Substring an intensities file must contain.
 static CSTRING Matrix[E_NMATRIX];               ///< Predetermined matrix input file locations.
 
 static struct dirent **Dir_List = NULL;         ///< The pattern matched directory list.
 static int Dir_Num = 0;                         ///< Number of pattern matched files found.
 static int Index = -1;                          ///< Current index to pattern matched files.
 
-static CSTRING Current = NULL;                  ///< Current input file, also used to create output filename.
+static CSTRING Current = NULL;                  ///< Current input file, used to create output filename.
 
 
 /* private functions */
@@ -67,6 +77,7 @@ static CSTRING Current = NULL;                  ///< Current input file, also us
 /**
  * Create a full path name from a directory and filename. Places a path delimiter between them;
  * delimiter may change according to target system.
+ * Return false if cannot allocate memory for name string.
  */
 static bool full_path(const CSTRING dir, const CSTRING filename, CSTRING *filepath) {
 /*  Parameters: dir - the directory, may be null
@@ -91,8 +102,46 @@ static bool full_path(const CSTRING dir, const CSTRING filename, CSTRING *filepa
             strcat(*filepath, PATH_DELIMSTR);
         }
         strcat(*filepath, filename);
-        message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, *filepath);
+//        message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, *filepath);
         return true;
+    }
+}
+
+/** Create the fixed tag and suffix string that an intensities file must contain. */
+static void make_substring() {
+
+    /* check if anything to match */
+    size_t taglen = strlen(INTEN_TAG);
+    size_t suflen = strlen(INTEN_SUF);
+    size_t len = 0;
+
+    if (taglen > 0) {
+        len += taglen + 1;
+    }
+    if (suflen > 0) {
+        len += suflen + 1;
+    }
+    if (len > 0) {
+        /* add room for terminator */
+        IntenSubstr = new_CSTRING(++len);
+        const char *pnext;
+        int pos = 0;
+
+        if (taglen > 0) {
+            /* add delimiter and tag */
+            IntenSubstr[pos++] = DELIM;
+            for (pnext = INTEN_TAG; pnext < INTEN_TAG + taglen; pnext++) {
+                IntenSubstr[pos++] = *pnext;
+            }
+        }
+        if (suflen > 0) {
+            /* add dot and suffix */
+            IntenSubstr[pos++] = DOT;
+            for (pnext = INTEN_SUF; pnext < INTEN_SUF + suflen; pnext++) {
+                IntenSubstr[pos++] = *pnext;
+            }
+        }
+        IntenSubstr[pos] = '\0';
     }
 }
 
@@ -125,7 +174,11 @@ char *strcasestr(const char *s1, const char *s2) {
 //#endif
 
 
-/** Selector function for scandir. Matches to a prefix and includes a fixed tag. */
+/**
+ * Selector function for scandir. Matches to a prefix and inclusion of a fixed tag and suffix.
+ * Assumes match substring already set up.
+ * Returns non-zero value if match found as required by scandir.
+ */
 static int match_pattern(const struct dirent *list) {
 
     int ret = 0;
@@ -134,27 +187,15 @@ static int match_pattern(const struct dirent *list) {
     int diff = strncasecmp(list->d_name, Pattern, Pattern_Len);
     if (diff == 0) {
 
-        if (INT_TAG_LEN > 0) {
-            /* check if contains input tag, surrounded by delim/dot */
-            CSTRING compare_tag = new_CSTRING(INT_TAG_LEN + 2);
-            const char *pnext;
-            int pos = 0;
-            compare_tag[pos++] = DELIM;
-            for (pnext = INT_TAG; pnext < INT_TAG + INT_TAG_LEN; pnext++) {
-                compare_tag[pos++] = *pnext;
-            }
-            compare_tag[pos++] = DOT;
-            compare_tag[pos] = '\0';
-
-            char *it;
-            it = strcasestr(list->d_name, compare_tag);
+        /* check if contains _input tag and suffix  */
+        if (IntenSubstr != NULL) {
+            char *it = strcasestr(list->d_name, IntenSubstr);
             if(it != NULL) {
                 ret = 1;
             }
-            free_CSTRING(compare_tag);
         }
         else {
-            /* no tag to match */
+            /* nothing to match */
             ret = 1;
         }
     }
@@ -162,17 +203,30 @@ static int match_pattern(const struct dirent *list) {
     return ret;
 }
 
-/** Create a new file name from an original. Replaces the part beyond the last delimiter with a new tag. */
+/**
+ * Return a new file name created from an original.
+ * Replaces the part between the last delimiter and the first dot with a new tag.
+ * Removes any compression suffix.
+ */
 static CSTRING output_name(const CSTRING oldname, const CSTRING tag) {
 
     CSTRING newname = NULL;
-
-    /* find last delimiter and first dot */
-    char *pdlm = strrchr(oldname, DELIM);
-    char *pdot = strchr(oldname, DOT);
-
-    size_t taglen = strlen(tag);
     size_t oldlen = strlen(oldname);
+    size_t taglen = strlen(tag);
+
+    /* find last delimiter */
+    char *pdlm = strrchr(oldname, DELIM);
+    if (pdlm == NULL) {
+        /* no delimiter, replace whole name */
+        pdlm = oldname - 1;
+    }
+
+    /* find first dot */
+    char *pdot = strchr(oldname, DOT);
+    if (pdot == NULL) {
+        /* no dot, replace to end of name */
+        pdot = oldname + oldlen;
+    }
 
     /* get a string of size for new name */
     newname = new_CSTRING(oldlen + taglen - (pdot - pdlm - 1));
@@ -195,13 +249,23 @@ static CSTRING output_name(const CSTRING oldname, const CSTRING tag) {
         }
         /* finish with string terminator */
         newname[pos] = '\0';
+
+        /* Remove any compression suffix */
+        XFILE_MODE mode = guess_mode_from_filename (newname);
+        if (mode != XFILE_RAW) {
+            char *psuf = strrchr(newname, DOT);
+            *psuf = '\0';
+        }
     }
-    message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, newname);
+//    message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, newname);
     return newname;
 }
 
 
-/** Scan the input directory for any files that match the specified pattern. */
+/**
+ * Scan the input directory for any files that match the specified pattern.
+ * Result placed in Dir_List. Return the number found.
+ */
 static int scan_inputs() {
 
     int num = scandir (Input_Path, &Dir_List, match_pattern, alphasort);
@@ -224,7 +288,31 @@ static int scan_inputs() {
 
 /* public functions */
 
-/** Return the name of the current input file */
+/** Return whether specified output directory exists or can be created. */
+bool check_outdir(const CSTRING dirname, const char * typestr) {
+
+    struct stat st;
+    if (stat(dirname, &st) == 0) {
+        /* check it is a directory; ISDIR returns non-zero for a directory */
+        if (S_ISDIR (st.st_mode) == 0) {
+            message(E_BAD_DIR_SS, MSG_FATAL, typestr, dirname);
+            return false;
+        }
+    }
+    else {
+        /* try to create it; mkdir returns zero on success */
+        if (mkdir (dirname, DIR_MODE) != 0){
+            message(E_NOCREATE_DIR_SS, MSG_FATAL, typestr, dirname);
+            return false;
+        }
+        else{
+            message(E_CREATED_DIR_SS, MSG_INFO, typestr, dirname);
+        }
+    }
+    return true;
+}
+
+/** Return the name of the current input file. */
 CSTRING get_current_file() {
 
     if (Current == NULL) {
@@ -232,6 +320,17 @@ CSTRING get_current_file() {
     }
     else {
         return Current;
+    }
+}
+
+/** Return the file pattern match argument. */
+CSTRING get_pattern() {
+
+    if (Pattern == NULL) {
+        return "";
+    }
+    else {
+        return Pattern;
     }
 }
 
@@ -268,7 +367,8 @@ XFILE * open_matrix(IOTYPE idx) {
 
 /**
  * Open the next intensities file in the directory.
- * Return the file handle or NULL if failed to open.
+ * Output error and go to next if fails to open.
+ * Return the file handle or NULL if no more files.
  * Also closes previous intensities file if any.
  */
 XFILE * open_next(XFILE *fplast) {
@@ -281,7 +381,7 @@ XFILE * open_next(XFILE *fplast) {
         Current = free_CSTRING(Current);
     }
 
-    if (++Index < Dir_Num) {
+    while ((fp == NULL) && (++Index < Dir_Num)) {
         Current = copy_CSTRING(Dir_List[Index]->d_name);
         message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, Current);
 
@@ -313,7 +413,6 @@ XFILE * open_output(const CSTRING tag) {
     CSTRING filepath = NULL;
     XFILE *fp = NULL;
 
-
     if (Current == NULL) {
         /* use the tag on its own */
         filename = copy_CSTRING(tag);
@@ -325,7 +424,7 @@ XFILE * open_output(const CSTRING tag) {
 
     if (filename != NULL) {
         if (full_path(Output_Path, filename, &filepath)) {
-           fp =  xfopen(filepath, XFILE_UNKNOWN, "w" );
+           fp =  xfopen(filepath, XFILE_RAW, "w" );
 
            if (xfisnull(fp)) {
                message(E_OPEN_FAIL_SS, MSG_ERR, "Output", filepath);
@@ -367,7 +466,11 @@ void set_pattern(const CSTRING pattern) {
     Pattern = copy_CSTRING(pattern);
 }
 
-/** Start up; call at program start after options. */
+/**
+ * Start up; call at program start after options.
+ * Checks pattern argument supplied, output directory exists and at least one input file found.
+ * Return true if no errors.
+ */
 bool startup_dirio() {
 
     /* check pattern match supplied */
@@ -379,27 +482,38 @@ bool startup_dirio() {
         message(E_NOPATTERN, MSG_FATAL);
         return false;
     }
+
+    /* set default i/o paths if not supplied */
+    if (Input_Path == NULL) {
+        Input_Path = copy_CSTRING((CSTRING)DEFAULT_PATH);
+    }
+    if (Output_Path == NULL) {
+        Output_Path = copy_CSTRING((CSTRING)DEFAULT_PATH);
+    }
+
+    /* check specified output path exists */
+    if (!check_outdir(Output_Path, "output")) {
+         return false;
+    }
+
+    /* scan for matching input files; first create the match substring */
+    make_substring();
+    Dir_Num = scan_inputs();
+    if (Dir_Num < 0) {
+        /* failed to access directory */
+        return false;
+    }
+
+    if (Dir_Num == 0) {
+        message (E_NOINPUT_SS, MSG_FATAL, Input_Path, Pattern);
+        return false;
+    }
     else {
-        message(E_PATTERN_SELECT_S, MSG_INFO, Pattern);
-
-        /* set default i/o paths if not supplied */
-        if (Input_Path == NULL) {
-            Input_Path = copy_CSTRING((CSTRING)DEFAULT_PATH);
-        }
-        if (Output_Path == NULL) {
-            Output_Path = copy_CSTRING((CSTRING)DEFAULT_PATH);
-        }
-
-        /* scan for matching input files */
-        Dir_Num = scan_inputs();
-        if (Dir_Num <= 0) {
-            message (E_NOINPUT_S, MSG_FATAL, Pattern);
-            return false;
-        }
-        else {
-            /* at least one input file */
-            return true;
-        }
+        /* at least one input file */
+        message(E_PATTERN_MATCH_SD, MSG_INFO, Pattern, Dir_Num);
+        message(E_INPUT_DIR_S, MSG_INFO, Input_Path);
+        message(E_OUTPUT_DIR_S, MSG_INFO, Output_Path);
+        return true;
     }
 }
 
@@ -410,6 +524,7 @@ void tidyup_dirio() {
     Input_Path = free_CSTRING(Input_Path);
     Output_Path = free_CSTRING(Output_Path);
     Pattern = free_CSTRING(Pattern);
+    IntenSubstr = free_CSTRING(IntenSubstr);
     for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
         Matrix[idx] = free_CSTRING(Matrix[idx]);
     }

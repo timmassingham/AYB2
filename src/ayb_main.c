@@ -38,8 +38,7 @@
 
 
 /* constants */
-
-static const char *LOG_PREFIX = "ayb_";         ///< Log file prefix, pass to Message startup.
+/* none    */
 
 /* members */
 /* none    */
@@ -72,8 +71,10 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    /* create a message log */
-    startup_message(LOG_PREFIX);
+    /* create a message log, name includes the prefix argument */
+    if (!startup_message(get_pattern())) {
+        return EXIT_FAILURE;
+    }
 
     /* scan the input directory */
     if (!startup_dirio()) {
@@ -84,19 +85,19 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    /* process each intensity file */
+    /* process each intensity file until no more or a no continue error */
     XFILE *fp = NULL;
-    bool found = true;
+    bool more = true;
 
-    while (found) {
+    while (more) {
         fp = open_next(fp);
 
         if (xfisnull(fp)) {
-            found = false;
+            more = false;
         }
         else {
             /* analyse this input file */
-            analyse_tile(fp);
+            more = analyse_tile(fp);
         }
     }
 

@@ -131,7 +131,7 @@ static void read_intensities(XFILE *fp) {
 static void initialise_model() {
 
     Ayb = new_AYB( NCycle, Tile->ncluster);
-    if (Ayb == NULL){return;}
+    if (Ayb == NULL) {return;}
 
     /* initial intensities, just copy from read in tile;
      * will become more elaborate once selection of data implemented */
@@ -460,33 +460,34 @@ static void estimate_bases() {
 
 /**
  * Output the results of the base calling.
+ * Returns true if output file opened ok.
  */
-static void output_results () {
+static bool output_results () {
 
-    if (Ayb == NULL){return;}
+    if (Ayb == NULL) {return false;}
 
     XFILE *fpout = NULL;
     fpout = open_output("seq");
 
-    if (!xfisnull(fpout)) {
+    if (xfisnull(fpout)) {return false;}
 
-        const uint32_t ncluster = Ayb->ncluster;
-        const uint32_t ncycle = Ayb->ncycle;
+    const uint32_t ncluster = Ayb->ncluster;
+    const uint32_t ncycle = Ayb->ncycle;
 
-        for (uint32_t cl = 0; cl < ncluster; cl++){
-            xfprintf(fpout, ">cluster_%03u\n", cl + 1);
-            for (uint32_t cy = 0; cy < ncycle; cy++){
-                show_NUC(fpout, Ayb->bases.elt[cl * ncycle + cy]);
-            }
-//            fputs("\n+\n",fp);
-            xfputs("\n", fpout);
-//            for (uint32_t cy = 0; cy < ncycle; cy++){
-//                show_PHREDCHAR(fpout, Ayb->quals.elt[cl * ncycle + cy]);
-//            }
-//            fputc('\n',fp);
+    for (uint32_t cl = 0; cl < ncluster; cl++){
+        xfprintf(fpout, ">cluster_%03u\n", cl + 1);
+        for (uint32_t cy = 0; cy < ncycle; cy++){
+            show_NUC(fpout, Ayb->bases.elt[cl * ncycle + cy]);
         }
+//        fputs("\n+\n",fp);
+        xfputs("\n", fpout);
+//        for (uint32_t cy = 0; cy < ncycle; cy++){
+//            show_PHREDCHAR(fpout, Ayb->quals.elt[cl * ncycle + cy]);
+//        }
+//        fputc('\n',fp);
     }
     fpout = xfclose(fpout);
+    return true;
 }
 
 
@@ -600,16 +601,19 @@ void show_AYB(XFILE * fp, const AYB ayb){
     xfputc('\n',fp);
 }
 
-/** Analyse a single input file. File is already opened. */
-void analyse_tile (XFILE *fp) {
+/**
+ * Analyse a single input file. File is already opened.
+ * Returns true if analysis should continue to next file.
+ */
+bool analyse_tile (XFILE *fp) {
 
-    if (xfisnull(fp)) {return;}
+    if (xfisnull(fp)) {return true;}
 
     /* read intensity data from supplied file */
     read_intensities(fp);
     if (Tile == NULL) {
         message(E_BAD_INPUT_S, MSG_ERR, get_current_file());
-        return;
+        return true;
     }
 
     /* set initial model values */
@@ -619,7 +623,7 @@ void analyse_tile (XFILE *fp) {
 
     if (Ayb == NULL) {
         message(E_INIT_FAIL_S, MSG_ERR, get_current_file());
-        return;
+        return false;
     }
 
 #ifndef NDEBUG
@@ -638,10 +642,11 @@ void analyse_tile (XFILE *fp) {
     }
 
     /* output the results */
-    output_results ();
+    bool ret = output_results();
 
     /* free the structure ready for next */
     Ayb = free_AYB(Ayb);
+    return ret;
 }
 
 /** Set the number of cycles to analyse. */
@@ -658,7 +663,11 @@ void set_niter(const char *niter_str) {
     NIter = strtoul(niter_str, &endptr, 0);
 }
 
-/** Start up; call at program start after options. */
+/**
+ * Start up; call at program start after options.
+ * Returns true if cycles and iterations parameters are ok
+ * and M, N, P matrix initialisation is successful.
+ */
 bool startup_model(){
 
     /* check number of cycles supplied - hmhm may be determined in a different way */

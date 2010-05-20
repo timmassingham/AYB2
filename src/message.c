@@ -39,7 +39,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
-#include <sys/stat.h>
+#include "dirio.h"
 #include "message.h"
 
 
@@ -53,14 +53,19 @@ static const char *MSG_TEXT[] = {
         "Number of cycles to analyse must be supplied as a positive integer\n", // E_NOCYCLES
         "No file pattern match supplied\n",                                     // E_NOPATTERN
         "Number of model iterations incorrectly supplied\n",                    // E_BADITER
-        "File pattern selected: %s...\n",                                       // E_PATTERN_SELECT_S
         "Memory allocation failed during %s\n",                                 // E_NOMEM_S
-        "No input files located matching pattern: \'%s\'\n",                    // E_NOINPUT_S
+        "Log message output level: %s\n",                                       // E_MSG_LEVEL_S
+        "Input from directory: %s\n",                                           // E_INPUT_DIR_S
+        "Output to directory: %s\n",                                            // E_OUTPUT_DIR_S
         "Input file found: %s\n",                                               // E_INPUT_FOUND_S
         "Failed to read input file: %s\n",                                      // E_BAD_INPUT_S
         "Failed to initialise model for input file: %s\n",                      // E_INIT_FAIL_S
-        "%s directory \'%s\' not found\n",                                      // E_NODIR_SS
+        "Supplied %s location parameter \'%s\' is not a directory\n",           // E_BAD_DIR_SS
+        "Failed to create new %s directory \'%s\'\n",                           // E_NOCREATE_DIR_SS
+        "Created new %s directory: %s\n",                                       // E_CREATED_DIR_SS
+        "No input files in directory \'%s\' matching pattern: \'%s\'\n",        // E_NOINPUT_SS
         "%s file failed to open: %s\n",                                         // E_OPEN_FAIL_SS
+        "Input file pattern match: \'%s...\'; %d files found\n",                // E_PATTERN_MATCH_SD
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
         "Intensity file contains less data than requested; "
@@ -87,17 +92,19 @@ static const char *MSG_SEV_TEXT[] = {
         "None",
         "Fatal",
         "Error",
-        "Warning",
         "Information",
+        "Warning",
         "Debug",
         ""};
 
 /* location and name of message file */
-static const char *DEFAULT_PATH = "./";         ///< Use current directory if none supplied.
-static const char PATH_DELIM = '/';             ///< Path delimiter. For linux, other OS?
-static const char *NAME_EXT = ".log";           ///< Extension for log file.
-static const char *TIME_SUFFIX = "%y%m%d_%H%M"; ///< Log file suffix; gives yymmdd_hhmm.
-static const size_t TIME_SUFFIX_LEN = 12;       ///< Length of log file suffix.
+//static const char *DEFAULT_PATH = "./";            ///< Use current directory if none supplied.
+static const char PATH_DELIM = '/';                 ///< Path delimiter. For linux, other OS?
+static const char *NAME_EXT = ".log";               ///< Extension for log file.
+static const char *TIME_SUFFIX = "_%y%m%d_%H%M";    ///< Log file suffix; gives _yymmdd_hhmm.
+static const size_t TIME_SUFFIX_LEN = 13;           ///< Length of log file suffix, including null terminator.
+static const char *DATE_TIME = "%d %B %Y %H:%M";    ///< Log header date; gives 'dd mmmm yyyy hh:mm'.
+static const size_t DATE_TIME_LEN = 24;             ///< Maximum length of log header date, including null terminator.
 #define FILENAME_LEN 80
 
 /* members */
@@ -114,44 +121,36 @@ static char Msg_Path[FILENAME_LEN] = "";
 /* private functions */
 
 /** 
- * Generate a unique message file name including date and time. 
- * Filename is <prefix>_<yymmdd>_<hhmm>.log. 
+ * Generate a unique message file name including date and time and add to path.
+ * Filename is <prefix>_<yymmdd>_<hhmm>.log.
+ * Returns true unless problem with log directory.
  */
-static void create_filename(const char* prefix, char *name) {
+static bool create_filename(const char *prefix, char *timestring, char *name) {
 
     /* check specified path exists */
-    struct stat st;
-
-    if(stat(Msg_Path, &st) == 0) {
-        strcpy(name, Msg_Path);
-        size_t len = strlen(name);
-
-        /* add path delimiter if not supplied */
-        if (*(name + len - 1) != PATH_DELIM) {
-            *(name + len) = PATH_DELIM;
-            *(name + len + 1) = '\0';
-        }
+    if (!check_outdir(Msg_Path, "message")) {
+        return false;
     }
-    else {
-        fprintf(stderr, "Message file directory: \'%s\' does not exist; Using default location\n\n", Msg_Path);
-        /* use default path */
-        strcpy(name, DEFAULT_PATH);
+
+    strcpy(name, Msg_Path);
+    size_t len = strlen(name);
+
+    /* add path delimiter if not supplied */
+    if (*(name + len - 1) != PATH_DELIM) {
+        *(name + len) = PATH_DELIM;
+        *(name + len + 1) = '\0';
     }
 
     /* add the default filename prefix */
     strcat(name, prefix);
 
     /* add the date and time to make it unique given it will take some time to run */
-    char timestring[TIME_SUFFIX_LEN + 1];
-
-    time_t lt = time(NULL);
-    struct tm *p_tm = localtime(&lt);
-    strftime(timestring, TIME_SUFFIX_LEN, TIME_SUFFIX, p_tm);
     strcat(name, timestring);
 
     /* add the extension */
     strcat(name, NAME_EXT);
     printf("name: %s\n", name);
+    return true;
 }
 
 /** Match a string to one of a list. Returns index of match or -1 if none. */
@@ -190,7 +189,10 @@ int message(MSGTYPE type, MSGSEV sev, ...) {
     return ret;
 }
 
-/** Set the message level. Text must match one of the severity text list. Ignores case. */
+/**
+ * Set the message level. Text must match one of the severity text list. Ignores case.
+ * Returns true if match found.
+ */
 bool set_message_level(const char *levelstr) {
 
     /* match to one of the possible options */
@@ -211,25 +213,45 @@ void set_message_path(const char *path) {
     strcpy(Msg_Path, path);
 }
 
-/** Start up; call at program start after options. */
-void startup_message(const char *prefix) {
+/**
+ * Start up; call at program start after options.
+ * Redirects stderr to log file if requested and outputs a log file header.
+ * Returns true unless requested log file cannot be opened.
+ */
+bool startup_message(const char *prefix) {
+
+    /* get the current date and time */
+    time_t lt = time(NULL);
+    struct tm *p_tm = localtime(&lt);
+    char timestring[DATE_TIME_LEN];
 
     if (strlen(Msg_Path) > 0) {
-        /* error file specified, redirect stderr from within program*/
-        /* create a unique name */
+        /* error file specified, redirect stderr from within program */
         char filename[FILENAME_LEN];
-        create_filename(prefix, (char*)&filename);
+        /* create a unique name including current date/time and add path */
+        strftime(timestring, TIME_SUFFIX_LEN, TIME_SUFFIX, p_tm);
+        if (!create_filename(prefix, timestring, (char*)&filename)) {
+            return false;
+        }
 
         /* check file can be created */
         FILE *fp;
         if ((fp = fopen(filename, "w")) == NULL) {
-            fprintf(stderr, "Cannot open message file: \'%s\'; Messages to standard error and level set to Fatal\n\n", filename);
-            Msg_Level = MSG_FATAL;        }
-        else {
-            fclose(fp);
-            freopen(filename, "w", stderr);
+            message(E_OPEN_FAIL_SS, MSG_FATAL, "Message", filename);
+            return false;
         }
+
+        fclose(fp);
+        freopen(filename, "w", stderr);
     }
+
+    /* create a time string for the log file header */
+    strftime(timestring, DATE_TIME_LEN, DATE_TIME, p_tm);
+
+    /* create a log file header */
+    fprintf(stderr, "AYB Message Log;\tCreated by %s;\t%s\n\n", getenv("USER"), timestring);
+    message(E_MSG_LEVEL_S, MSG_INFO, MSG_SEV_TEXT[Msg_Level]);
+    return true;
 }
 
 /** Tidy up; call at program shutdown. */

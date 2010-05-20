@@ -61,10 +61,11 @@ struct _xfile_struct {
 };
 
 /* constants */
-/* none      */
+
+const char * GZ = "gz";
+const char * BZ2 = "bz2";
 
 /* members */
-
 
 XFILE _xstdout, _xstderr;
 XFILE * xstdout = &_xstdout;            ///< Standard output as an XFILE.
@@ -81,7 +82,7 @@ static void initialise_std ( void ){
    _xinit = true;
 }
 
-/** Return a pointer to the final suffix of the suppplied file name. */
+/** Return a pointer to the final suffix of the supplied file name. */
 static const char * find_suffix ( const char * fn ){
 	const size_t len = strlen(fn);
 
@@ -91,15 +92,6 @@ static const char * find_suffix ( const char * fn ){
 	if(fn[0]=='.') return fn+1;
 	
 	return fn+len; // Pointer to '\0' at end of string
-}
-
-/** Attempt to guess the mode of file compression from the suffix of the supplied filename. */
-static XFILE_MODE guess_mode_from_filename ( const char * fn ){
-	const char * suffix = find_suffix (fn);
-	if ( strcmp(suffix,"gz") == 0 ){ return XFILE_GZIP;}
-	if ( strcmp(suffix,"bz2") == 0 ){ return XFILE_BZIP2;}
-	
-	return XFILE_RAW;
 }
 
 /** gzip printf. */
@@ -162,6 +154,15 @@ int xfisnull(XFILE * fp) {
     }
 
     return 0;
+}
+
+/** Attempt to guess the mode of file compression from the suffix of the supplied filename. */
+XFILE_MODE guess_mode_from_filename ( const char * fn ){
+    const char * suffix = find_suffix (fn);
+    if ( strcmp(suffix, GZ) == 0 ){ return XFILE_GZIP;}
+    if ( strcmp(suffix, BZ2) == 0 ){ return XFILE_BZIP2;}
+
+    return XFILE_RAW;
 }
 
 /** Close an XFILE. Closes selected file and frees structure memory. */
