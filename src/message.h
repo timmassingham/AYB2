@@ -34,12 +34,13 @@
 
 /**
  * Message type determines output text. Suffix indicates type of arguments required.
+ * An attempt has been made to order the enumeration according to the parameters required. 
  * See also MSG_TEXT defined in message.c.
  */
-typedef enum MsgTypeT {E_NOCYCLES, E_NOPATTERN, E_PATTERN_SELECT_S, E_NOMEM_S,
+typedef enum MsgTypeT {E_NOCYCLES, E_NOPATTERN, E_BADITER, E_PATTERN_SELECT_S, E_NOMEM_S,
                        E_NOINPUT_S, E_INPUT_FOUND_S, E_BAD_INPUT_S, E_INIT_FAIL_S,
-                       E_NODIR_SS, E_OPEN_FAIL_SS, E_BAD_NUC_C,
-                       E_CYCLE_SELECT_D, E_CYCLESIZE_DD, E_BAD_MATSIZE_DD, E_READ_ERR_DSD,
+                       E_NODIR_SS, E_OPEN_FAIL_SS, E_OPT_SELECT_SD, E_BAD_NUC_C,
+                       E_CYCLESIZE_DD, E_BAD_MATSIZE_DD, E_READ_ERR_DSD,
                        E_GENERIC_SS, E_GENERIC_SD, E_GENERIC_SU, E_GENERIC_SF, E_GENERIC_SFFFF,
                        E_DEBUG_SSD_S, E_DEBUG_SSD_SS, E_DEBUG_SSD_SD} MSGTYPE;
 

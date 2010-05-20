@@ -1,8 +1,17 @@
 /**
  * \file message.c
  * General Messaging Utility.
- * Use function message (<message type>, <message severity>, <parameters...>) to output a message.
- * Add new message types as required.
+ * This provides a central messaging system for the output of program information at various levels up to debugging.
+ * The level of message output is selected using a program option (default Warning).
+ * \n\n Program messages are output to stderr which can be redirected in a run script.
+ * Alternatively a location can be specified as a program option and a message file with a generated unique name will be created.
+ * \n\n A program message is implemented by calling the message() function with a type and severity parameter,
+ * followed by a variable number of additional parameters of varying type corresponding to the selected message type.
+ * The type enumerations include a suffix to indicate the parameters required.
+ * The varying parameters are handled using vfprintf which takes a va_list argument. 
+ * \n\n New message types can be added as needed by extending the MsgTypeT enumeration (#MSGTYPE) and adding the appropriate message text. 
+ * Message text is stored in the #MSG_TEXT char array which is formatted for printf output.
+ * The text is matched to the correct message type enumeration by the order. 
  *//*
  *  Created : 26 Feb 2010
  *  Author  : Hazel Marsden
@@ -43,6 +52,7 @@
 static const char *MSG_TEXT[] = {
         "Number of cycles to analyse must be supplied as a positive integer\n", // E_NOCYCLES
         "No file pattern match supplied\n",                                     // E_NOPATTERN
+        "Number of model iterations incorrectly supplied\n",                    // E_BADITER
         "File pattern selected: %s...\n",                                       // E_PATTERN_SELECT_S
         "Memory allocation failed during %s\n",                                 // E_NOMEM_S
         "No input files located matching pattern: \'%s\'\n",                    // E_NOINPUT_S
@@ -51,8 +61,8 @@ static const char *MSG_TEXT[] = {
         "Failed to initialise model for input file: %s\n",                      // E_INIT_FAIL_S
         "%s directory \'%s\' not found\n",                                      // E_NODIR_SS
         "%s file failed to open: %s\n",                                         // E_OPEN_FAIL_SS
+        "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
-        "Number of cycles selected: %d\n",                                      // E_CYCLE_SELECT_D
         "Intensity file contains less data than requested; "
             "number of cycles changed from %d to %d\n",                         // E_CYCLESIZE_DD
         "Matrix size incorrectly specified: read in as %d by %d\n",             // E_BAD_MATSIZE_DD
@@ -70,7 +80,9 @@ static const char *MSG_TEXT[] = {
         "%s (%s:%d): %s %d\n"                                                   // E_DEBUG_SSD_SD
         };
 
-/** Message severity text. Ensure list matches to MsgSeverityT enum. */
+/** Message severity text. Used to match program argument and as text in log file.
+ * Ensure list matches MsgSeverityT enum. 
+ */
 static const char *MSG_SEV_TEXT[] = {
         "None",
         "Fatal",
@@ -90,13 +102,21 @@ static const size_t TIME_SUFFIX_LEN = 12;       ///< Length of log file suffix.
 
 /* members */
 
-static int Msg_Level = MSG_WARN;                ///< Selected level of messages.
-static char Msg_Path[FILENAME_LEN] = "";        ///< Selected path for message file.
+/** Selected level of messages, default Warning. */
+static int Msg_Level = MSG_WARN;
+/** Selected location for message file. 
+ * Output is to stderr unless redirected by a program option, 
+ * which defaults to the current directory if the supplied path does not exist.
+ */
+static char Msg_Path[FILENAME_LEN] = "";
 
 
 /* private functions */
 
-/** Generate a unique message file name including date and time. */
+/** 
+ * Generate a unique message file name including date and time. 
+ * Filename is <prefix>_<yymmdd>_<hhmm>.log. 
+ */
 static void create_filename(const char* prefix, char *name) {
 
     /* check specified path exists */
@@ -184,7 +204,7 @@ bool set_message_level(const char *levelstr) {
     }
 }
 
-/** Set the message file path. */
+/** Set the message file location. */
 void set_message_path(const char *path) {
 
     /* validate later */
