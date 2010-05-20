@@ -1,6 +1,8 @@
 /**
  * \file xio.c
  * Generic File Access including Compressed.
+ * Implements an XFILE type that can represent a variety of compression modes.
+ * None, gzip (zlib) and bzip2 (bzlib) are currently supported.
  *//*
  *  Created : 2010
  *  Authors : Tim Massingham/Hazel Marsden
@@ -31,23 +33,11 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <string.h>
-
-
-/* constants */
-/* none      */
-
-/* members */
-/* below */
-
-
-/* private functions */
-/* undetermined */
-
-/* public functions */
-/* undetermined */
+#include "xio.h"
 
 
 #ifndef HAS_REALLOCF
+/** Reallocate with free memory and set pointer to null if extend fails. */
 void * reallocf(void * ptr, size_t t){
 	void * ptr2;
 	ptr2 = realloc(ptr,t);
@@ -58,30 +48,41 @@ void * reallocf(void * ptr, size_t t){
 }
 #endif
 
-typedef enum { XFILE_UNKNOWN, XFILE_RAW, XFILE_GZIP, XFILE_BZIP2 } XFILE_MODE;
+/** File pointer of variable mode. */
 typedef union { BZFILE * bzfh; gzFile zfh; FILE * fh;} XFILE_TYPE;
 
+/**
+ * XFILE structure contains the mode and the appropriate file pointer.
+ * Definition of Mode and XFILE typedef in header.
+ */
 struct _xfile_struct {
     XFILE_MODE mode;
     XFILE_TYPE ptr;
 };
 
-typedef struct _xfile_struct XFILE;
+/* constants */
+/* none      */
+
+/* members */
+
 
 XFILE _xstdout, _xstderr;
-XFILE * xstdout = &_xstdout;
-XFILE * xstderr = &_xstderr;
+XFILE * xstdout = &_xstdout;            ///< Standard output as an XFILE.
+XFILE * xstderr = &_xstderr;            ///< Standard error as an XFILE.
 static bool _xinit = false;
 
-void initialise_aybstd ( void ){
+
+/* private functions */
+
+/** Create standard output and error as an XFILE. */
+static void initialise_std ( void ){
    _xstdout.mode = XFILE_RAW; _xstdout.ptr.fh = stdout;
    _xstderr.mode = XFILE_RAW; _xstderr.ptr.fh = stderr;
    _xinit = true;
 }
 
-
-
-const char * find_suffix ( const char * fn ){
+/** Return a pointer to the final suffix of the suppplied file name. */
+static const char * find_suffix ( const char * fn ){
 	const size_t len = strlen(fn);
 
 	for ( size_t i=len-1 ; i>0 ; i-- ){
@@ -92,8 +93,8 @@ const char * find_suffix ( const char * fn ){
 	return fn+len; // Pointer to '\0' at end of string
 }
 
-
-XFILE_MODE guess_mode_from_filename ( const char * fn ){
+/** Attempt to guess the mode of file compression from the suffix of the supplied filename. */
+static XFILE_MODE guess_mode_from_filename ( const char * fn ){
 	const char * suffix = find_suffix (fn);
 	if ( strcmp(suffix,"gz") == 0 ){ return XFILE_GZIP;}
 	if ( strcmp(suffix,"bz2") == 0 ){ return XFILE_BZIP2;}
@@ -101,9 +102,8 @@ XFILE_MODE guess_mode_from_filename ( const char * fn ){
 	return XFILE_RAW;
 }
 
-
-
-int gzvprintf ( gzFile zfp, const char * fmt, va_list args ){
+/** gzip printf. */
+static int gzvprintf ( gzFile zfp, const char * fmt, va_list args ){
     int ret,len;
     char * buf;
 
@@ -114,7 +114,8 @@ int gzvprintf ( gzFile zfp, const char * fmt, va_list args ){
     return ret;
 }
 
-int BZ2_bzvprintf ( BZFILE * bzfp, const char * fmt, va_list args ){
+/** bzip2 printf. */
+static int BZ2_bzvprintf ( BZFILE * bzfp, const char * fmt, va_list args ){
     int ret,len;
     char * buf;
 
@@ -125,26 +126,8 @@ int BZ2_bzvprintf ( BZFILE * bzfp, const char * fmt, va_list args ){
     return ret;                                             
 }
 
-
-
-int xfprintf( XFILE * fp, const char * fmt, ... ){
-    int ret=EOF;
-    va_list args;
-    
-    if(!_xinit){initialise_aybstd();}
-
-    va_start(args,fmt);
-    switch( fp->mode ){
-      case XFILE_UNKNOWN:
-      case XFILE_RAW:   ret=vfprintf(fp->ptr.fh,fmt,args); break;
-      case XFILE_GZIP:  ret=gzvprintf(fp->ptr.zfh,fmt,args); break;
-      case XFILE_BZIP2: ret=BZ2_bzvprintf(fp->ptr.bzfh,fmt,args); break;
-    }
-    va_end(args);
-    return ret;
-}
-
-void xnull_file(XFILE * fp){
+/** Set the selected file pointer to null. */
+static void xnull_file(XFILE * fp){
     switch( fp->mode ){
       case XFILE_UNKNOWN:
       case XFILE_RAW: fp->ptr.fh = NULL; break;
@@ -153,7 +136,8 @@ void xnull_file(XFILE * fp){
     }
 }
 
-int xnotnull_file(XFILE * fp){
+/** Return true if selected file pointer is not null. */
+static int xnotnull_file(XFILE * fp){
     switch( fp->mode ){
       case XFILE_UNKNOWN:
       case XFILE_RAW:   if(NULL==fp->ptr.fh){ return 0;} break;
@@ -164,8 +148,11 @@ int xnotnull_file(XFILE * fp){
     return 1;
 }
 
-/*hmhm*/
-int xisnull_file(XFILE * fp) {
+
+/* public functions */
+
+/** Return true if XFILE is null. Checks structure and contents. */
+int xfisnull(XFILE * fp) {
     if (NULL==fp) { return 1;};
     switch( fp->mode ){
       case XFILE_UNKNOWN:
@@ -177,27 +164,31 @@ int xisnull_file(XFILE * fp) {
     return 0;
 }
 
-void xfclose(XFILE * fp){
-    if(!_xinit){initialise_aybstd();}
-    /*hmhm*/
-//    if( ! xnotnull_file(fp) ){return;}
-    if (NULL==fp) {return;}
+/** Close an XFILE. Closes selected file and frees structure memory. */
+XFILE * xfclose(XFILE * fp){
+    if(!_xinit){initialise_std();}
+    if (NULL==fp) {return NULL;}
 
     if(xnotnull_file(fp)) {
         switch( fp->mode ){
           case XFILE_UNKNOWN:
-          case XFILE_RAW:     fclose(fp->ptr.fh); break;
+          case XFILE_RAW:   fclose(fp->ptr.fh); break;
           case XFILE_GZIP:  gzclose(fp->ptr.zfh); break;
           case XFILE_BZIP2: BZ2_bzclose(fp->ptr.bzfh); break;
         }
     }
     free(fp);
-    /*hmhm*/
-    fp=NULL;
+    return NULL;
 }
 
+/**
+ * Open an XFILE. Allocates structure memory then guesses the compression mode if not supplied.
+ * mode_str selects read/write etc as for normal file stream.
+ * Opens the file in the appropriate mode.
+ * If fails to open then frees structure memory and returns a null pointer.
+ * */
 XFILE * xfopen(const char * restrict fn, const XFILE_MODE mode, const char * mode_str){
-    if(!_xinit){initialise_aybstd();}
+    if(!_xinit){initialise_std();}
     XFILE * fp = malloc(sizeof(XFILE));
     int fail=0;
 
@@ -218,20 +209,25 @@ XFILE * xfopen(const char * restrict fn, const XFILE_MODE mode, const char * mod
             fp->ptr.bzfh = BZ2_bzopen(fn,mode_str);
 	    if(NULL==fp->ptr.zfh){fail=1;}
 	    break;
-      default: xnull_file(fp); fail=1;
+      default: fail=1;
     }
 
     if (fail){
         perror(fn);
-        xnull_file(fp);
+        free(fp);
+        fp = NULL;
     }
 
     return fp;
 }
 
-
+/**
+ * Read a block of data, up to nmemb elements of the given size.
+ * Result placed in buffer *ptr which must be large enough to accommodate.
+ * Returns number of bytes read or number of elements (mode RAW)?
+ */
 size_t xfread(void *ptr, size_t size, size_t nmemb, XFILE *fp){
-    if(!_xinit){initialise_aybstd();}
+    if(!_xinit){initialise_std();}
     size_t ret = 0;
 
     switch( fp->mode ){
@@ -244,8 +240,12 @@ size_t xfread(void *ptr, size_t size, size_t nmemb, XFILE *fp){
     return ret; 
 }
 
+/**
+ * Write a block of data, up to nmemb elements of the given size.
+ * Returns number of bytes written or number of elements (mode RAW)?
+ */
 size_t xfwrite(const void * restrict ptr, const size_t size, const size_t nmemb, XFILE * fp){
-    if(!_xinit){initialise_aybstd();}
+    if(!_xinit){initialise_std();}
     size_t ret = 0;
 
     switch( fp->mode ){
@@ -258,8 +258,9 @@ size_t xfwrite(const void * restrict ptr, const size_t size, const size_t nmemb,
     return ret;
 }
 
+/** Write a character. */
 int xfputc ( int c, XFILE * fp){
-    if(!_xinit){initialise_aybstd();}
+    if(!_xinit){initialise_std();}
     int ret = EOF;
     switch(fp->mode){
     	case XFILE_UNKNOWN:
@@ -270,8 +271,9 @@ int xfputc ( int c, XFILE * fp){
     return ret;
 }
 
+/** Write a string. Does not append the terminating null or a new line. */
 int xfputs ( const char * restrict str, XFILE * fp){
-    if(!_xinit){initialise_aybstd();}
+    if(!_xinit){initialise_std();}
     int ret = EOF;
     switch(fp->mode){
     	case XFILE_UNKNOWN:
@@ -282,23 +284,50 @@ int xfputs ( const char * restrict str, XFILE * fp){
     return ret;
 }
 
+/**
+ * XFILE printf.
+ * Returns number of characters output or negative value on error.
+ */
+int xfprintf( XFILE * fp, const char * fmt, ... ){
+    int ret=EOF;
+    va_list args;
 
+    if(!_xinit){initialise_std();}
+
+    va_start(args,fmt);
+    switch( fp->mode ){
+      case XFILE_UNKNOWN:
+      case XFILE_RAW:   ret=vfprintf(fp->ptr.fh,fmt,args); break;
+      case XFILE_GZIP:  ret=gzvprintf(fp->ptr.zfh,fmt,args); break;
+      case XFILE_BZIP2: ret=BZ2_bzvprintf(fp->ptr.bzfh,fmt,args); break;
+    }
+    va_end(args);
+    return ret;
+}
+
+/** Read and return a single character. Returns EOF if fails to read. */
 int xfgetc(XFILE * fp){
     char c=0;
     int ret = xfread(&c,sizeof(char),1,fp);
     return (ret!=0)?c:EOF;
 }
 
+/**
+ * Read a string of length n. Appends a null terminator.
+ * Result placed in buffer *s which must be large enough to accommodate.
+ */
 char * xfgets( char * restrict s, int n, XFILE * restrict fp){
     int ret = xfread(s,sizeof(char),n-1,fp);
     s[ret] = '\0';
     return s;
 }
 
-/*  Gets a line from the file, allocating necessary memory.
- *  Returns pointer to line.
- *  Returns NULL if failed to allocate memory or other error
- *  Does not deal with MS-DOS style line-feeds gracefully.
+/**
+ * Get a line from a file, allocating necessary memory.
+ * Calling function is responsible for freeing allocated memory.
+ * Returns pointer to line, and length in len. Appends a null terminator.
+ * Returns NULL if fails to allocate memory or other error.
+ * Does not deal with MS-DOS style line-feeds gracefully.
  */
 char * xfgetln( XFILE * fp, size_t * len ){
     char * str = NULL;
@@ -325,4 +354,3 @@ char * xfgetln( XFILE * fp, size_t * len ){
 	
 	return str;
 }
-
