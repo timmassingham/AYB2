@@ -46,6 +46,7 @@ struct AybT {
     MAT lambda;
     MAT we, cycle_var;
 };
+
 /* constants */
 /* none */
 
@@ -104,8 +105,7 @@ static bool init_matrix() {
                 found = false;
             }
         }
-        xfclose(fpmat);
-        fpmat = NULL;
+        fpmat = xfclose(fpmat);
 
         /* exit if this iteration failed */
         if (!found) {
@@ -167,12 +167,11 @@ static void initialise_model() {
     MAT Pinv_t = transpose_inplace(invert(Ayb->P));
 
 #ifndef NDEBUG
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
         show_MAT(fpout, Minv_t, Minv_t->nrow, Minv_t->ncol);
         show_MAT(fpout, Pinv_t, Pinv_t->nrow, Pinv_t->ncol);
     }
-    xfclose(fpout);
-    fpout = NULL;
+    fpout = xfclose(fpout);
     fpout = open_output("pi");
 #endif
 
@@ -182,7 +181,7 @@ static void initialise_model() {
         pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
 
 #ifndef NDEBUG
-        if (!xisnull_file(fpout)) {
+        if (!xfisnull(fpout)) {
             show_MAT(fpout, pcl_int, pcl_int->nrow, pcl_int->ncol);
         }
 #endif
@@ -203,7 +202,7 @@ static void initialise_model() {
     }
 
 #ifndef NDEBUG
-    xfclose(fpout);
+    fpout = xfclose(fpout);
 #endif
 
     free_MAT(pcl_int);
@@ -291,7 +290,7 @@ static MAT * calculate_covariance(){
     real_t wesum = 0.;
 
 #ifndef NDEBUG
-    XFILE *fpout;
+    XFILE *fpout = NULL;
     fpout = open_output("cov_add");
 #endif
 
@@ -314,7 +313,7 @@ static MAT * calculate_covariance(){
         cl++;
 
 #ifndef NDEBUG
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
         show_MAT(fpout, V[0], NBASE, NBASE);
     }
 #endif
@@ -333,7 +332,7 @@ static MAT * calculate_covariance(){
     }
 
 #ifndef NDEBUG
-    xfclose(fpout);
+    fpout = xfclose(fpout);
 #endif
 
     return V;
@@ -350,15 +349,15 @@ static void estimate_bases() {
     MAT * V = calculate_covariance();
 
 #ifndef NDEBUG
-    XFILE *fpout;
+    XFILE *fpout = NULL;
     fpout = open_output("cov");
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
         xfputs("covariance:\n", fpout);
         for (uint32_t cy = 0; cy < ncycle; cy++){
             show_MAT(fpout, V[cy], NBASE, NBASE);
         }
     }
-    xfclose(fpout);
+    fpout = xfclose(fpout);
 #endif
 
     /* scale is variance of residuals; get from V matrices */
@@ -373,10 +372,10 @@ static void estimate_bases() {
 
 #ifndef NDEBUG
     fpout = open_output("ayb2");
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
         show_AYB(fpout, Ayb);
     }
-    xfclose(fpout);
+    fpout = xfclose(fpout);
 #endif
 
     /* invert variance matrices to get omega */
@@ -388,13 +387,13 @@ static void estimate_bases() {
 
 #ifndef NDEBUG
     fpout = open_output("om");
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
         xfputs("omega:\n", fpout);
         for (uint32_t cy = 0; cy < ncycle; cy++){
             show_MAT(fpout, V[cy], NBASE, NBASE);
         }
     }
-    xfclose(fpout);
+    fpout = xfclose(fpout);
 #endif
 
     /* process intensities then estimate lambda and call bases for each cluster */
@@ -404,7 +403,7 @@ static void estimate_bases() {
 
 #ifndef NDEBUG
     fpout = open_output("lam2");
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
         xfputs("lambda:\n", fpout);
     }
 #endif
@@ -421,7 +420,7 @@ static void estimate_bases() {
         Ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x);
 
 #ifndef NDEBUG
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
         xfprintf(fpout, "%d: %#12.6f\n", cl + 1, Ayb->lambda->x[cl]);
     }
 #endif
@@ -442,12 +441,12 @@ static void estimate_bases() {
     }
 
 #ifndef NDEBUG
-    xfclose(fpout);
+    fpout = xfclose(fpout);
     fpout = open_output("ayb3");
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
         show_AYB(fpout, Ayb);
     }
-    xfclose(fpout);
+    fpout = xfclose(fpout);
 #endif
 
     free_MAT(pcl_int);
@@ -466,10 +465,10 @@ static void output_results () {
 
     if (Ayb == NULL){return;}
 
-    XFILE *fpout;
+    XFILE *fpout = NULL;
     fpout = open_output("seq");
 
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
 
         const uint32_t ncluster = Ayb->ncluster;
         const uint32_t ncycle = Ayb->ncycle;
@@ -487,7 +486,7 @@ static void output_results () {
 //            fputc('\n',fp);
         }
     }
-    xfclose(fpout);
+    fpout = xfclose(fpout);
 }
 
 
@@ -604,7 +603,7 @@ void show_AYB(XFILE * fp, const AYB ayb){
 /** Analyse a single input file. File is already opened. */
 void analyse_tile (XFILE *fp) {
 
-    if (xisnull_file(fp)) {return;}
+    if (xfisnull(fp)) {return;}
 
     /* read intensity data from supplied file */
     read_intensities(fp);
@@ -624,12 +623,12 @@ void analyse_tile (XFILE *fp) {
     }
 
 #ifndef NDEBUG
-    XFILE *fpout;
+    XFILE *fpout = NULL;
     fpout = open_output("ayb1");
-    if (!xisnull_file(fpout)) {
+    if (!xfisnull(fpout)) {
         show_AYB(fpout, Ayb);
     }
-    xfclose(fpout);
+    fpout = xfclose(fpout);
 #endif
 
     /* base calling loop */

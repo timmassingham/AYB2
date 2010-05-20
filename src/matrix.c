@@ -225,7 +225,7 @@ MAT set_MAT( MAT mat, const real_t x){
  */
 MAT read_MAT_from_column_file(XFILE * fp){
 
-    if (xisnull_file(fp)) {return NULL;}
+    if (xfisnull(fp)) {return NULL;}
 
     /* get first line from file */
     char * line = NULL;

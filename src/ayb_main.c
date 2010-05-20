@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
     while (found) {
         fp = open_next(fp);
 
-        if (xisnull_file(fp)) {
+        if (xfisnull(fp)) {
             found = false;
         }
         else {

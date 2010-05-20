@@ -252,10 +252,9 @@ XFILE * open_matrix(IOTYPE idx) {
         if (full_path(Input_Path, Matrix[idx], &filepath)) {
            fp =  xfopen(filepath, XFILE_UNKNOWN, "r" );
 
-           if (xisnull_file(fp)) {
+           if (xfisnull(fp)) {
                message(E_OPEN_FAIL_SS, MSG_ERR, "Input matrix", filepath);
-               xfclose(fp);
-               fp = NULL;
+               fp = xfclose(fp);
            }
            else {
                message(E_INPUT_FOUND_S, MSG_INFO, Matrix[idx] );
@@ -278,7 +277,7 @@ XFILE * open_next(XFILE *fplast) {
     XFILE *fp = NULL;
 
     if (fplast != NULL) {
-        xfclose(fplast);
+        fplast = xfclose(fplast);
         Current = free_CSTRING(Current);
     }
 
@@ -290,10 +289,9 @@ XFILE * open_next(XFILE *fplast) {
         if (full_path(Input_Path, Current, &filepath)) {
            fp =  xfopen(filepath, XFILE_UNKNOWN, "r" );
 
-           if (xisnull_file(fp)) {
+           if (xfisnull(fp)) {
                message(E_OPEN_FAIL_SS, MSG_ERR, "Input", filepath);
-               xfclose(fp);
-               fp = NULL;
+               fp =xfclose(fp);
            }
            else {
                message(E_INPUT_FOUND_S, MSG_INFO, Current );
@@ -329,10 +327,9 @@ XFILE * open_output(const CSTRING tag) {
         if (full_path(Output_Path, filename, &filepath)) {
            fp =  xfopen(filepath, XFILE_UNKNOWN, "w" );
 
-           if (xisnull_file(fp)) {
+           if (xfisnull(fp)) {
                message(E_OPEN_FAIL_SS, MSG_ERR, "Output", filepath);
-               xfclose(fp);
-               fp = NULL;
+               fp = xfclose(fp);
            }
            else {
                message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, filename);
