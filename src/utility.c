@@ -4,7 +4,7 @@
  *   - CSTRING; a simple string type.
  *//*
  *  Created : 16 Mar 2010
- *  Author  : Hazel Marsden
+ *  Author  : Tim Massingham/Hazel Marsden
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
  *
@@ -49,8 +49,9 @@ CSTRING new_CSTRING(const size_t len) {
 }
 
 /** Free memory allocated to a string. */
-void free_CSTRING(CSTRING c) {
+CSTRING free_CSTRING(CSTRING c) {
     xfree(c);
+    return NULL;
 }
 
 /** Copy a string to a new one, allocating memory. */
@@ -62,20 +63,28 @@ CSTRING copy_CSTRING(const CSTRING c) {
     return n;
 }
 
-/** Increase the length of a string. No action if already at least specified length. */
+/** Increase the length of a string. No action if already at least specified length. Untested */
 void extend_CSTRING(CSTRING c, const size_t len) {
     if (NULL==c) {
         /* nothing to copy */
         c = new_CSTRING(len);
     }
     else {
-        if (strlen(c) < len) {
+        size_t oldlen = sizeof(c);
+        if (oldlen < len + 1) {
             /* make longer */
+            CSTRING n = realloc(c, len + 1);
+            if (n != NULL) {
+                memset(n + oldlen, len + 1 - oldlen , 0);
+                c = n;
+            }
+/*
             CSTRING n = new_CSTRING(len);
             validate(NULL!=n,);
             strcpy(n, c);
             free_CSTRING(c);
             c = n;
+*/
         }
         else {
             /* long enough already, do nothing */

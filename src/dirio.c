@@ -279,8 +279,7 @@ XFILE * open_next(XFILE *fplast) {
 
     if (fplast != NULL) {
         xfclose(fplast);
-        free_CSTRING(Current);
-        Current = NULL;
+        Current = free_CSTRING(Current);
     }
 
     if (++Index < Dir_Num) {
@@ -411,10 +410,10 @@ bool startup_dirio() {
 void tidyup_dirio() {
 
     /* free string memory */
-    free_CSTRING(Input_Path);
-    free_CSTRING(Output_Path);
-    free_CSTRING(Pattern);
+    Input_Path = free_CSTRING(Input_Path);
+    Output_Path = free_CSTRING(Output_Path);
+    Pattern = free_CSTRING(Pattern);
     for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
-        free_CSTRING(Matrix[idx]);
+        Matrix[idx] = free_CSTRING(Matrix[idx]);
     }
 }

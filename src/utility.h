@@ -36,10 +36,10 @@
 #include <stdio.h>
 
 /** Number of sequence bases. */
-#define NBASE 4
+//#define NBASE 4
 
-/** Safe Free memory. Checks supplied pointer not null and sets to null after. */
-static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr); ptr=NULL;} }
+/** Safe Free memory. Checks supplied pointer not null. */
+static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr);} }
 
 /**
  * Generic validation.
@@ -56,18 +56,22 @@ static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr); ptr=NULL;} }
 /** Define size of real data type to use. May be set to float or double.*/
 #ifdef USEFLOAT
     typedef float real_t;
-/** Match string to real converter to choice of real. */
+    /** Input format string for selected real_t. */
+    #define REAL_FORMAT_IN "%f"
+    /** String to real converter for selected real_t. */
     #define strtor strtof
 #else
     typedef double real_t;
-/** Match string to real converter to choice of real. */
+    /** Input format string for selected real_t. */
+    #define REAL_FORMAT_IN "%lf"
+    /** String to real converter for selected real_t. */
     #define strtor strtod
 #endif
 
 /** Simple string type */
 typedef char * CSTRING;
 CSTRING new_CSTRING(const size_t len);
-void free_CSTRING(CSTRING cstr);
+CSTRING free_CSTRING(CSTRING cstr);
 CSTRING copy_CSTRING(const CSTRING cstr);
 void extend_CSTRING(const CSTRING c, const size_t len);
 void show_CSTRING(FILE *fp, const CSTRING cstr);
