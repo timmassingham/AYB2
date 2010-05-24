@@ -1,0 +1,32 @@
+/*
+ * Main documentation page for doxygen.
+ */
+/**
+ * \mainpage
+ * This is the source code documentation for the AYB base calling software.
+ * The function of the AYB program is described in detail in the AYB Function document. 
+ *
+ * \section run Running the Program
+ * AYB runs from the command line with a number of required and optional parameters in standard long or short format. 
+ * Run the program with option --help to see the current list.
+ * Parameter input is handled in module ayb_options (ayb_options.c).
+ *
+ * \section values Expected Values
+ * The AYB program assumes the following input value ranges:
+ * - The number of Clusters is typically hundreds of thousands.
+ * - The Lane and Tile Indexes and Cluster Coordinates are integral.
+ * - All other input values are real with an expected range of +/- 10,000 and an accuracy of 1dp.
+ * 
+ * \section mess Program Messages
+ * All program messages, apart from a few at startup, are output using the General Messaging Utility in module message (message.c). 
+ * Program messages are output to stderr which can be redirected either as a program option or in a run script. 
+ * If program option is used then the file name will be prefix_yymmdd_hhmm.
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
