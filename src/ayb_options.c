@@ -30,12 +30,13 @@
 #include "ayb_model.h"
 #include "ayb_options.h"
 #include "ayb_version.h"
+#include "datablock.h"
 #include "dirio.h"          // I/O for this run hm??
 #include "message.h"        // message file location and level
 
 
 /* constants */
-/* none      */
+/* none */
 
 /* private functions that output bulk text */
 
@@ -66,20 +67,16 @@ void print_usage(FILE *fp) {
 
 
 /* members */
-
-/** AYB options structure; any here hmhm?. */
-static AYBOPT Options;
+/* none */
 
 /** Options with no short form. */
 enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
 
 /** Long option structure used by getopt_long. */
 static struct option Longopts[] = {
-    {"aval",        required_argument,  NULL, 'a'},
-    {"aflag",       no_argument,        NULL, 'f'},
-    {"cycles",      required_argument,  NULL, 'c'},
-    {"niter",       required_argument,  NULL, 'n'},
+    {"blockstring", required_argument,  NULL, 'b'},
     {"prefix",      required_argument,  NULL, 'x'},
+    {"niter",       required_argument,  NULL, 'n'},
     {"input",       required_argument,  NULL, 'i'},
     {"output",      required_argument,  NULL, 'o'},
     {"logfile",     required_argument,  NULL, 'e'},
@@ -98,16 +95,14 @@ static struct option Longopts[] = {
 
 /** Set default values for ayb options defined in this module. */
 static void init_options() {
-    Options.aflag = false;
-    Options.aval = 2;
 }
 
 
 /* public functions */
 
 /** Read options from command line arguments. Uses getopt_long to allow long and short forms. */
-bool read_options(const int argc, char ** const argv) {
-    bool carryon = true;
+OPTRET read_options(const int argc, char ** const argv) {
+    OPTRET carryon = E_CONTINUE;
 
     /* set default values */
     init_options();
@@ -115,32 +110,24 @@ bool read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "a:fc:n:x:i:o:e:l:M:N:P:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:x:n:i:o:e:l:M:N:P:", Longopts, NULL)) != -1){
 
         switch(ch){
-            case 'a':
-//                printf("option -a with value `%s'\n", optarg);
-                Options.aval = atoi(optarg);
-                break;
-
-            case 'f':
-//                printf("option -f\n");
-                Options.aflag = true;
-                break;
-
-            case 'c':
-                /* number of cycles */
-                set_ncycle(optarg);
-                break;
-
-            case 'n':
-                /* number of cycles */
-                set_niter(optarg);
+            case 'b':
+                /* pattern of data blocks */
+                if (!parse_blockopt(optarg)) {
+                    carryon = E_FAIL;
+                }
                 break;
 
             case 'x':
                 /* file pattern match */
                 set_pattern(optarg);
+                break;
+
+            case 'n':
+                /* number of cycles */
+                set_niter(optarg);
                 break;
 
             case 'i':
@@ -161,8 +148,8 @@ bool read_options(const int argc, char ** const argv) {
             case 'l':
                 /* message output level */
                 if (!set_message_level(optarg)) {
-                    fprintf(stderr, "Unrecognised error level option: \'%s\'\n\n", optarg);
-                     carryon = false;
+                    fprintf(stderr, "Fatal: Unrecognised error level option: \'%s\'\n\n", optarg);
+                     carryon = E_FAIL;
                 }
                 break;
 
@@ -184,32 +171,26 @@ bool read_options(const int argc, char ** const argv) {
             case OPT_HELP:
                 print_usage(stderr);
                 print_help(stderr);
-            	carryon = false;
+            	carryon = E_STOP;
                 break;
 
             case OPT_LICENCE:
                 print_licence(stderr);
-                carryon = false;
+                carryon = E_STOP;
                 break;
 
             case OPT_VERSION:
                 fprintf( stderr, "\n" PROGNAME " Version %0.2f  %s\n\n", Version, VersionDate);
 
-                carryon = false;
+                carryon = E_STOP;
                 break;
 
             default:
             	// getopt_long outputs an error message
                 print_usage(stderr);
-            	carryon = false;
+            	carryon = E_FAIL;
         }
     }
 
     return carryon;
 }
-
-/** Return a pointer to the options structure. */
-AYBOPT *myopt() {
-    return &Options;
-}
-

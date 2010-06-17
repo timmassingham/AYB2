@@ -33,17 +33,10 @@
 #define AUTHOR "Hazel Marsden"                  ///< Author in generic text.
 #define CONTACT "hazelm@ebi.ac.uk"              ///< Contact details in generic text.
 
-/** AYB options structure; any here hmhm?. */
-typedef struct {
-    bool aflag;
-    int aval;
-    int ncycle;
-} AYBOPT;
-
+typedef enum OptRetT {E_CONTINUE, E_FAIL, E_STOP} OPTRET;
 
 /* function prototypes */
 
-bool read_options(const int argc, char ** const argv);
-AYBOPT *myopt();
+OPTRET read_options(const int argc, char ** const argv);
 
 #endif /* AYB_OPTIONS_H_ */

@@ -8,7 +8,7 @@
 PROGNAME " Advanced Base Calling for Next-Generation Sequencing Machines\n"
 "\n"
 "Usage:\n"
-"\t" PROGNAME " -c cycles -x prefix -M Crosstalk -P Phasing -N Noise\n"
+"\t" PROGNAME " -b blockstring -x prefix -M Crosstalk -P Phasing -N Noise\n"
 "\t    [-n iterations] [-i input path] [-o output path]\n"
 "\t    [-e log path] [-l log level]\n"
 "\t" PROGNAME " --help\n"

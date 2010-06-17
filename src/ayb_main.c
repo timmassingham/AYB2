@@ -31,6 +31,7 @@
 #include <signal.h>
 #include "ayb_model.h"
 #include "ayb_options.h"
+#include "datablock.h"
 #include "dirio.h"
 #include "handler.h"
 #include "message.h"
@@ -50,6 +51,7 @@
 static void tidyup() {
     tidyup_model();
     tidyup_dirio();
+    tidyup_datablock();
     tidyup_message();
 }
 
@@ -62,27 +64,49 @@ static void tidyup() {
  */
 int main(int argc, char **argv) {
 
+    int ret = EXIT_SUCCESS;
+
     /* install signal handler   */
     signal(SIGINT, INThandler);
     signal(SIGFPE, FPEhandler);
 
     /* read program options */
-    if (!read_options(argc, argv)) {
-        return EXIT_FAILURE;
+    OPTRET optret = read_options(argc, argv);
+    switch (optret) {
+        case E_FAIL:
+            fprintf(stderr, "AYB failed during option read\n");
+            ret = EXIT_FAILURE;
+            goto cleanup;
+            break;
+
+        case E_STOP:
+            ret = EXIT_SUCCESS;
+            goto cleanup;
+            break;
+
+        /* nothing to do otherwise */
+        case E_CONTINUE:;
+        default:;
     }
 
     /* create a message log, name includes the prefix argument */
     if (!startup_message(get_pattern())) {
-        return EXIT_FAILURE;
+        fprintf(stderr, "AYB failed during message startup\n");
+        ret = EXIT_FAILURE;
+        goto cleanup;
     }
 
     /* scan the input directory */
     if (!startup_dirio()) {
-        return EXIT_FAILURE;
+        fprintf(stderr, "AYB failed during file search\n");
+        ret = EXIT_FAILURE;
+        goto cleanup;
     }
 
     if (!startup_model()) {
-        return EXIT_FAILURE;
+        fprintf(stderr, "AYB failed during model initialisation\n");
+        ret = EXIT_FAILURE;
+        goto cleanup;
     }
 
     /* process each intensity file until no more or a no continue error */
@@ -100,10 +124,10 @@ int main(int argc, char **argv) {
             more = analyse_tile(fp);
         }
     }
+    fprintf(stdout, "End of AYB\n");
 
+cleanup:
     /* tidy up before exit */
     tidyup();
-
-    fprintf(stdout, "%s\n", "End of AYB Main");
-    return EXIT_SUCCESS;
+    return ret;
 }
