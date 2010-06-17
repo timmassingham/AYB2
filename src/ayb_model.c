@@ -24,6 +24,7 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
 #include "ayb_model.h"
 #include "call_bases.h"
 #include "datablock.h"
@@ -32,7 +33,9 @@
 #include "lambda.h"
 #include "matrix.h"
 #include "message.h"
+#include "mpn.h"
 #include "nuc.h"
+#include "statistics.h"
 #include "tile.h"
 
 
@@ -49,9 +52,20 @@ struct AybT {
 };
 
 /* constants */
+static const unsigned int AYB_NITER = 20;       ///< Number of parameter estimation loops.
+
+/** Initial Crosstalk matrix if not read in, fixed values of approximately the right shape. */
+static real_t INITIAL_CROSSTALK[] = {
+    2.0114300, 1.7217841, 0.06436576, 0.1126401,
+    0.6919319, 1.8022413, 0.06436576, 0.0804572,
+    0.2735545, 0.2252802, 1.39995531, 0.9976693,
+    0.2896459, 0.2413716, 0.11264008, 1.3194981
+};
 
 /** Possible output format text, used to match program argument. */
 static const char *OUTFORM_TEXT[] = {"FASTA", "FASTQ"};
+/** Name text for matrix messages. */
+static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Phasing"};
 
 /* members */
 
@@ -67,54 +81,42 @@ static AYB Ayb = NULL;                          ///< The model data.
 /* private functions */
 
 /**
- * Initialise crosstalk (M), Phasing (P) or Noise (N) matrix using an internal method.
- * To be done.
+ * Read in any external crosstalk (M), Phasing (P) and Noise (N) matrices.
+ * Returns false if failed to read a supplied matrix file.
  */
-static bool standard_matrix(const IOTYPE idx) {
-    bool found = false;
-
-    switch (idx) {
-        case E_CROSSTALK:
-            break;
-
-        case E_NOISE:
-            break;
-
-        case E_PHASING:
-            break;
-
-        default: ;
-    }
-
-    return found;
-}
-
-/**
- * Initialise crosstalk (M), Phasing (P) and Noise (N) matrices.
- * May be read in or initialised using an internal method.
- */
-static bool init_matrix() {
+static bool read_matrices() {
     XFILE *fpmat = NULL;
     bool found = true;
 
     for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
-        fpmat = open_matrix(idx);
-        if (fpmat == NULL) {
-            /* no input file specified, initialise internally */
-            found = standard_matrix(idx);
-        }
-        else {
-            /* read in matrix */
-            Matrix[idx] = read_MAT_from_column_file(fpmat);
-            if (Matrix[idx] == NULL) {
+        if (matrix_from_file(idx)) {
+            fpmat = open_matrix(idx);
+            if (fpmat == NULL) {
                 found = false;
             }
+            else {
+                /* read in matrix */
+                Matrix[idx] = read_MAT_from_column_file(fpmat);
+                if (Matrix[idx] == NULL) {
+                    found = false;
+                }
+            }
+            fpmat = xfclose(fpmat);
         }
-        fpmat = xfclose(fpmat);
+        else {
+            /* no input file specified, initialise using internal method later */
+            Matrix[idx] = NULL;
+        }
 
         /* exit if this iteration failed */
         if (!found) {
             break;
+        }
+    }
+    if (found) {
+        /* Crosstalk is always the same size so create from default array */
+        if (Matrix[E_CROSSTALK] == NULL) {
+            Matrix[E_CROSSTALK] = new_MAT_from_array(NBASE, NBASE, INITIAL_CROSSTALK);
         }
     }
 
@@ -182,36 +184,72 @@ static TILE * create_datablocks(TILE maintile, const unsigned int numblock) {
 }
 
 /**
+ * Initialise crosstalk (M), Phasing (P) and Noise (N) matrices.
+ * May use read in values or initialise using an internal method.
+ */
+static MAT init_matrix(MAT mat, const IOTYPE idx) {
+
+    if (mat == NULL) {return NULL;}
+
+    if (Matrix[idx] == NULL) {
+        /* initialise internally */
+        unsigned int nrow = mat->nrow;
+        switch (idx) {
+            case E_CROSSTALK:
+                /* shouldn't reach this as crosstalk always set up in read_matrices */
+                /* initial crosstalk from default array */
+                mat = free_MAT(mat);
+                mat = new_MAT_from_array(NBASE, NBASE, INITIAL_CROSSTALK);
+                break;
+
+            case E_NOISE:
+                /* initial noise is zero */
+                set_MAT(mat, 0.0);
+                break;
+
+            case E_PHASING:
+                /* initial phasing */
+                #warning "Phasing not properly initialised yet"
+                mat = free_MAT(mat);
+                mat = identity_MAT(nrow);
+                break;
+
+            default: ;
+        }
+    }
+
+    else {
+        /* use read in matrix */
+        mat = copyinto_MAT(mat, Matrix[idx]);
+        if (mat == NULL) {
+            message (E_MATRIXINIT_SDD, MSG_ERR, MATRIX_TEXT[idx], mat->ncol, Matrix[idx]->ncol);
+        }
+    }
+    return mat;
+}
+
+/**
  * Set initial values for the model.
  * Returns false if one of the initial matrices is wrong dimension.
  */
 static bool initialise_model() {
 
     /* initial M, P, N */
-    MAT res = NULL;
-    res = copyinto_MAT(Ayb->M, Matrix[E_CROSSTALK]);
-    if (res == NULL) {
-        message (E_MATRIXINIT_SDD, MSG_ERR, "Crosstalk", NBASE, Matrix[E_CROSSTALK]->ncol);
+    Ayb->M = init_matrix(Ayb->M, E_CROSSTALK);
+    if (Ayb->M == NULL) {
+        message (E_MATRIX_FAIL_S, MSG_ERR, MATRIX_TEXT[E_CROSSTALK]);
         return false;
     }
-    res = copyinto_MAT(Ayb->N, Matrix[E_NOISE]);
-    if (res == NULL) {
-        message (E_MATRIXINIT_SDD, MSG_ERR, "Noise", Ayb->ncycle, Matrix[E_NOISE]->ncol);
+    Ayb->N = init_matrix(Ayb->N, E_NOISE);
+    if (Ayb->N == NULL) {
+        message (E_MATRIX_FAIL_S, MSG_ERR, MATRIX_TEXT[E_NOISE]);
         return false;
     }
-    res = copyinto_MAT(Ayb->P, Matrix[E_PHASING]);
-    if (res == NULL) {
-        message (E_MATRIXINIT_SDD, MSG_ERR, "Phasing", Ayb->ncycle, Matrix[E_PHASING]->ncol);
+    Ayb->P = init_matrix(Ayb->P, E_PHASING);
+    if (Ayb->P == NULL) {
+        message (E_MATRIX_FAIL_S, MSG_ERR, MATRIX_TEXT[E_PHASING]);
         return false;
     }
-
-    /* Initial cross-talk from default array */
-//    copyinto_MAT(ayb->M,initial_M);
-    /* Initial noise is zero */
-//    set_MAT(ayb->N,0.);
-    /* Initial phasing */
-//    #warning "Phasing not properly initialised yet"
-//    ayb->P = identity_MAT(ayb->ncycle);
 
     /* Initial weights and cycles are all equal. Arbitrarily one */
     set_MAT(Ayb->we, 1.0);
@@ -272,12 +310,170 @@ static bool initialise_model() {
     return true;
 }
 
+/** Calculate new weights. */
+static real_t update_cluster_weights(){
+    validate(NULL!=Ayb,NAN);
+    const uint32_t ncluster = Ayb->ncluster;
+    const uint32_t ncycle   = Ayb->ncycle;
+    real_t sumLSS = 0.;
+
+    MAT e = NULL;
+    /*  Calculate least squares error, using Ayb->we as temporary storage */
+    unsigned int cl = 0;
+    LIST(CLUSTER) node = Ayb->tile->clusterlist;
+    while (NULL != node && cl < ncluster){
+        Ayb->we->x[cl] = 0.;
+        MAT cycle_ints = node->elt->signals;
+        NUC * cycle_bases = Ayb->bases.elt + cl*ncycle;
+        e = expected_intensities(Ayb->lambda->x[cl],cycle_bases,Ayb->M,Ayb->P,Ayb->N,e);
+        for( uint32_t idx=0 ; idx<NBASE*ncycle ; idx++){
+            real_t tmp = cycle_ints->x[idx] - e->x[idx];
+            Ayb->we->x[cl] += tmp*tmp;
+        }
+        sumLSS += Ayb->we->x[cl];
+
+        /* next cluster */
+        node = node->nxt;
+        cl++;
+    }
+    free_MAT(e);
+
+    /* Calculate weight for each cluster */
+    real_t meanLSSi = mean(Ayb->we->x,ncluster);
+    real_t varLSSi = variance(Ayb->we->x,ncluster);
+    for ( uint32_t cl=0 ; cl<ncluster ; cl++){
+        const real_t d = Ayb->we->x[cl]-meanLSSi;
+        Ayb->we->x[cl] = cauchy(d*d,varLSSi);
+    }
+    //xfputs("Cluster weights:\n",xstderr);
+    //show_MAT(xstderr,Ayb->we,8,1);
+    return sumLSS;
+}
+
+/**
+ * Code for parameter estimation loop.
+ * Equivalent to parameter_estimation_loop in old AYB.
+ * - Updates: M, P, N
+ * - Recalculates weights
+ * - Scales all lambda by factor
+ */
+static real_t estimate_MPN(){
+    validate(NULL!=Ayb,NAN);
+    const uint32_t ncycle = Ayb->ncycle;
+    /*  Calculate new weights */
+    //timestamp("Updating weights\n",stderr);
+    real_t sumLSS = update_cluster_weights(Ayb);
+
+    /*  Precalculate terms for iteration */
+    //timestamp("Calculating matrices\n",stderr);
+    //timestamp("J\t",stderr);
+    MAT J = calculateJ(Ayb->lambda,Ayb->we,Ayb->bases,ncycle,NULL);
+    MAT Jt = transpose(J);
+    //timestamp("K\t",stderr);
+    MAT K = calculateK(Ayb->lambda,Ayb->we,Ayb->bases,Ayb->tile,ncycle,NULL);
+    //timestamp("Others\n",stderr);
+    MAT Kt = transpose(K);
+    MAT Sbar = calculateSbar(Ayb->lambda,Ayb->we,Ayb->bases,ncycle,NULL);
+    MAT SbarT = transpose(Sbar);
+    MAT Ibar = calculateIbar(Ayb->tile,Ayb->we,NULL);
+    MAT IbarT = transpose(Ibar);
+    real_t Wbar = calculateWbar(Ayb->we);
+    real_t lambdaf = 1.;
+    real_t * tmp = calloc(ncycle*ncycle*NBASE*NBASE,sizeof(real_t));
+    /* Convenience terms for M, P and N */
+    MAT matMt = transpose_inplace(Ayb->M);
+    MAT matP = Ayb->P;
+    MAT matN = Ayb->N;
+
+    //xfputs("Staring main loop",xstderr);
+    /*  Main iteration */
+    MAT mlhs=NULL,mrhs=NULL,plhs=NULL,prhs=NULL;
+    const uint32_t lda = NBASE + ncycle;
+    real_t det=0.;
+    //xfprintf(xstderr,"Starting\tdelta = %e\n",calculateDeltaLSE( matMt, matP, matN, J, K, tmp));
+    for( uint32_t i=0 ; i<AYB_NITER ; i++){
+        /*
+         *  Solution for phasing and constant noise
+         */
+        plhs = calculatePlhs(Wbar,Sbar,matMt,J,tmp,plhs);
+        prhs = calculatePrhs(Ibar,matMt,K,tmp,prhs);
+        solverSVD(plhs,prhs,tmp);
+        for ( uint32_t i=0 ; i<ncycle ; i++){
+            for(uint32_t j=0 ; j<ncycle ; j++){
+                matP->x[i*ncycle+j] = prhs->x[i*lda+j];
+            }
+        }
+        for ( uint32_t i=0 ; i<ncycle ; i++){
+            for(uint32_t j=0 ; j<NBASE ; j++){
+                matN->x[i*NBASE+j] = prhs->x[i*lda+ncycle+j];
+            }
+        }
+        // Scaling so det(P) = 1
+        det = normalise_MAT(matP,3e-8);
+        scale_MAT(J,det*det); scale_MAT(Jt,det*det);
+        scale_MAT(K,det);     scale_MAT(Kt,det);
+        scale_MAT(Sbar,det);  scale_MAT(SbarT,det);
+        lambdaf *= det;
+
+        /*
+         *  Solution for cross-talk and constant noise
+         */
+        mlhs = calculateMlhs(Ayb->cycle_var,Wbar,SbarT,matP,Jt,tmp,mlhs);
+        mrhs = calculateMrhs(Ayb->cycle_var,IbarT,matP,Kt,tmp,mrhs);
+        solverSVD(mlhs,mrhs,tmp);
+
+        for(uint32_t i=0 ; i<NBASE ; i++){
+            for(uint32_t j=0 ; j<NBASE ; j++){
+                matMt->x[i*NBASE+j] = mrhs->x[i*lda+j];
+            }
+        }
+        for(uint32_t i=0 ; i<NBASE ; i++){
+            for(uint32_t j=0 ; j<ncycle ; j++){
+                matN->x[j*NBASE+i] = mrhs->x[i*lda+j+NBASE];
+            }
+        }
+        // Scaling so det(M) = 1
+        det = normalise_MAT(matMt,3e-8);
+        scale_MAT(J,det*det); scale_MAT(Jt,det*det);
+        scale_MAT(K,det);     scale_MAT(Kt,det);
+        scale_MAT(Sbar,det);  scale_MAT(SbarT,det);
+        lambdaf *= det;
+        //xfprintf(xstderr,"... done %u\tdelta = %e\n",i,calculateDeltaLSE( matMt, matP, matN, J, K, tmp));
+    }
+    real_t delta = calculateDeltaLSE( matMt, matP, matN, J, K, tmp);
+
+    // Transpose Mt back to normal form
+    matMt = transpose_inplace(matMt);
+    // Scale lambdas by factor
+    scale_MAT(Ayb->lambda,lambdaf);
+
+    // Clean-up memory
+    free_MAT(prhs);
+    free_MAT(plhs);
+    free_MAT(mrhs);
+    free_MAT(mlhs);
+    xfree(tmp);
+    free_MAT(IbarT);
+    free_MAT(Ibar);
+    free_MAT(SbarT);
+    free_MAT(Sbar);
+    free_MAT(Kt);
+    free_MAT(K);
+    free_MAT(Jt);
+    free_MAT(J);
+
+    //xfprintf(xstderr,"Initial %e\tImprovement %e\t = %e\n",sumLSS,delta,sumLSS-delta);
+    //xfprintf(xstderr,"Updated weights %e\n", update_cluster_weights(ayb));
+    return sumLSS-delta;
+}
+
 /*
  * Routines to calculate covariance of errors, using the "fast approach".
  * Working with processed intensities.
  */
 
-/** Accumulate required variances (inner summation of variance calculation).
+/**
+ * Accumulate required variances (inner summation of variance calculation).
  * \n Note: If V is NULL, the required memory is allocated.
  * - p:        Matrix of processed intensities
  * - lambda:   Brightness of cluster
@@ -335,8 +531,8 @@ cleanup:
 }
 
 /**
- *  Calculate covariance of (processed) residuals.
- *  Returns a pointer to array of matrices, one per cycle.
+ * Calculate covariance of (processed) residuals.
+ * Returns a pointer to array of matrices, one per cycle.
  */
 static MAT * calculate_covariance(){
 
@@ -407,11 +603,19 @@ static void estimate_bases() {
     const uint32_t ncluster = Ayb->ncluster;
     const uint32_t ncycle = Ayb->ncycle;
 
+#ifndef NDEBUG
+    XFILE *fpout = NULL;
+    fpout = open_output("ayb2");
+    if (!xfisnull(fpout)) {
+        show_AYB(fpout, Ayb);
+    }
+    fpout = xfclose(fpout);
+#endif
+
     /* calculate covariance */
     MAT * V = calculate_covariance();
 
 #ifndef NDEBUG
-    XFILE *fpout = NULL;
     fpout = open_output("cov");
     if (!xfisnull(fpout)) {
         xfputs("covariance:\n", fpout);
@@ -431,14 +635,6 @@ static void estimate_bases() {
         /* hmhm I have no idea why a reciprocal is taken here */
 //        Ayb->cycle_var->x[cy] = 1.0/Ayb->cycle_var->x[cy];
     }
-
-#ifndef NDEBUG
-    fpout = open_output("ayb2");
-    if (!xfisnull(fpout)) {
-        show_AYB(fpout, Ayb);
-    }
-    fpout = xfclose(fpout);
-#endif
 
     /* invert variance matrices to get omega */
     for (uint32_t cy = 0; cy < ncycle; cy++){
@@ -705,7 +901,7 @@ bool analyse_tile (XFILE *fp) {
         Ayb = new_AYB(tileblock[blk]->ncycle, ncluster);
         if (Ayb == NULL) {
             message(E_NOMEM_S, MSG_FATAL, "model structure creation");
-            message(E_INIT_FAIL_SD, MSG_INFO, get_current_file(), blk + 1);
+            message(E_INIT_FAIL_DD, MSG_ERR, blk + 1, tileblock[blk]->ncycle);
             goon = false;
             goto cleanup;
         }
@@ -717,6 +913,8 @@ bool analyse_tile (XFILE *fp) {
 
         /* set initial model values */
         if (initialise_model()) {
+            message(E_PROCESS_DD, MSG_INFO, blk + 1, Ayb->ncycle);
+
 #ifndef NDEBUG
             XFILE *fpout = NULL;
             fpout = open_output_blk("ayb1", (numblock > 1)?blk:-1);
@@ -728,12 +926,15 @@ bool analyse_tile (XFILE *fp) {
 
             /* base calling loop */
             for (int i = 0; i < NIter; i++){
-            //    estimate_MPC(ayb);
+                estimate_MPN();
                 estimate_bases();
             }
 
             /* output the results */
             goon = output_results((numblock > 1)?blk:-1);
+        }
+        else {
+            message(E_INIT_FAIL_DD, MSG_ERR, blk + 1, Ayb->ncycle);
         }
 
         /* free the structure ready for next */
@@ -806,8 +1007,8 @@ bool startup_model(){
             message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
             message(E_OUTPUT_FORM_S, MSG_INFO, OUTFORM_TEXT[OutputFormat]);
 
-            /* initialise M, N, P */
-            return init_matrix();
+            /* read any M, N, P */
+            return read_matrices();
         }
     }
 }
