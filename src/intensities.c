@@ -62,7 +62,6 @@ MAT process_intensities(const MAT intensities,
         ip = new_MAT(NBASE, ncycle);
         validate(NULL != ip, NULL);
     }
-//    bzero(p->x,p->nrow * p->ncol * sizeof(real_t));
     memset(ip->x, 0, ip->nrow * ip->ncol * sizeof(real_t));
 
     for (uint32_t icol = 0; icol < ncycle; icol++) {    // Columns of Intensity
@@ -79,4 +78,35 @@ MAT process_intensities(const MAT intensities,
     }
 
     return ip;
+}
+
+MAT expected_intensities(const real_t lambda, const NUC * bases,
+                         const MAT M, const MAT P, const MAT N, MAT e){
+    validate(lambda>=0,NULL);
+    validate(NULL!=bases,NULL);
+    validate(NULL!=M,NULL);
+    validate(NULL!=P,NULL);
+    validate(NULL!=N,NULL);
+    const uint32_t ncycle = P->nrow;
+    if(NULL==e){
+        e = new_MAT(NBASE,ncycle);
+        validate(NULL!=e,NULL);
+    }
+    memset(e->x, 0, NBASE*ncycle*sizeof(real_t));
+    for(uint32_t cy2=0 ; cy2<ncycle ; cy2++){
+        for(uint32_t cy=0 ; cy<ncycle ; cy++){
+            const NUC base = bases[cy];
+            for ( uint32_t ch=0 ; ch<NBASE ; ch++){
+                e->x[cy2*NBASE+ch] += M->x[base*NBASE+ch] * P->x[cy2*ncycle+cy];
+            }
+        }
+    }
+
+    // Multiply by brightness;
+    scale_MAT(e,lambda);
+    // Add noise
+    for ( uint32_t i=0 ; i<(NBASE*ncycle) ; i++){
+        e->x[i] += N->x[i];
+    }
+    return e;
 }

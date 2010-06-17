@@ -28,9 +28,13 @@
 #define INTENSITIES_H_
 
 #include "matrix.h"
+#include "nuc.h"
 
 /* function prototypes */
 MAT process_intensities(const MAT intensities,
-                        const MAT Minv_t, const MAT Pinv_t, const MAT N, MAT p);
+                        const MAT Minv_t, const MAT Pinv_t, const MAT N, MAT ip);
+MAT expected_intensities(const real_t lambda, const NUC * bases,
+                         const MAT M, const MAT P, const MAT N, MAT e);
+
 
 #endif /* INTENSITIES_H_ */
