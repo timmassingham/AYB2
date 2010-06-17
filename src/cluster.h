@@ -42,10 +42,11 @@ CLUSTER free_CLUSTER(CLUSTER cluster);
 CLUSTER copy_CLUSTER(const CLUSTER cluster);
 void show_CLUSTER(XFILE * fp, const CLUSTER cluster);
 
+// standard variations
+CLUSTER copy_append_CLUSTER(CLUSTER clustout, const CLUSTER clustin, int colstart, int colend);
+
 // Input
-/*hmhm*/
-//CLUSTER read_known_CLUSTER( XFILE * fp, const unsigned int ncycle);
-CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle);
+CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle, bool moredata);
 CLUSTER read_unknown_CLUSTER( XFILE * fp);
 
 #endif /* CLUSTER_H_ */

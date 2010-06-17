@@ -59,6 +59,7 @@ CLUSTER free_CLUSTER(CLUSTER cluster){
 }
 
 CLUSTER copy_CLUSTER(const CLUSTER cluster){
+    if(NULL==cluster){ return NULL;}
     CLUSTER cl = new_CLUSTER();
     if(NULL==cl){ return NULL;}
     cl->signals = copy_MAT(cluster->signals);
@@ -81,6 +82,30 @@ void show_CLUSTER(XFILE * fp, const CLUSTER cluster){
     show_MAT(fp,cluster->signals,4,5);
 }
 
+/** 
+ * Append clustin onto clustout, selecting data columns. 
+ * clustout may be null, in which case it is created using details from clustin.
+ * See matrix() append_columns for error handling.
+ */
+CLUSTER copy_append_CLUSTER(CLUSTER clustout, const CLUSTER clustin, int colstart, int colend){
+
+    /* validate parameters */
+    if(NULL==clustin) {return clustout;}
+    
+    if (NULL==clustout){
+        clustout = new_CLUSTER();
+        if(NULL==clustout){ return NULL;}
+        clustout->x = clustin->x;
+        clustout->y = clustin->y;
+        clustout->signals = NULL;
+    }
+    /* append the selected matrix columns */
+    clustout->signals = append_columns(clustout->signals, clustin->signals, colstart, colend);
+    
+    /* hmhm any error checking required?? */
+    return clustout;
+}
+
 /*
  * Basic input functions from file
  */
@@ -88,9 +113,7 @@ void show_CLUSTER(XFILE * fp, const CLUSTER cluster){
  * Format should be that of Illumina's _int.txt
  * A little validation of the file format is performed.
  */
-/*hmhm*/
-//CLUSTER read_known_CLUSTER( XFILE * fp, const unsigned int ncycle){
-CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle){
+CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle, bool moredata){
     char * line = NULL;
     MAT signals = NULL;
     CLUSTER cluster = NULL;
@@ -113,7 +136,7 @@ CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle){
 
     /* read cycle data */
     int nc = *ncycle;
-    signals = new_MAT_from_line(NBASE, &nc, ptr);
+    signals = new_MAT_from_line(NBASE, &nc, ptr, moredata);
     if((NULL==signals) || (nc == 0)) {goto cleanup;}
 
     /* store all the data in the cluster */
@@ -141,19 +164,36 @@ CLUSTER read_unknown_CLUSTER( XFILE * fp){
 
 #ifdef TEST
 #include <stdio.h>
-int main(int argc , char * argv[]){
+int main(int argc, char * argv[]){
     if(argc!=3){
         fputs("Usage: test ncycle filename\n",stdout);
         return EXIT_FAILURE;
     }
 
     unsigned int ncycle = 0;
-    sscanf(argv[1],"%u",&ncycle);
+    sscanf(argv[1], "%u", &ncycle);
 
+    /* test read from file */
     XFILE * fp = xfopen(argv[2],XFILE_UNKNOWN,"r");
-    CLUSTER cl = read_known_CLUSTER(fp,ncycle);
-    show_CLUSTER(xstdout,cl);
+    CLUSTER cl = read_known_CLUSTER(fp, &ncycle, true);
+    show_CLUSTER(xstdout, cl);
+    
+    /* test copy */
+    CLUSTER cl2 = copy_CLUSTER(cl);
+    show_CLUSTER(xstdout, cl2);
+
+    /* test copy_append, from second column to half way */
+    cl = copy_append_CLUSTER(cl, cl2, 1, cl2->signals->ncol/2);
+    show_CLUSTER(xstdout, cl);
+    
+    /* test copy append to null */
+    CLUSTER cl3 = NULL;
+    cl3 = copy_append_CLUSTER(cl3, cl2, 1, cl2->signals->ncol/2);
+    show_CLUSTER(xstdout, cl3);
+       
     free_CLUSTER(cl);
+    free_CLUSTER(cl2);
+    free_CLUSTER(cl3);
     xfclose(fp);
     return EXIT_SUCCESS;
 }
