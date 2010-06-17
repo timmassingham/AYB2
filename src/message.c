@@ -62,6 +62,7 @@ static const char *MSG_TEXT[] = {
         "Input file found: %s\n",                                               // E_INPUT_FOUND_S
         "Failed to read input file: %s\n",                                      // E_BAD_INPUT_S
         "Failed to create data blocks for input file: %s\n",                    // E_DATABLOCK_FAIL_S
+        "Failed to initialise %s matrix\n",                                     // E_MATRIX_FAIL_S
         "Supplied %s location parameter \'%s\' is not a directory\n",           // E_BAD_DIR_SS
         "Failed to create new %s directory \'%s\'\n",                           // E_NOCREATE_DIR_SS
         "Created new %s directory: %s\n",                                       // E_CREATED_DIR_SS
@@ -69,10 +70,11 @@ static const char *MSG_TEXT[] = {
         "%s file failed to open: %s\n",                                         // E_OPEN_FAIL_SS
         "Input file pattern match: \'%s...\'; %d files found\n",                // E_PATTERN_MATCH_SD
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
-        "Failed to initialise model for input file: %s; block: %d\n",           // E_INIT_FAIL_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
         "Intensity file contains less data than requested; %d instead of %d\n", // E_CYCLESIZE_DD
+        "Failed to initialise model for block %d, %d cycles\n",                 // E_INIT_FAIL_DD
+        "Processing block %d, %d cycles\n",                                     // E_PROCESS_DD
 
         "%s %20s\n",                                                            // E_GENERIC_SS
         "%s %d\n",                                                              // E_GENERIC_SD
