@@ -36,7 +36,6 @@
 #include <string.h>
 #include <math.h>
 #include "matrix.h"
-#include "message.h"
 #include "lapack.h"
 
 
@@ -149,9 +148,10 @@ MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t *
 
 /**
  * Create a new matrix from tab separated sets of columns in a line of char.
- * Return amended number of columns as reference parameter if not enough found.
+ * Check for extra columns if requested.
+ * Return actual number of columns found as reference parameter if not enough or extra check requested.
  */
-MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr){
+MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr, bool moredata){
 
     if (ptr == NULL) {return NULL;}
     MAT mat = new_MAT(nrow, *ncol);
@@ -177,9 +177,36 @@ MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr){
                 }
             }
         }
-   }
+    }
 
-    if (!found) {
+    if (found) {
+        if (moredata) {
+            /* check if any more data */
+            while (found) {
+                if(ptr[0] != '\t'){
+                    found = false;
+                }
+                else {
+                    int cnt = 0;
+                    real_t temp;
+                    for (int nr = 0; nr < nrow; nr++) {
+                        if (ptr[0] == 0) {
+                            found = false;
+                            break;
+                        }
+                        else {
+                            temp = strtor(ptr, &ptr);
+                            cnt++;
+                        }
+                    }
+                    /* only count complete columns */
+                    if (cnt == nrow) {++nc;}
+                }
+            }
+            *ncol = nc;
+        }
+    }
+    else {
         /* resize the matrix to match number of columns found */
         mat = trim_MAT(mat, nrow, nc, true);
         *ncol = nc;
@@ -206,6 +233,75 @@ MAT copyinto_MAT( MAT newmat, const MAT mat){
     return newmat;
 }
 
+/**
+ * Append matrix columns, from colstart to colend inclusive, from matin onto matout.
+ * matout may be empty, in which case it is created with same number of rows as matin.
+ * Returns matout unchanged if:
+ * - matin is null
+ * - colstart is greater than colend (warning issued)
+ * - matin and matout do not have the same number of rows (warning issued)
+ * - matout is not empty and extend fails
+ *
+ * Returns NULL if:
+ *  - matout is empty and create fails
+ *
+ * Parameter validation:
+ * - colstart is coerced to zero if negative and a warning issued.
+ * - colend is coerced to last column if greater and a warning issued.
+ */
+MAT append_columns(MAT matout, const MAT matin, int colstart, int colend) {
+    int colout = 0;
+
+    /* validate parameters */
+    validate(NULL != matin, matout);
+    int nrow = matin->nrow;
+    int ncol = matin->ncol;
+
+    if (colstart < 0) {
+        warnx("Matrix append_columns: column start increased from %d to 0.", colstart);
+        colstart = 0;
+    }
+    if (colstart > colend) {
+        warnx("Matrix append_columns: column start (%d) greater than column end (%d).", colstart, colend);
+        return matout;
+    }
+    if (colend >= ncol) {
+        warnx("Matrix append_columns: column end reduced from %d to maximum (%d).", colend, ncol - 1);
+        colend = ncol - 1;
+    }
+
+    if (matout != NULL) {
+        if (matout->nrow != nrow) {
+            warnx("Matrix append_columns: different number of rows in source (%d) and target (%d).", nrow, matout->nrow );
+            return matout;
+        }
+        /* target column to start append */
+        colout = matout->ncol;
+    }
+
+    /* calculate size of appended matrix and create or extend */
+    int newcol = colout + colend - colstart + 1;
+    if (matout == NULL) {
+        matout = new_MAT(nrow, newcol);
+        validate(NULL != matout, NULL);
+    }
+    else {
+        real_t * tmp = realloc(matout->x, nrow * newcol * sizeof(real_t));
+        if (NULL == tmp) {
+            WARN_MEM("matrix append");
+            return matout;
+        }
+        matout->ncol = newcol;
+        matout->x = tmp;
+    }
+
+    /* copy selected columns to append */
+    memcpy(matout->x + colout * nrow, matin->x + colstart * nrow,
+           nrow * (colend - colstart + 1) * sizeof(real_t));
+
+    return matout;
+}
+
 /** Set all elements in a supplied matrix to the specified value. */
 MAT set_MAT( MAT mat, const real_t x){
     if(NULL==mat){ return NULL;}
@@ -223,7 +319,7 @@ MAT set_MAT( MAT mat, const real_t x){
  *                  not enough elements
  *                  if too many elements then remainder ignored
  */
-MAT read_MAT_from_column_file(XFILE * fp){
+MAT read_MAT_from_column_file(XFILE * fp) {
 
     if (xfisnull(fp)) {return NULL;}
 
@@ -240,7 +336,7 @@ MAT read_MAT_from_column_file(XFILE * fp){
     xfree(line);
     line = NULL;
     if ((nrow <= 0) || (ncol <= 0)) {
-        message(E_BAD_MATSIZE_DD, MSG_ERR, nrow, ncol);
+        warnx("Matrix size incorrectly specified: read in as %d by %d", nrow, ncol);
         return NULL;
     }
 
@@ -269,7 +365,8 @@ MAT read_MAT_from_column_file(XFILE * fp){
 
     if (!found) {
         /* failed to read enough elements */
-        message(E_READ_ERR_DSD, MSG_ERR, ncol, "column rows", nc);
+        warnx("Insufficient matrix data or incorrect file format; "
+                "expected %d column rows but found only %d", ncol, nc);
         mat = free_MAT(mat);
     }
     return mat;
@@ -501,3 +598,77 @@ real_t xMy( const real_t * x, const MAT M, const real_t * y){
     }
     return res;
 }
+
+#ifdef TEST
+
+int main (int argc, char * argv[]){
+    if(argc!=3){
+        fputs("Usage: test appendfrom appendto (filenames)\n",stdout);
+        return EXIT_FAILURE;
+    }
+
+    /* read inputs */
+    XFILE * fp = xfopen(argv[1], XFILE_UNKNOWN, "r");
+    MAT matout = read_MAT_from_column_file(fp);
+    fp = xfclose (fp);
+    fp = xfopen(argv[2], XFILE_UNKNOWN, "r");
+    MAT matin = read_MAT_from_column_file(fp);
+    fp = xfclose (fp);
+
+    /* use copy of target file to preserve original */
+    MAT outcopy;
+
+    fputs("Append all:\n", stdout);
+    outcopy = copy_MAT(matout);
+    outcopy = append_columns(outcopy, matin, 0, matin->ncol - 1);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+
+    fputs("Append some:\n", stdout);
+    outcopy = copy_MAT(matout);
+    outcopy = append_columns(outcopy, matin, 1, matin->ncol - 2);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+
+    fputs("Append to null:\n", stdout);
+//    outcopy = copy_MAT(matout);
+    outcopy = append_columns(outcopy, matin, 1, matin->ncol - 2);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+
+    fputs("Append from null:\n", stdout);
+    outcopy = copy_MAT(matout);
+    outcopy = append_columns(outcopy, NULL, 1, matin->ncol - 2);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+
+    fputs("Append colstart > colend:\n", stdout);
+    outcopy = copy_MAT(matout);
+    outcopy = append_columns(outcopy, matin, matin->ncol/2 + 1, matin->ncol/2);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+
+    fputs("Append colstart negative:\n", stdout);
+    outcopy = copy_MAT(matout);
+    outcopy = append_columns(outcopy, matin, -1, matin->ncol - 2);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+
+    fputs("Append colend larger than source:\n", stdout);
+    outcopy = copy_MAT(matout);
+    outcopy = append_columns(outcopy, matin, 1, matin->ncol);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+
+    fputs("Append row mismatch:\n", stdout);
+//    outcopy = copy_MAT(matout);
+    outcopy = new_MAT(matin->nrow + 1, matin->ncol);
+    outcopy = append_columns(outcopy, matin, 1, matin->ncol - 2);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+
+    free_MAT(matin);
+    free_MAT(matout);
+}
+
+#endif
