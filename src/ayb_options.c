@@ -76,6 +76,7 @@ enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
 static struct option Longopts[] = {
     {"blockstring", required_argument,  NULL, 'b'},
     {"prefix",      required_argument,  NULL, 'x'},
+    {"format",      required_argument,  NULL, 'f'},
     {"niter",       required_argument,  NULL, 'n'},
     {"input",       required_argument,  NULL, 'i'},
     {"output",      required_argument,  NULL, 'o'},
@@ -110,7 +111,7 @@ OPTRET read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:x:n:i:o:e:l:M:N:P:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:x:f:n:i:o:e:l:M:N:P:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'b':
@@ -123,6 +124,14 @@ OPTRET read_options(const int argc, char ** const argv) {
             case 'x':
                 /* file pattern match */
                 set_pattern(optarg);
+                break;
+
+            case 'f':
+                /* output format */
+                if (!set_output_format(optarg)) {
+                    fprintf(stderr, "Fatal: Unrecognised output format option: \'%s\'\n\n", optarg);
+                     carryon = E_FAIL;
+                }
                 break;
 
             case 'n':

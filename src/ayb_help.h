@@ -11,6 +11,8 @@
 "\t(R=Read, I=Ignore, C=Concatenate onto previous block)\n"
 "\t(First R must precede first C)\n\n"
 "  -x  --prefix <path>\t\tFilter input files by match to prefix [required]\n"
+"  -f  --format <format>\t\tOutput format [default: fasta]\n"
+"\t\t\t\t(fasta/fastq)\n"
 "  -n  --niter <num>\t\tNumber of model iterations [default: 5]\n"
 "  -i  --input <path>\t\tLocation of input files [default: \"\"]\n"
 "  -o  --output <path>\t\tLocation to create output files [default: \"\"]\n"
