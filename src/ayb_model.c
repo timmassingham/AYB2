@@ -49,10 +49,16 @@ struct AybT {
 };
 
 /* constants */
-/* none */
+
+/** Possible output format text, used to match program argument. */
+static const char *OUTFORM_TEXT[] = {"FASTA", "FASTQ"};
 
 /* members */
 
+/** Possible output formats. */
+typedef enum OutFormT {E_FASTA, E_FASTQ, E_OUTFORM_NUM} OUTFORM;
+
+static OUTFORM OutputFormat = E_FASTA;          ///< Selected output format.
 static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.
 static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
 static AYB Ayb = NULL;                          ///< The model data.
@@ -530,17 +536,22 @@ static bool output_results (int blk) {
     const uint32_t ncluster = Ayb->ncluster;
     const uint32_t ncycle = Ayb->ncycle;
 
+    int symbol = (OutputFormat == E_FASTQ)?'@':'>';
+
     for (uint32_t cl = 0; cl < ncluster; cl++){
-        xfprintf(fpout, ">cluster_%03u\n", cl + 1);
+        xfprintf(fpout, "%ccluster_%03u\n", symbol, cl + 1);
         for (uint32_t cy = 0; cy < ncycle; cy++){
             show_NUC(fpout, Ayb->bases.elt[cl * ncycle + cy]);
         }
-//        fputs("\n+\n",fp);
-        xfputs("\n", fpout);
-//        for (uint32_t cy = 0; cy < ncycle; cy++){
-//            show_PHREDCHAR(fpout, Ayb->quals.elt[cl * ncycle + cy]);
-//        }
-//        fputc('\n',fp);
+        /* quality score */
+        if (OutputFormat == E_FASTQ) {
+            xfputs("\n+\n", fpout);
+            for (uint32_t cy = 0; cy < ncycle; cy++){
+                show_PHREDCHAR(fpout, Ayb->quals.elt[cl * ncycle + cy]);
+            }
+        }
+//        xfputs("\n", fpout);
+        xfputc('\n', fpout);
     }
     fpout = xfclose(fpout);
     return true;
@@ -748,6 +759,23 @@ void set_niter(const char *niter_str) {
 }
 
 /**
+ * Set the output format. Text must match one of the output format text list. Ignores case.
+ * Returns true if match found.
+ */
+bool set_output_format(const char *outform_str) {
+
+    /* match to one of the possible options */
+    int matchidx = match_string(outform_str, OUTFORM_TEXT, E_OUTFORM_NUM);
+    if (matchidx >= 0) {
+        OutputFormat = matchidx;
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+/**
  * Start up; call at program start after options.
  * Returns true if cycle blocks and iterations parameters are ok
  * and M, N, P matrix initialisation is successful.
@@ -776,6 +804,7 @@ bool startup_model(){
         }
         else {
             message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
+            message(E_OUTPUT_FORM_S, MSG_INFO, OUTFORM_TEXT[OutputFormat]);
 
             /* initialise M, N, P */
             return init_matrix();
