@@ -339,6 +339,11 @@ CSTRING get_pattern() {
     }
 }
 
+/** Return if a predetermined matrix input file is specified */
+bool matrix_from_file(IOTYPE idx) {
+    return (Matrix[idx] != NULL);
+}
+
 /**
  * Open a predetermined input matrix file.
  * Return the file handle or NULL if failed to open.

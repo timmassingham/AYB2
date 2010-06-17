@@ -45,6 +45,7 @@ typedef enum IOTypeT {E_CROSSTALK, E_NOISE, E_PHASING, E_INPUT, E_OUTPUT, E_NMAT
 bool check_outdir(const CSTRING dirname, const char * typestr);
 CSTRING get_current_file();
 CSTRING get_pattern();
+bool matrix_from_file(IOTYPE idx);
 
 XFILE * open_matrix(IOTYPE mode);
 XFILE * open_next(XFILE *fplast);
