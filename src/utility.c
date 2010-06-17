@@ -2,6 +2,7 @@
  * \file utility.c
  * General Utilities.
  *   - CSTRING; a simple string type.
+ *   - General string utilities.
  *//*
  *  Created : 16 Mar 2010
  *  Author  : Tim Massingham/Hazel Marsden
@@ -97,4 +98,20 @@ void show_CSTRING(FILE *fp, const CSTRING c) {
     validate(NULL!=fp,);
     validate(NULL!=c,);
     fputs(c, fp);
+}
+
+/* General string utilities */
+
+/** Match a string to one of a list. Returns index of match or -1 if none. */
+int match_string(const char *string, const char *match[], int num) {
+
+    int result = -1;
+
+    for (int idx = 0; idx < num; idx++) {
+        if (strcasecmp(string, match[idx]) == 0) {
+            result = idx;
+            break;
+        }
+    }
+    return result;
 }
