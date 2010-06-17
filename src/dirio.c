@@ -49,6 +49,7 @@ static const char DOT = '.';                    ///< Before file extension, used
 static const char DELIM = '_';                  ///< Before tag, used for tag location.
 static const char *INTEN_TAG = "int";           ///< Fixed Intensities file tag.
 static const char *INTEN_SUF = "txt";           ///< Fixed Intensities file suffix.
+static const char BLOCKCHAR = 'a';
 /**
  * Permission flags for a directory; owner/group all plus other read/execute.
  * Used by output directory create but seems to be ignored in favour of parent adoption.
@@ -208,7 +209,7 @@ static int match_pattern(const struct dirent *list) {
  * Replaces the part between the last delimiter and the first dot with a new tag.
  * Removes any compression suffix.
  */
-static CSTRING output_name(const CSTRING oldname, const CSTRING tag) {
+static CSTRING output_name(const CSTRING oldname, const CSTRING tag, int blk) {
 
     CSTRING newname = NULL;
     size_t oldlen = strlen(oldname);
@@ -229,7 +230,7 @@ static CSTRING output_name(const CSTRING oldname, const CSTRING tag) {
     }
 
     /* get a string of size for new name */
-    newname = new_CSTRING(oldlen + taglen - (pdot - pdlm - 1));
+    newname = new_CSTRING(oldlen + taglen + (blk >= 0)?1:0 - (pdot - pdlm - 1));
 
     if (newname == NULL) {
         message(E_NOMEM_S, MSG_FATAL, " output name creation");
@@ -238,9 +239,14 @@ static CSTRING output_name(const CSTRING oldname, const CSTRING tag) {
         /* copy the component parts to the new name */
         char *pnext;
         int pos = 0;
-        for (pnext = oldname; pnext <= pdlm; pnext++) {
+        for (pnext = oldname; pnext < pdlm; pnext++) {
             newname[pos++] = *pnext;
         }
+        /* add block suffix before delimeter */
+        if (blk >= 0) {
+            newname[pos++] = BLOCKCHAR + blk;
+        }
+        newname[pos++] = *pdlm;
         for (pnext = tag; pnext < tag + taglen; pnext++) {
             newname[pos++] = *pnext;
         }
@@ -261,7 +267,6 @@ static CSTRING output_name(const CSTRING oldname, const CSTRING tag) {
     return newname;
 }
 
-
 /**
  * Scan the input directory for any files that match the specified pattern.
  * Result placed in Dir_List. Return the number found.
@@ -273,7 +278,7 @@ static int scan_inputs() {
     if (num < 0) {
         /* hmhm new message func to return a message string */
         char msg[80];
-        sprintf(msg, "Couldn't open the directory: \'%s\'", Input_Path);
+        sprintf(msg, "Fatal: Couldn't open the directory: \'%s\'", Input_Path);
         perror (msg);
     }
     else {
@@ -403,11 +408,17 @@ XFILE * open_next(XFILE *fplast) {
     return fp;
 }
 
+/** Open an output file with no block suffix. */
+XFILE * open_output(const CSTRING tag) {
+    return open_output_blk(tag, -1);
+}
+
 /**
  * Open an output file corresponding to current input file with supplied tag.
+ * A non-negative blk indicates a block suffix should be added to the name.
  * Return the file handle or NULL if failed to open.
  */
-XFILE * open_output(const CSTRING tag) {
+XFILE * open_output_blk(const CSTRING tag, int blk) {
 
     CSTRING filename = NULL;
     CSTRING filepath = NULL;
@@ -419,7 +430,7 @@ XFILE * open_output(const CSTRING tag) {
     }
     else {
         /* create output file name from current input */
-        filename = output_name(Current, tag);
+        filename = output_name(Current, tag, blk);
     }
 
     if (filename != NULL) {

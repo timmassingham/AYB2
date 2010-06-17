@@ -49,6 +49,7 @@ CSTRING get_pattern();
 XFILE * open_matrix(IOTYPE mode);
 XFILE * open_next(XFILE *fplast);
 XFILE * open_output(CSTRING tag);
+XFILE * open_output_blk(CSTRING tag, int blk);
 
 void set_location(const CSTRING path, IOTYPE mode);
 void set_pattern(const CSTRING pattern);
