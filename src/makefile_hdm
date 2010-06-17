@@ -5,8 +5,8 @@ CFLAGS = -Wall -O3 -DNDEBUG -std=gnu99
 LDFLAGS =  -lz -lbz2 -llapack
 INCFLAGS = 
 DEFINES = -DUSEFLOAT
-objects =  ayb_main.o ayb_model.o ayb_options.o call_bases.o cluster.o datablock.o dirio.o \
-           handler.o intensities.o lambda.o matrix.o message.o nuc.o tile.o utility.o xio.o
+objects =  ayb_main.o ayb_model.o ayb_options.o call_bases.o cluster.o datablock.o dirio.o handler.o \
+           intensities.o lambda.o matrix.o message.o mpn.o nuc.o statistics.o tile.o utility.o xio.o
 
 AYB: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
@@ -18,6 +18,9 @@ test-cluster: $(objects)
 
 test-matrix: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST matrix.c $(filter-out matrix.o ayb_main.o,$(objects))
+
+test-mpn: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST mpn.c $(filter-out mpn.o ayb_main.o,$(objects))
 
 test-nuc: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST nuc.c $(filter-out nuc.o ayb_main.o,$(objects))
