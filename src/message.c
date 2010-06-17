@@ -58,6 +58,7 @@ static const char *MSG_TEXT[] = {
         "Log message output level: %s\n",                                       // E_MSG_LEVEL_S
         "Input from directory: %s\n",                                           // E_INPUT_DIR_S
         "Output to directory: %s\n",                                            // E_OUTPUT_DIR_S
+        "Output Format selected: %s\n",                                         // E_OUTPUT_FORM_S
         "Input file found: %s\n",                                               // E_INPUT_FOUND_S
         "Failed to read input file: %s\n",                                      // E_BAD_INPUT_S
         "Failed to create data blocks for input file: %s\n",                    // E_DATABLOCK_FAIL_S
@@ -152,20 +153,6 @@ static bool create_filename(const char *prefix, char *timestring, char *name) {
     return true;
 }
 
-/** Match a string to one of a list. Returns index of match or -1 if none. */
-static int match_string(const char *string, const char *match[], int num) {
-
-    int result = -1;
-
-    for (int idx = 0; idx < num; idx++) {
-        if (strcasecmp(string, match[idx]) == 0) {
-            result = idx;
-            break;
-        }
-    }
-    return result;
-}
-
 
 /* public functions */
 
@@ -195,9 +182,9 @@ int message(MSGTYPE type, MSGSEV sev, ...) {
 bool set_message_level(const char *levelstr) {
 
     /* match to one of the possible options */
-    int found = match_string(levelstr, MSG_SEV_TEXT, MSG_NUM);
-    if (found >= 0) {
-        Msg_Level = found;
+    int matchidx = match_string(levelstr, MSG_SEV_TEXT, MSG_NUM);
+    if (matchidx >= 0) {
+        Msg_Level = matchidx;
         return true;
     }
     else {
