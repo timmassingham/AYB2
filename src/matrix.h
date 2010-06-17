@@ -74,8 +74,10 @@ MAT trim_MAT( MAT mat, const int mrow, const int mcol, const bool forwards);
 MAT * block_diagonal_MAT( const MAT mat, const int n);
 MAT scale_MAT(MAT mat, const real_t f);
 MAT transpose_inplace( MAT mat);
+MAT transpose( const MAT mat);
 MAT invert(const MAT mat);
 
 real_t xMy( const real_t * x, const MAT M, const real_t * y);
+real_t normalise_MAT(MAT mat, const real_t delta_diag);
 
 #endif /* MATRIX_H_ */

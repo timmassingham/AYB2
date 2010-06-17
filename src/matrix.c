@@ -546,6 +546,19 @@ MAT transpose_inplace( MAT mat){
     return mat;
 }
 
+/** Create a new matrix which is the transpose of a supplied matrix. */
+MAT transpose( const MAT mat){
+    validate(NULL!=mat,NULL);
+    MAT tmat = new_MAT(mat->ncol,mat->nrow);
+    validate(NULL!=tmat,NULL);
+    for ( uint32_t col=0 ; col<mat->ncol ; col++){
+        for ( uint32_t row=0 ; row<mat->nrow ; row++){
+            tmat->x[row*mat->ncol+col] = mat->x[col*mat->nrow+row];
+        }
+    }
+    return tmat;
+}
+
 /** Create a new matrix which is the inverse of a supplied square matrix. */
 MAT invert(const MAT mat){
     validate(NULL!=mat,NULL);
@@ -597,6 +610,33 @@ real_t xMy( const real_t * x, const MAT M, const real_t * y){
         res += rowtot * y[col];
     }
     return res;
+}
+
+real_t normalise_MAT(MAT mat, const real_t delta_diag){
+    validate(NULL!=mat,NAN);
+    validate(mat->nrow==mat->ncol,NAN);
+    const int n = mat->nrow;
+    int piv[n];
+
+    if(0.0!=delta_diag){
+        for ( uint32_t i=0 ; i<n ; i++){
+            mat->x[i*n+i] += delta_diag;
+        }
+    }
+
+    MAT mcopy = copy_MAT(mat);
+    int info = 0;
+    getrf(&n,&n,mcopy->x,&n,piv,&info);
+
+    real_t logdet = 0.;
+    for ( uint32_t i=0 ; i<n ; i++){
+        logdet += log(fabs(mat->x[i*n+i]));
+    }
+    free_MAT(mcopy);
+
+    real_t f = 1e-5 + exp(logdet/n);
+    scale_MAT(mat,1./f);
+    return f;
 }
 
 #ifdef TEST
