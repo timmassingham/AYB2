@@ -26,6 +26,7 @@
 
 #include "ayb_model.h"
 #include "call_bases.h"
+#include "datablock.h"
 #include "dirio.h"
 #include "intensities.h"
 #include "lambda.h"
@@ -52,10 +53,7 @@ struct AybT {
 
 /* members */
 
-static unsigned long NCycle = 0;                ///< Number of cycles to analyse.
-static unsigned long NIter = 5;                 ///< Number of iterations in base call loop.
-static TILE Tile;                               ///< Intensities data read in as single Tile.
-
+static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.
 static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
 static AYB Ayb = NULL;                          ///< The model data.
 
@@ -84,6 +82,7 @@ static bool standard_matrix(const IOTYPE idx) {
 
     return found;
 }
+
 /**
  * Initialise crosstalk (M), Phasing (P) and Noise (N) matrices.
  * May be read in or initialised using an internal method.
@@ -116,33 +115,89 @@ static bool init_matrix() {
     return found;
 }
 
-/** Read and store an intensities input file. */
-static void read_intensities(XFILE *fp) {
+/**
+ * Read and store an intensities input file.
+ * Return flag indicating not to continue if not sufficient cycles in file.
+ */
+static TILE read_intensities(XFILE *fp, unsigned int ncycle, bool *goon) {
 
-    unsigned int nc = NCycle;
-    Tile = read_TILE(fp, &nc);
-    if (nc < NCycle) {
-        message(E_CYCLESIZE_DD, MSG_WARN, NCycle, nc);
-        NCycle = nc;
+    TILE tile = read_TILE(fp, ncycle);
+    if (tile != NULL) {
+        if (tile->ncycle < ncycle) {
+            /* not enough data */
+            message(E_CYCLESIZE_DD, MSG_FATAL, tile->ncycle, ncycle);
+            tile = free_TILE(tile);
+            *goon = false;
+        }
     }
+
+    return tile;
 }
 
-/** Set initial values for the model. */
-static void initialise_model() {
+/** Create the sub-tile datablocks to be analysed. */
+static TILE * create_datablocks(TILE maintile, const unsigned int numblock) {
 
-    Ayb = new_AYB( NCycle, Tile->ncluster);
-    if (Ayb == NULL) {return;}
+    /* create the sub-tiles with an array of pointers */
+    TILE * tileblock = calloc(numblock, sizeof(*tileblock));
+    if(tileblock == NULL) {return NULL;}
 
-    /* initial intensities, just copy from read in tile;
-     * will become more elaborate once selection of data implemented */
-    /* tile has already been allocated memory in new_AYB */
-    free_TILE(Ayb->tile);
-    Ayb->tile = copy_TILE(Tile);
+    int blk = 0;
+    int colstart = 0;
+    int colend = 0;
+
+    /* block specification already decoded */
+    DATABLOCK datablock = get_next_block();
+    while (datablock != NULL) {
+        colend = colstart + datablock->num - 1;
+        switch (datablock->type) {
+        case E_READ :
+            /* new block if not first */
+            if (tileblock[blk] != NULL) {
+                blk++;
+            }
+
+        /* no break; fall through to case CONCAT */
+        case E_CONCAT :
+            tileblock[blk] = copy_append_TILE(tileblock[blk], maintile, colstart, colend);
+            break;
+
+        case E_IGNORE :
+            /* just increment column pointers, done outside of switch */
+            break;
+
+        default :;
+        }
+
+        colstart = colend + 1;
+        datablock = get_next_block();
+    }
+
+    return tileblock;
+}
+
+/**
+ * Set initial values for the model.
+ * Returns false if one of the initial matrices is wrong dimension.
+ */
+static bool initialise_model() {
 
     /* initial M, P, N */
-    copyinto_MAT(Ayb->M, Matrix[E_CROSSTALK]);
-    copyinto_MAT(Ayb->N, Matrix[E_NOISE]);
-    copyinto_MAT(Ayb->P, Matrix[E_PHASING]);
+    MAT res = NULL;
+    res = copyinto_MAT(Ayb->M, Matrix[E_CROSSTALK]);
+    if (res == NULL) {
+        message (E_MATRIXINIT_SDD, MSG_ERR, "Crosstalk", NBASE, Matrix[E_CROSSTALK]->ncol);
+        return false;
+    }
+    res = copyinto_MAT(Ayb->N, Matrix[E_NOISE]);
+    if (res == NULL) {
+        message (E_MATRIXINIT_SDD, MSG_ERR, "Noise", Ayb->ncycle, Matrix[E_NOISE]->ncol);
+        return false;
+    }
+    res = copyinto_MAT(Ayb->P, Matrix[E_PHASING]);
+    if (res == NULL) {
+        message (E_MATRIXINIT_SDD, MSG_ERR, "Phasing", Ayb->ncycle, Matrix[E_PHASING]->ncol);
+        return false;
+    }
 
     /* Initial cross-talk from default array */
 //    copyinto_MAT(ayb->M,initial_M);
@@ -208,6 +263,7 @@ static void initialise_model() {
     free_MAT(pcl_int);
     free_MAT(Pinv_t);
     free_MAT(Minv_t);
+    return true;
 }
 
 /*
@@ -455,19 +511,19 @@ static void estimate_bases() {
     for(uint32_t cy = 0; cy < ncycle; cy++){
         free_MAT(V[cy]);
     }
-    free(V);
+    xfree(V);
 }
 
 /**
  * Output the results of the base calling.
  * Returns true if output file opened ok.
  */
-static bool output_results () {
+static bool output_results (int blk) {
 
     if (Ayb == NULL) {return false;}
 
     XFILE *fpout = NULL;
-    fpout = open_output("seq");
+    fpout = open_output_blk("seq", blk);
 
     if (xfisnull(fpout)) {return false;}
 
@@ -608,55 +664,83 @@ void show_AYB(XFILE * fp, const AYB ayb){
 bool analyse_tile (XFILE *fp) {
 
     if (xfisnull(fp)) {return true;}
+    bool goon = true;
 
     /* read intensity data from supplied file */
-    read_intensities(fp);
-    if (Tile == NULL) {
-        message(E_BAD_INPUT_S, MSG_ERR, get_current_file());
-        return true;
+    TILE maintile = read_intensities(fp, get_totalcycle(), &goon);
+    if (maintile == NULL) {
+        if (goon) {
+            message(E_BAD_INPUT_S, MSG_ERR, get_current_file());
+        }
+        return goon;
     }
+    const unsigned int ncluster = maintile->ncluster;
+    const unsigned int numblock = get_numblock();
 
-    /* set initial model values */
-    initialise_model();
+    /* put the data into distinct blocks */
+    TILE * tileblock = NULL;
+    tileblock = create_datablocks(maintile, numblock);
     /* no longer need the raw data as read in */
-    Tile = free_TILE(Tile);
+    maintile = free_TILE(maintile);
 
-    if (Ayb == NULL) {
-        message(E_INIT_FAIL_S, MSG_ERR, get_current_file());
+    if (tileblock == NULL) {
+        message(E_DATABLOCK_FAIL_S, MSG_FATAL, get_current_file());
         return false;
     }
 
+    /* analyse each tile block separately */
+    for (int blk = 0; blk < numblock; blk++) {
+
+        Ayb = new_AYB(tileblock[blk]->ncycle, ncluster);
+        if (Ayb == NULL) {
+            message(E_NOMEM_S, MSG_FATAL, "model structure creation");
+            message(E_INIT_FAIL_SD, MSG_INFO, get_current_file(), blk + 1);
+            goon = false;
+            goto cleanup;
+        }
+
+        /* get next tile block of raw intensities */
+        /* tile has already been allocated memory in new_AYB */
+        free_TILE(Ayb->tile);
+        Ayb->tile = copy_TILE(tileblock[blk]);
+
+        /* set initial model values */
+        if (initialise_model()) {
 #ifndef NDEBUG
-    XFILE *fpout = NULL;
-    fpout = open_output("ayb1");
-    if (!xfisnull(fpout)) {
-        show_AYB(fpout, Ayb);
-    }
-    fpout = xfclose(fpout);
+            XFILE *fpout = NULL;
+            fpout = open_output_blk("ayb1", (numblock > 1)?blk:-1);
+            if (!xfisnull(fpout)) {
+                show_AYB(fpout, Ayb);
+            }
+            fpout = xfclose(fpout);
 #endif
 
-    /* base calling loop */
-    for (int i = 0; i < NIter; i++){
-    //    estimate_MPC(ayb);
-        estimate_bases();
+            /* base calling loop */
+            for (int i = 0; i < NIter; i++){
+            //    estimate_MPC(ayb);
+                estimate_bases();
+            }
+
+            /* output the results */
+            goon = output_results((numblock > 1)?blk:-1);
+        }
+
+        /* free the structure ready for next */
+        Ayb = free_AYB(Ayb);
+        if (!goon) {break;}
     }
 
-    /* output the results */
-    bool ret = output_results();
-
-    /* free the structure ready for next */
-    Ayb = free_AYB(Ayb);
-    return ret;
+cleanup:
+    if (tileblock != NULL) {
+        for (int blk = 0; blk < numblock; blk++)  {
+            free_TILE(tileblock[blk]);
+        }
+        xfree(tileblock);
+    }
+    return goon;
 }
 
-/** Set the number of cycles to analyse. */
-void set_ncycle(const char *ncycle_str) {
-
-    char *endptr;
-    NCycle = strtoul(ncycle_str, &endptr, 0);
-}
-
-/** Set the number of cycles to analyse. */
+/** Set the number of base call iterations. */
 void set_niter(const char *niter_str) {
 
     char *endptr;
@@ -665,19 +749,24 @@ void set_niter(const char *niter_str) {
 
 /**
  * Start up; call at program start after options.
- * Returns true if cycles and iterations parameters are ok
+ * Returns true if cycle blocks and iterations parameters are ok
  * and M, N, P matrix initialisation is successful.
  */
 bool startup_model(){
 
-    /* check number of cycles supplied - hmhm may be determined in a different way */
-    message(E_GENERIC_SD, MSG_DEBUG, "ncycle:", NCycle);
-    if (NCycle == 0) {
-        message(E_NOCYCLES, MSG_FATAL);
+    /* check number of cycles and data blocks supplied */
+    const unsigned int totalcycle = get_totalcycle();
+    const unsigned int numblock = get_numblock();
+
+    message(E_GENERIC_SD, MSG_DEBUG, "total cycles:", totalcycle);
+    message(E_GENERIC_SD, MSG_DEBUG, "distinct blocks:", numblock);
+    if ((totalcycle == 0) || (numblock == 0)) {
+        message(E_NOBLOCKS, MSG_FATAL);
         return false;
     }
     else {
-        message(E_OPT_SELECT_SD, MSG_INFO, "cycles", NCycle);
+        message(E_OPT_SELECT_SD, MSG_INFO, "cycles total", totalcycle);
+        message(E_OPT_SELECT_SD, MSG_INFO, "distinct data blocks", numblock);
 
         /* check number of iterations supplied - may be left at default */
         message(E_GENERIC_SD, MSG_DEBUG, "niter:", NIter);
@@ -687,9 +776,10 @@ bool startup_model(){
         }
         else {
             message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
+
+            /* initialise M, N, P */
+            return init_matrix();
         }
-        /* initialise M, N, P */
-        return init_matrix();
     }
 }
 

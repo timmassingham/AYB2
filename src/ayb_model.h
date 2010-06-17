@@ -42,7 +42,6 @@ AYB copy_AYB(const AYB ayb);
 void show_AYB(XFILE * fp, const AYB ayb);
 
 bool analyse_tile (XFILE *fp);
-void set_ncycle(const char *ncycle_str);
 void set_niter(const char *niter_str);
 bool startup_model();
 void tidyup_model();
