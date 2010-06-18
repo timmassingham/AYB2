@@ -64,6 +64,9 @@ void F77_NAME(sgetrf)(const int * M, const int * N, float * A, const int * lda,
 void F77_NAME(sgetri)(const int * N, float * A, const int * lda, const int * ipiv,
                       float * work, const int * lwork, int * info);
 
+// Non-LAPACK routine for non-negative least squares
+void F77_NAME(snnls)(float *A, const int * MDA, const int * M, const int* N, float * B, float * X, float * RNORM, float * W, float * ZZ, int * INDEX, int * MODE);
+
 // Double functions
 void F77_NAME(dpotrf)( const char * uplo, const int * n, double * A, const int * lda, int * info );
 void F77_NAME(dtrtri)( const char * uplo, const char * diag, const int * n, double * a, const int * lda, int * info);
@@ -86,6 +89,8 @@ void F77_NAME(dgetrf)(const int * M, const int * N, double * A, const int * lda,
 void F77_NAME(dgetri)(const int * N, double * A, const int * lda, const int * ipiv,
                       double * work, const int * lwork, int * info);
 
+// Non-LAPACK routine for non-negative least squares
+void F77_NAME(dnnls)(double *A, const int * MDA, const int * M, const int* N, double * B, double * X, double * RNORM, double * W, double * ZZ, int * INDEX, int * MODE);
 
 
 // Generic definitions
@@ -98,6 +103,7 @@ void F77_NAME(dgetri)(const int * N, double * A, const int * lda, const int * ip
     #define gemv    F77_NAME(sgemv)
     #define getrf   F77_NAME(sgetrf)
     #define getri   F77_NAME(sgetri)
+    #define nnls    F77_NAME(snnls)
 #else
     #define potrf   F77_NAME(dpotrf)
     #define trtri   F77_NAME(dtrtri)
@@ -107,6 +113,9 @@ void F77_NAME(dgetri)(const int * N, double * A, const int * lda, const int * ip
     #define gemv    F77_NAME(dgemv)
     #define getrf   F77_NAME(dgetrf)
     #define getri   F77_NAME(dgetri)
+    #define nnls    F77_NAME(dnnls)
 #endif
+
+
 
 #endif /* LAPACK_H_ */

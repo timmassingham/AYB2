@@ -46,8 +46,10 @@ MAT calculateMrhs( const MAT var, const MAT IbarT, const MAT P, const MAT Kt, re
 MAT calculatePlhs( const real_t wbar, const MAT Sbar, const MAT Mt, const MAT J, real_t * tmp, MAT lhs);
 MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT K, real_t * tmp, MAT rhs);
 real_t calculateDeltaLSE(const MAT Mt, const MAT P, const MAT N, const MAT J, const MAT K, real_t * tmp);
-int solver( MAT lhs, MAT rhs);
+int solverChol( MAT lhs, MAT rhs, real_t * tmp);
 int solverSVD(MAT lhs, MAT rhs, real_t * tmp);
+int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp);
+int solverNNLS(MAT lhs, MAT rhs, real_t * tmp);
 
 
 #endif /* MPN_H_ */

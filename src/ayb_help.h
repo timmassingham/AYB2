@@ -23,6 +23,7 @@
 "  -M  --M <filepath>\t\tPredetermined Crosstalk matrix file path\n"
 "  -P  --P <filepath>\t\tPredetermined Phasing matrix file path\n"
 "  -N  --N <filepath>\t\tPredetermined Noise matrix file path\n"
+"  -S  --solver <solver>\t\tLinear equation solver to use for P matrix\n"
 "\n"
 "  --help\t\t\tDisplay this help\n"
 "  --licence\t\t\tDisplay AYB licence information\n"

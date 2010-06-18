@@ -85,6 +85,7 @@ static struct option Longopts[] = {
     {"M",           required_argument,  NULL, 'M'},
     {"N",           required_argument,  NULL, 'N'},
     {"P",           required_argument,  NULL, 'P'},
+    {"solver",      required_argument,  NULL, 'S'},
     {"help",        no_argument,        NULL, OPT_HELP },
     {"licence",     no_argument,        NULL, OPT_LICENCE },
     {"version",     no_argument,        NULL, OPT_VERSION },
@@ -111,7 +112,7 @@ OPTRET read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:x:f:n:i:o:e:l:M:N:P:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:x:f:n:i:o:e:l:M:N:P:S:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'b':
@@ -175,6 +176,14 @@ OPTRET read_options(const int argc, char ** const argv) {
             case 'P':
                 /* crosstalk file name */
                 set_location(optarg, E_PHASING);
+                break;
+
+            case 'S':
+                /* Which solver to use for P estimation */
+                if(!set_solver(optarg)){
+                    fprintf(stderr,"Fatal: Unrecognised solver option: \'%s\'\n\n",optarg);
+                    carryon = E_FAIL;
+                }
                 break;
 
             case OPT_HELP:

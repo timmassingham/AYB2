@@ -66,13 +66,20 @@ static real_t INITIAL_CROSSTALK[] = {
 static const char *OUTFORM_TEXT[] = {"FASTA", "FASTQ"};
 /** Name text for matrix messages. */
 static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Phasing"};
+/** Possible input for solver routine, used to match --solver argument*/
+static const char *SOLVER_TEXT[] = {"ls","zero","nnls"};
 
 /* members */
 
+/** Possible solver routines. */
+typedef int (*SOLVER)(MAT , MAT, real_t *);
+const static E_SOLVER_NUM = 3;
+SOLVER SOLVERS[] = { solverSVD, solverZeroSVD, solverNNLS };
 /** Possible output formats. */
 typedef enum OutFormT {E_FASTA, E_FASTQ, E_OUTFORM_NUM} OUTFORM;
 
-static OUTFORM OutputFormat = E_FASTA;          ///< Selected output format.
+static OUTFORM OutputFormat  = E_FASTA;         ///< Selected output format.
+static SOLVER  SolverRoutine = solverSVD;       ///< Selected solver routine.
 static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.
 static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
 static AYB Ayb = NULL;                          ///< The model data.
@@ -393,21 +400,17 @@ static real_t estimate_MPN(){
     //xfprintf(xstderr,"Starting\tdelta = %e\n",calculateDeltaLSE( matMt, matP, matN, J, K, tmp));
     for( uint32_t i=0 ; i<AYB_NITER ; i++){
         /*
-         *  Solution for phasing and constant noise
+         *  Solution for phasing
          */
         plhs = calculatePlhs(Wbar,Sbar,matMt,J,tmp,plhs);
         prhs = calculatePrhs(Ibar,matMt,K,tmp,prhs);
-        solverSVD(plhs,prhs,tmp);
+        SolverRoutine(plhs,prhs,tmp);
         for ( uint32_t i=0 ; i<ncycle ; i++){
             for(uint32_t j=0 ; j<ncycle ; j++){
-                matP->x[i*ncycle+j] = prhs->x[i*lda+j];
+                matP->x[i*ncycle+j] = prhs->x[i*ncycle+j];
             }
         }
-        for ( uint32_t i=0 ; i<ncycle ; i++){
-            for(uint32_t j=0 ; j<NBASE ; j++){
-                matN->x[i*NBASE+j] = prhs->x[i*lda+ncycle+j];
-            }
-        }
+
         // Scaling so det(P) = 1
         det = normalise_MAT(matP,3e-8);
         scale_MAT(J,det*det); scale_MAT(Jt,det*det);
@@ -957,6 +960,22 @@ void set_niter(const char *niter_str) {
 
     char *endptr;
     NIter = strtoul(niter_str, &endptr, 0);
+}
+
+/**  Set solver routine to use for estimation of P.
+  *  Text must match one of options specified in SOLVER_TEXT, case insensitive
+  *  Returns true is match found.*/
+bool set_solver(const char *solver_str) {
+
+    /* match to options */
+    int matchidx = match_string(solver_str, SOLVER_TEXT, E_SOLVER_NUM);
+    if (matchidx>=0) {
+        SolverRoutine = SOLVERS[matchidx];
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 /**

@@ -1,12 +1,14 @@
 # makefile for AYB
 
 CC = gcc
+FC = gfortran
 CFLAGS = -Wall -O3 -DNDEBUG -std=gnu99
-LDFLAGS =  -lz -lbz2 -llapack
+LDFLAGS =  -lz -lbz2 -llapack -lgfortran
 INCFLAGS = 
 DEFINES = -DUSEFLOAT
 objects =  ayb_main.o ayb_model.o ayb_options.o call_bases.o cluster.o datablock.o dirio.o handler.o \
-           intensities.o lambda.o matrix.o message.o mpn.o nuc.o statistics.o tile.o utility.o xio.o
+           intensities.o lambda.o matrix.o message.o mpn.o nuc.o statistics.o tile.o utility.o xio.o \
+           snnls.o dnnls.o
 
 AYB: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
@@ -31,6 +33,9 @@ test-tile: $(objects)
 
 .c.o:
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $@ -c $<
+
+.f.o:
+	$(FC) -m64 -O3 -o $@ -c $<
 
 clean:
 	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib

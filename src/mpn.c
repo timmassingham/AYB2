@@ -360,12 +360,12 @@ MAT calculatePlhs( const real_t wbar, const MAT Sbar, const MAT Mt, const MAT J,
     const int nbase = NBASE;
 
     if(NULL==lhs){
-        lhs = new_MAT(NBASE+ncycle,NBASE+ncycle);
+        lhs = new_MAT(ncycle,ncycle);
         validate(NULL!=lhs,NULL);
     }
     memset(lhs->x, 0, lhs->nrow*lhs->ncol*sizeof(real_t));
 
-    const int lda = NBASE+ncycle;
+    const int lda = ncycle;
     // Reshape Jtvec(MtM)
     gemm(LAPACK_NOTRANS, LAPACK_TRANS,&nbase, &nbase, &nbase, &alpha,Mt->x,&nbase, Mt->x,  &nbase, &beta, tmp+ncycle*ncycle,&nbase);
     gemv(LAPACK_TRANS,&J->nrow,&J->ncol,&alpha,J->x,&J->nrow,tmp+ncycle*ncycle,LAPACK_UNIT,&beta,tmp,LAPACK_UNIT);
@@ -374,25 +374,6 @@ MAT calculatePlhs( const real_t wbar, const MAT Sbar, const MAT Mt, const MAT J,
             lhs->x[cy*lda+cy2] = tmp[cy*ncycle+cy2];
         }
     }
-    // M %*% Sbar
-    gemm(LAPACK_TRANS,LAPACK_NOTRANS,&nbase,&ncycle,&nbase,&alpha,Mt->x,&nbase,Sbar->x,&nbase,&beta,lhs->x+ncycle,&lda);
-    // Copy M %*% Sbar  into new bit of array
-{
-    const uint32_t offset1 = lda * ncycle;
-    const uint32_t offset2 = ncycle;
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        for ( uint32_t base=0 ; base<NBASE ; base++){
-            lhs->x[offset1+base*lda+cy] = lhs->x[offset2+cy*lda+base];
-        }
-    }
-}
-    // Id matrix
-{
-    const uint32_t offset = ncycle*lda+ncycle;
-    for ( uint32_t base=0 ; base<NBASE ; base++){
-        lhs->x[offset+base*lda+base] = wbar;
-    }
-}
 
     return lhs;
 }
@@ -408,7 +389,7 @@ MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT K, real_t * tmp, MAT 
     const real_t  beta = 0.0;
 
     const uint32_t ncycle = Ibar->ncol;
-    const int lda = NBASE + ncycle;
+    const int lda = ncycle;
     if(NULL==rhs){
         rhs = new_MAT(lda,ncycle);
         validate(NULL!=rhs,NULL);
@@ -422,19 +403,17 @@ MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT K, real_t * tmp, MAT 
             rhs->x[cy1*lda+cy2] = tmp[cy1*ncycle+cy2];
         }
     }
-    // Copy in Ibar
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        for ( uint32_t base=0 ; base<NBASE ; base++){
-            rhs->x[ncycle+cy*lda+base] = Ibar->x[cy*NBASE+base];
-        }
-    }
+
     return rhs;
 }
 
-/* Assumes that LHS is positive-definite, which problems being considered are.
- * Both lhs and rhs are destructively updated
- */
-int solver( MAT lhs, MAT rhs){
+/** Solve system of linear equations using Cholesky decomposition
+  * Wrapper for LAPACK routine
+  * Assumes that lhs is positive-definite, which problems being considered are.
+  * Both lhs and rhs are destructively updated.
+  * Result is stored in rhs
+  */
+int solverChol( MAT lhs, MAT rhs, real_t * null){
     validate(NULL!=lhs,-4);
     validate(NULL!=rhs,-6);
     validate(lhs->nrow==lhs->ncol,-2);
@@ -446,9 +425,12 @@ int solver( MAT lhs, MAT rhs){
     return info;
 }
 
-
-// Solve linear system using SVD
-// tmp should be 6*N
+/** Solve system of linear equations using SVD
+  * Wrapper for LAPACK routine
+  * Both lhs and rhs are destructively updated
+  * Result is stored in rhs.
+  * tmp should be 6*N
+  */
 int solverSVD(MAT lhs, MAT rhs, real_t * tmp){
     validate(NULL!=lhs,-4);
     validate(NULL!=rhs,-6);
@@ -461,6 +443,57 @@ int solverSVD(MAT lhs, MAT rhs, real_t * tmp){
                       rhs->x,&rhs->nrow,tmp,&RCOND,&RANK,tmp+N,&IWORK,&INFO);
     return INFO;
 }
+
+/** Solve system of linear equations using SVD, setting negative results to zero
+  * Wrapper for LAPACK routine
+  * Both lhs and rhs are destructively updated.
+  * Result is stored in rhs.
+  * tmp should be 6*N
+  */
+int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp){
+    int info = solverSVD(lhs,rhs,tmp);
+    if(info==0){
+        // Success
+        const int N = lhs->nrow;
+        for ( uint32_t i=0 ; i<N*N ; i++){
+            if(rhs->x[i]<0){ rhs->x[i] = 0.;}
+        }
+    }
+    return info;
+}
+
+
+/** Solve system of linear equations using non-negative least squares
+  * Wrapper for Fortran routine in nnls.f
+  * Both lhs and rhs are destructively updated.
+  * Result is stored in rhs.
+  * tmp should be 6*N
+  */
+int solverNNLS(MAT lhs, MAT rhs, real_t *tmp){
+    validate(NULL!=lhs,-4);
+    validate(NULL!=rhs,-6);
+    validate(NULL!=tmp,-11);
+
+    const int N = lhs->nrow;
+    real_t RNORM;
+    real_t W[N];
+    real_t ZZ[N];
+    int INDEX[N],MODE;
+
+    real_t * lhs_tmp = malloc(lhs->nrow*lhs->ncol*sizeof(real_t));
+    real_t * rhs_tmp = malloc(rhs->nrow*sizeof(real_t));
+    for( int cy=0 ; cy<N ; cy++){
+        memcpy(lhs_tmp,lhs->x,lhs->nrow*lhs->ncol*sizeof(real_t));
+        memcpy(rhs_tmp,rhs->x+cy*N,rhs->nrow*sizeof(real_t));
+        nnls(lhs_tmp,&N,&N,&N,rhs_tmp,tmp+cy*N,&RNORM,W,ZZ,INDEX,&MODE);
+    }
+
+    free(lhs_tmp);
+    free(rhs_tmp);
+    return MODE;
+}
+
+
 
 #ifdef TEST
 #include <stdio.h>
