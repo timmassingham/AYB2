@@ -1,3 +1,5 @@
+c Extracted from http://www.netlib.org/lawson-hanson/all
+c Modified by tim.massingham@ebi.ac.uk
        double precision FUNCTION DDIFF(X,Y)
 c
 c  Function used in tests that depend on machine precision.
