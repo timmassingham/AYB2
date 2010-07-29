@@ -43,7 +43,7 @@ void show_AYB(XFILE * fp, const AYB ayb);
 
 bool analyse_tile (XFILE *fp);
 void set_niter(const char *niter_str);
-bool set_solver(const char * sovler_str);
+bool set_solver(const char *solver_str);
 bool set_output_format(const char *outform_str);
 bool startup_model();
 void tidyup_model();
