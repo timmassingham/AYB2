@@ -519,7 +519,8 @@ int solverNNLS(MAT lhs, MAT rhs, real_t *tmp){
 
 #ifdef TEST
 #include <stdio.h>
-static  int bases[] = {4, 3, 4, 4, 4, 2, 4, 2, 4, 1, 2, 4, 4, 1, 3};
+/* Inputs */
+static  NUC base_array[] = {3, 2, 3, 3, 3, 1, 3, 1, 3, 0, 1, 3, 3, 0, 2};
 static  real_t we[] = {0.33081400, 0.29916646, 0.79687810, 0.04376649, 0.04898477};
 static  real_t lambda[] = {2.852168, 11.890647, 10.675880, 5.542096, 3.245923};
 static  real_t ints_t[] = {
@@ -529,21 +530,10 @@ static  real_t ints_t[] = {
     0.61345680, 0.9237610, 0.9891983, 0.1324787, 0.3127209, 0.69892800, 0.2603790, 0.2256760, 0.8400769, 0.9111117, 0.27118720, 0.5472079,
     0.94282040, 0.4265982, 0.1394416, 0.7856237, 0.2671884, 0.11008570, 0.4843887, 0.1912447, 0.7967254, 0.5434273, 0.83477990, 0.7742892
 };
-static real_t SbarT[] = {
-    0.4360868, 0.1086585, 0.3703858,
-    0.5885691, 0.4436660, 0.5181457,
-    0.4142125, 0.4619443, 0.4768580,
-    0.3178741, 0.3513695, 0.1786516
-};
 static real_t P[] = {
     0.9445303038, 0.70435005, 0.74991005,
     0.0006557733, 0.05396262, 0.05993442,
     0.0018982966, 0.08522693, 0.54507703
-};
-static real_t Ibar[] = {
-    0.9058495, 0.3065012, 0.9675010, 0.5600422,
-    0.1745864, 0.3782057, 0.1538957, 0.5697690,
-    0.5722346, 0.1426533, 0.5951879, 0.8001268
 };
 static real_t M[] = {
      0.8390111, 0.8550323, 0.6927066, 0.7199632,
@@ -551,7 +541,8 @@ static real_t M[] = {
      0.1612448, 0.3195291, 0.5993373, 0.4147634,
      0.8614796, 0.3521542, 0.2954812, 0.7250016
 };
-/* Result
+
+/* Expected Results, 2dp output
 
 J matrix:
 1:     1.34     0.00     0.00     0.00     0.52     0.00     0.00     0.00     0.00
@@ -570,7 +561,6 @@ J matrix:
 14:     0.00    90.82    42.30     0.00     0.00    42.30     0.00    92.17     0.00
 15:     0.00     2.69     0.52     0.00     0.00     0.00     0.00     2.69     0.00
 16:   136.33    42.30    93.51    42.30    42.30     0.00    93.51     0.00    94.86
-
 K matrix:
 1:     0.15     0.15     0.00     0.08     0.04     0.00     0.20     0.13     0.00
 2:     0.00     4.76     0.13     0.00     2.12     1.29     0.00     7.59     1.57
@@ -589,106 +579,171 @@ K matrix:
 15:     0.00     0.59     0.12     0.00     0.79     0.03     0.00     0.53     0.12
 16:     7.78     2.49     5.19     5.37     3.20     2.19     8.78     1.06     7.73
 
+Sbar matrix:
+1:     0.24     0.16     0.00
+2:     0.00     8.75     3.56
+3:     0.00     0.94     0.16
+4:    13.17     3.56     9.69
+Ibar matrix:
+1:     0.62     0.45     1.16
+2:     1.17     0.70     0.70
+3:     0.74     0.92     0.80
+4:     0.89     0.69     1.00
+Wbar:    1.52
+
 M lhs matrix:
-1:     1.46     0.89     0.30     1.30     0.77     0.03     0.21
-2:     0.89    83.17     0.00   168.15     1.26     0.06     0.32
-3:     0.30     0.00     1.81     3.71     1.07     0.05     0.30
-4:     1.30   168.15     3.71   413.88     0.68     0.03     0.13
-5:     0.77     1.26     1.07     0.68     0.90     0.00     0.00
-6:     0.03     0.06     0.05     0.03     0.00     0.90     0.00
-7:     0.21     0.32     0.30     0.13     0.00     0.00     0.90
+1:     1.46     0.89     0.30     1.30     0.34     0.01     0.01
+2:     0.89    83.17     0.00   168.15     8.83     0.69     2.68
+3:     0.30     0.00     1.81     3.71     0.78     0.06     0.17
+4:     1.30   168.15     3.71   413.88    22.21     0.78     5.61
+5:     0.34     8.83     0.78    22.21     1.52     0.00     0.00
+6:     0.01     0.69     0.06     0.78     0.00     1.52     0.00
+7:     0.01     2.68     0.17     5.61     0.00     0.00     1.52
 M rhs matrix:
 1:     0.26     0.27     0.26     0.13
 2:     5.14     8.85     5.77     6.57
 3:     0.48     0.44     0.41     0.66
 4:    13.71    21.53    15.63    17.63
-5:     0.91     0.31     0.97     0.56
-6:     0.17     0.38     0.15     0.57
-7:     0.57     0.14     0.60     0.80
+5:     0.62     1.17     0.74     0.89
+6:     0.45     0.70     0.92     0.69
+7:     1.16     0.70     0.80     1.00
+M solution matrix:
+1:     0.10    -0.03     0.25     0.07
+2:    -0.06    -0.04    -0.04    -0.03
+3:    -0.05    -0.40     0.34     0.35
+4:     0.03    -0.01     0.09     0.07
+5:     0.38     1.39    -0.88    -0.46
+6:     0.31     0.50     0.56     0.42
+7:     0.78     0.62     0.21     0.42
+
 P lhs matrix:
-1:   204.92   144.94   177.23     0.98     1.14     0.74     0.80
-2:   144.94   161.29   117.57     0.67     0.76     0.52     0.58
-3:   177.23   117.57   184.56     0.78     0.99     0.68     0.66
-4:     0.98     0.67     0.78     0.90     0.00     0.00     0.00
-5:     1.14     0.76     0.99     0.00     0.90     0.00     0.00
-6:     0.74     0.52     0.68     0.00     0.00     0.90     0.00
-7:     0.80     0.58     0.66     0.00     0.00     0.00     0.90
+1:   204.92   144.94   177.23
+2:   144.94   161.29   117.57
+3:   177.23   117.57   184.56
 P rhs matrix:
 1:    16.50    11.64    19.23
 2:    15.04    11.92    11.75
 3:    16.01     8.79    18.08
-4:     0.91     0.17     0.57
-5:     0.31     0.38     0.14
-6:     0.97     0.15     0.60
-7:     0.56     0.57     0.80
-
+P ls solution matrix:
+1:    -0.03     0.04     0.08
+2:     0.07     0.06    -0.03
+3:     0.07    -0.03     0.04
+P zero solution matrix:
+1:     0.00     0.04     0.08
+2:     0.07     0.06     0.00
+3:     0.07     0.00     0.04
+P nnls solution matrix (success=1):
+1:     0.00     0.01     0.03
+2:     0.06     0.07     0.00
+3:     0.05     0.00     0.07
 */
 int main ( void){
     const uint32_t ncluster = 5;
     const uint32_t ncycle = 3;
+
+    /* use null variance for now */
+    MAT var = new_MAT(ncycle, 1);
+    set_MAT(var, 1.0);
+
+    /* put input values into required data structures */
+    fputs("Inputs:\n", stdout);
+    ARRAY(NUC) bases = coerce_ARRAY(NUC)(ncluster * ncycle, base_array);
+    fputs("Bases array:\n", stdout);
+    show_ARRAY(NUC)(xstdout, bases, "", ncluster * ncycle);
     MAT matWe = coerce_MAT_from_array(ncluster,1,we);
     fputs("Weight matrix:\n",stdout);
     show_MAT(xstdout,matWe,0,0);
     MAT matLambda = coerce_MAT_from_array(ncluster,1,lambda);
     fputs("Lambda matrix:\n",stdout);
     show_MAT(xstdout,matLambda,0,0);
-    MAT matInts = coerce_MAT_from_array(NBASE*ncycle,ncluster,ints_t);
-    fputs("Intensity matrix:\n",stdout);
-    show_MAT(xstdout,matInts,0,0);
+    TILE tileInts = coerce_TILE_from_array(ncluster, ncycle, ints_t);
+    fputs("Intensity tile:\n", stdout);
+    show_TILE(xstdout, tileInts, 10);
 
+    MAT matM = coerce_MAT_from_array(NBASE,NBASE,M);
+    MAT matMt = transpose(matM);
+    fputs("Initial M matrix:\n",stdout);
+    show_MAT(xstdout,matM,0,0);
+    MAT matP = coerce_MAT_from_array(ncycle,ncycle,P);
+    fputs("Initial P matrix:\n",stdout);
+    show_MAT(xstdout,matP,0,0);
+
+    /* pre-calculation terms */
+    fputs("\nResults:\n", stdout);
     MAT J = calculateJ(matLambda,matWe,bases,ncycle,NULL);
     MAT Jt = transpose(J);
     fputs("J matrix:\n",stdout);
     show_MAT(xstdout,J,0,0);
-    MAT K = calculateK(matLambda,matWe,bases,matInts,ncycle,NULL);
+
+    MAT K = calculateK(matLambda,matWe,bases,tileInts,ncycle,NULL);
     MAT Kt = transpose(K);
     fputs("K matrix:\n",stdout);
     show_MAT(xstdout,K,0,0);
 
-    real_t * tmp = calloc(NBASE*NBASE+ncycle*ncycle,sizeof(real_t));
-    MAT matSbarT = coerce_MAT_from_array(ncycle,NBASE,SbarT);
-    MAT matSbar = transpose(matSbarT);
-    fputs("SbarT matrix:\n",stdout);
-    show_MAT(xstdout,matSbarT,0,0);
-    MAT matM = coerce_MAT_from_array(NBASE,NBASE,M);
-    MAT matMt = transpose(matM);
-    fputs("M matrix:\n",stdout);
-    show_MAT(xstdout,matM,0,0);
-    MAT matP = coerce_MAT_from_array(ncycle,ncycle,P);
-    fputs("P matrix:\n",stdout);
-    show_MAT(xstdout,matP,0,0);
+    MAT matSbar = calculateSbar(matLambda, matWe, bases, ncycle, NULL);
+    MAT matSbarT = transpose(matSbar);
+    fputs("Sbar matrix:\n",stdout);
+    show_MAT(xstdout,matSbar,0,0);
 
-    MAT matIbar = coerce_MAT_from_array(NBASE,ncycle,Ibar);
+    MAT matIbar = calculateIbar(tileInts, matWe, NULL);
     MAT matIbarT = transpose(matIbar);
     fputs("Ibar matrix:\n",stdout);
     show_MAT(xstdout,matIbar,0,0);
 
+    real_t Wbar = calculateWbar(matWe);
+#ifdef NDEBUG
+    xfprintf(xstdout, "Wbar:%#8.2f\n", Wbar);
+#else
+    xfprintf(xstdout, "Wbar:%#12.6f\n", Wbar);
+#endif
+
+    /* calculate M, P */
+    real_t * tmp = calloc(NBASE*NBASE*ncycle*ncycle, sizeof(real_t));
+
+    MAT lhs = calculateMlhs(var,Wbar,matSbarT,matP,Jt,tmp,NULL);
     fputs("M lhs matrix:\n",stdout);
-    MAT lhs = calculateMlhs(0.9,matSbarT,matP,Jt,tmp,NULL);
     show_MAT(xstdout,lhs,0,0);
-    MAT rhs = calculateMrhs(matIbarT,matP,Kt,tmp,NULL);
+    MAT rhs = calculateMrhs(var,matIbarT,matP,Kt,tmp,NULL);
     fputs("M rhs matrix:\n",stdout);
     show_MAT(xstdout,rhs,0,0);
 
-    int retM = solver(lhs,rhs);
+    int retM = solverSVD(lhs, rhs, tmp);
     xfprintf(xstdout,"M solution matrix (info=%d):\n",retM);
     show_MAT(xstdout,rhs,0,0);
 
-    MAT Plhs = calculatePlhs(0.9,matSbar,matMt,J,tmp,NULL);
+    MAT Plhs = calculatePlhs(Wbar,matSbar,matMt,J,tmp,NULL);
     fputs("P lhs matrix:\n",stdout);
     show_MAT(xstdout,Plhs,0,0);
     MAT Prhs = calculatePrhs(matIbar,matMt,K,tmp,NULL);
     fputs("P rhs matrix:\n",stdout);
     show_MAT(xstdout,Prhs,0,0);
 
-    int retP = solver(lhs,rhs);
-    xfprintf(xstdout,"P solution matrix (info=%d):\n",retM);
-    show_MAT(xstdout,rhs,0,0);
+    /* copy to allow multiple P solvers */
+    MAT Plhs_copy = copy_MAT(Plhs);
+    MAT Prhs_copy = copy_MAT(Prhs);
 
+    /* SVD */
+    int retP = solverSVD(Plhs_copy, Prhs_copy, tmp);
+    xfprintf(xstdout,"P ls solution matrix (info=%d):\n",retP);
+    show_MAT(xstdout,Prhs_copy,0,0);
+
+    /* ZeroSVD */
+    Plhs_copy = copyinto_MAT(Plhs_copy, Plhs);
+    Prhs_copy = copyinto_MAT(Prhs_copy, Prhs);
+
+    retP = solverZeroSVD(Plhs_copy, Prhs_copy, tmp);
+    xfprintf(xstdout,"P zero solution matrix (info=%d):\n",retP);
+    show_MAT(xstdout,Prhs_copy,0,0);
+
+    /* NNLS */
+    Plhs_copy = copyinto_MAT(Plhs_copy, Plhs);
+    Prhs_copy = copyinto_MAT(Prhs_copy, Prhs);
+
+    retP = solverNNLS(Plhs_copy, Prhs_copy, tmp);
+    xfprintf(xstdout,"P nnls solution matrix (info=%d):\n",retP);
+    show_MAT(xstdout,Prhs_copy,0,0);
+
+    /* nothing freed but exiting anyway */
     return EXIT_SUCCESS;
 }
 #endif
-
-
-
-
