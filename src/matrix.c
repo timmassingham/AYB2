@@ -630,7 +630,7 @@ real_t normalise_MAT(MAT mat, const real_t delta_diag){
 
     real_t logdet = 0.;
     for ( uint32_t i=0 ; i<n ; i++){
-        logdet += log(fabs(mat->x[i*n+i]));
+        logdet += log(fabs(mcopy->x[i*n+i]));
     }
     free_MAT(mcopy);
 
