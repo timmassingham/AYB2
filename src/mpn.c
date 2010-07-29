@@ -407,12 +407,13 @@ MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT K, real_t * tmp, MAT 
     return rhs;
 }
 
-/** Solve system of linear equations using Cholesky decomposition
-  * Wrapper for LAPACK routine
-  * Assumes that lhs is positive-definite, which problems being considered are.
-  * Both lhs and rhs are destructively updated.
-  * Result is stored in rhs
-  */
+/** 
+ * Solve system of linear equations using Cholesky decomposition.
+ * Wrapper for LAPACK routine.
+ * Assumes that lhs is positive-definite, which problems being considered are.
+ * Both lhs and rhs are destructively updated.
+ * Result is stored in rhs.
+ */
 int solverChol( MAT lhs, MAT rhs, real_t * null){
     validate(NULL!=lhs,-4);
     validate(NULL!=rhs,-6);
@@ -425,12 +426,13 @@ int solverChol( MAT lhs, MAT rhs, real_t * null){
     return info;
 }
 
-/** Solve system of linear equations using SVD
-  * Wrapper for LAPACK routine
-  * Both lhs and rhs are destructively updated
-  * Result is stored in rhs.
-  * tmp should be 6*N
-  */
+/** 
+ * Solve system of linear equations using SVD.
+ * Wrapper for LAPACK routine.
+ * Both lhs and rhs are destructively updated.
+ * Result is stored in rhs.
+ * tmp should be 6*N.
+ */
 int solverSVD(MAT lhs, MAT rhs, real_t * tmp){
     validate(NULL!=lhs,-4);
     validate(NULL!=rhs,-6);
@@ -444,12 +446,13 @@ int solverSVD(MAT lhs, MAT rhs, real_t * tmp){
     return INFO;
 }
 
-/** Solve system of linear equations using SVD, setting negative results to zero
-  * Wrapper for LAPACK routine
-  * Both lhs and rhs are destructively updated.
-  * Result is stored in rhs.
-  * tmp should be 6*N
-  */
+/** 
+ * Solve system of linear equations using SVD, setting negative results to zero.
+ * Wrapper for LAPACK routine.
+ * Both lhs and rhs are destructively updated.
+ * Result is stored in rhs.
+ * tmp should be 6*N.
+ */
 int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp){
     int info = solverSVD(lhs,rhs,tmp);
     if(info==0){
@@ -463,36 +466,55 @@ int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp){
 }
 
 
-/** Solve system of linear equations using non-negative least squares
-  * Wrapper for Fortran routine in nnls.f
-  * Both lhs and rhs are destructively updated.
-  * Result is stored in rhs.
-  * tmp should be 6*N
-  */
+#ifdef NFORTRAN
+/* Eclipse IDE does not handle fortran */
+int solverNNLS(MAT lhs, MAT rhs, real_t *tmp){
+    return 0;
+}
+#else
+/** 
+ * Solve system of linear equations using non-negative least squares.
+ * Wrapper for Fortran routine in s/dnnls.f.
+ * Both lhs and rhs are destructively updated.
+ * Result is stored in rhs.
+ * lhs must be square, tmp should be N*rhs->ncol.
+ */
 int solverNNLS(MAT lhs, MAT rhs, real_t *tmp){
     validate(NULL!=lhs,-4);
     validate(NULL!=rhs,-6);
     validate(NULL!=tmp,-11);
 
     const int N = lhs->nrow;
+    const int rcol = rhs->ncol;
+    /* lhs square and rhs row match */
+    validate(N==lhs->ncol,-2);
+    validate(N==rhs->nrow,-3);
+
     real_t RNORM;
     real_t W[N];
     real_t ZZ[N];
     int INDEX[N],MODE;
 
-    real_t * lhs_tmp = malloc(lhs->nrow*lhs->ncol*sizeof(real_t));
-    real_t * rhs_tmp = malloc(rhs->nrow*sizeof(real_t));
-    for( int cy=0 ; cy<N ; cy++){
-        memcpy(lhs_tmp,lhs->x,lhs->nrow*lhs->ncol*sizeof(real_t));
-        memcpy(rhs_tmp,rhs->x+cy*N,rhs->nrow*sizeof(real_t));
+    /* nnls only calculates for a vector so loop for each column of rhs
+       results collected sequentially in tmp
+       lhs and rhs destructively updated so use working copies, 
+       all of lhs and column at a time of rhs 
+    */
+    real_t * lhs_tmp = malloc(N*N*sizeof(real_t));
+    real_t * rhs_tmp = malloc(N*sizeof(real_t));
+    for( int cy=0 ; cy<rcol ; cy++){
+        memcpy(lhs_tmp,lhs->x,N*N*sizeof(real_t));
+        memcpy(rhs_tmp,rhs->x+cy*N,N*sizeof(real_t));
         nnls(lhs_tmp,&N,&N,&N,rhs_tmp,tmp+cy*N,&RNORM,W,ZZ,INDEX,&MODE);
     }
+    /* result is expected in rhs */
+    memcpy(rhs->x, tmp, N*rcol*sizeof(real_t));
 
     free(lhs_tmp);
     free(rhs_tmp);
     return MODE;
 }
-
+#endif
 
 
 #ifdef TEST
