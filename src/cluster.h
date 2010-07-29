@@ -43,6 +43,7 @@ CLUSTER copy_CLUSTER(const CLUSTER cluster);
 void show_CLUSTER(XFILE * fp, const CLUSTER cluster);
 
 // standard variations
+CLUSTER coerce_CLUSTER_from_array(const unsigned int ncycle, real_t * x, real_t ** next);
 CLUSTER copy_append_CLUSTER(CLUSTER clustout, const CLUSTER clustin, int colstart, int colend);
 
 // Input

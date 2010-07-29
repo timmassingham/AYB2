@@ -82,6 +82,29 @@ void show_CLUSTER(XFILE * fp, const CLUSTER cluster){
     show_MAT(fp,cluster->signals,4,5);
 }
 
+/**
+ * Create a new cluster from the supplied array of values.
+ * It is the responsibility of the caller to ensure the supplied array is large enough
+ * as no size checking can be done. Ignores x and y.
+ * Returns a pointer to the following element in the array
+ * (which may be beyond its range).
+ */
+CLUSTER coerce_CLUSTER_from_array(const unsigned int ncycle, real_t * x, real_t ** next){
+    if(NULL==x){ return NULL;}
+    CLUSTER cl = new_CLUSTER();
+    if(NULL==cl){ return NULL;}
+    cl->signals = coerce_MAT_from_array(NBASE, ncycle, x);
+    if(NULL==cl->signals){ goto cleanup;}
+    /* return the next element in the array */
+    *next = x + NBASE * ncycle;
+    return cl;
+
+cleanup:
+    free_MAT(cl->signals);
+    xfree(cl);
+    return NULL;
+}
+
 /** 
  * Append clustin onto clustout, selecting data columns. 
  * clustout may be null, in which case it is created using details from clustin.
@@ -163,10 +186,10 @@ CLUSTER read_unknown_CLUSTER( XFILE * fp){
 }
 
 #ifdef TEST
-#include <stdio.h>
+//#include <stdio.h>
 int main(int argc, char * argv[]){
     if(argc!=3){
-        fputs("Usage: test ncycle filename\n",stdout);
+        xfputs("Usage: test ncycle filename\n", xstdout);
         return EXIT_FAILURE;
     }
 
@@ -174,26 +197,45 @@ int main(int argc, char * argv[]){
     sscanf(argv[1], "%u", &ncycle);
 
     /* test read from file */
-    XFILE * fp = xfopen(argv[2],XFILE_UNKNOWN,"r");
-    CLUSTER cl = read_known_CLUSTER(fp, &ncycle, true);
+    XFILE * fp = xfopen(argv[2], XFILE_UNKNOWN, "r");
+    /* don't want return ncycle value */
+    unsigned int nc = ncycle;
+    CLUSTER cl = read_known_CLUSTER(fp, &nc, true);
     show_CLUSTER(xstdout, cl);
     
-    /* test copy */
+    xfputs("Copy cluster\n", xstdout);
     CLUSTER cl2 = copy_CLUSTER(cl);
     show_CLUSTER(xstdout, cl2);
 
-    /* test copy_append, from second column to half way */
+    xfputs("Copy append cluster, from second column to half way\n", xstdout);
     cl = copy_append_CLUSTER(cl, cl2, 1, cl2->signals->ncol/2);
     show_CLUSTER(xstdout, cl);
-    
-    /* test copy append to null */
+
+    xfputs("Copy append cluster to null, from second column to half way\n", xstdout);
     CLUSTER cl3 = NULL;
     cl3 = copy_append_CLUSTER(cl3, cl2, 1, cl2->signals->ncol/2);
     show_CLUSTER(xstdout, cl3);
-       
+
+    xfputs("Create an array\n", xstdout);
+    real_t arry[NBASE * ncycle];
+    for (unsigned int idx = 0; idx < NBASE * ncycle; idx++) {
+        arry[idx] = cl->signals->x[idx];
+    }
+    xfputs("array values:", xstdout);
+    for (unsigned int idx = 0; idx < NBASE * ncycle; idx++) {
+        xfprintf(xstdout, " %#8.2f", arry[idx]);
+    }
+    xfputs("\n", xstdout);
+
+    xfputs("Coerce cluster from array, ignores x,y\n", xstdout);
+    real_t *x = arry;
+    CLUSTER cl4 = coerce_CLUSTER_from_array(ncycle, x, &x);
+    show_CLUSTER(xstdout, cl4);
+
     free_CLUSTER(cl);
     free_CLUSTER(cl2);
     free_CLUSTER(cl3);
+    /* do not free cl4 as it points to arry */
     xfclose(fp);
     return EXIT_SUCCESS;
 }

@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <assert.h>
 #include <err.h>
 #include <string.h>
 #include <math.h>
@@ -143,6 +144,16 @@ MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t *
     MAT mat = new_MAT(nrow,ncol);
     if(NULL==mat){return NULL;}
     memcpy(mat->x,x,nrow*ncol*sizeof(real_t));
+    return mat;
+}
+
+MAT coerce_MAT_from_array(const uint32_t nrow, const uint32_t ncol, real_t * x){
+    assert(NULL!=x);
+    MAT mat = malloc(sizeof(*mat));
+    if(NULL==mat){ return NULL; }
+    mat->nrow = nrow;
+    mat->ncol = ncol;
+    mat->x = x;
     return mat;
 }
 

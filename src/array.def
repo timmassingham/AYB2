@@ -33,6 +33,7 @@
     #define copy_ARRAY(A)   copy_array_ ## A
     #define show_ARRAY(A)   show_array_ ## A
     #define read_ARRAY(A)   read_array_ ## A
+    #define coerce_ARRAY(A) coerce_array_ ## A
 #endif
 
 #if !defined(X)
@@ -86,4 +87,11 @@ static struct X(_array_) X(read_array_)( XFILE * fp, const uint32_t nelt){
         ary.elt[i] = X(read_)(fp);
     }
     return ary;
+}
+
+static struct X(_array_) X(coerce_array_)( const uint32_t nelt, X() * vals){
+    struct X(_array_) arry = {0,0};
+    arry.nelt = nelt;
+    arry.elt = vals;
+    return arry;
 }

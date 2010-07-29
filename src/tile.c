@@ -92,6 +92,39 @@ void show_TILE(XFILE * fp, const TILE tile, const unsigned int n){
     if( maxcl<tile->ncluster){ xfprintf(fp,"... (%u others)\n",tile->ncluster-maxcl); }
 }
 
+/**
+ * Create a new tile from the supplied array of values.
+ * It is the responsibility of the caller to ensure the supplied array is large enough
+ * as no size checking can be done. Ignores lane and tile.
+ */
+TILE coerce_TILE_from_array(unsigned int ncluster, unsigned int ncycle, real_t * x){
+    if(NULL==x){ return NULL;}
+    TILE tile = new_TILE();
+    if(NULL==tile){ return NULL;}
+    tile->ncluster = ncluster;
+    tile->ncycle = ncycle;
+    real_t * next_x;
+
+    /* first cluster, create new list */
+    CLUSTER cl = coerce_CLUSTER_from_array(ncycle, x, &next_x);
+    if (NULL==cl){ goto cleanup;}
+    tile->clusterlist = cons_LIST(CLUSTER)(cl, tile->clusterlist);
+
+    /* read in remaining clusters, appending to tail of cluster list */
+    LIST(CLUSTER) listtail = tile->clusterlist;
+    for (int idx = 1; idx < ncluster; idx++) {
+        cl = coerce_CLUSTER_from_array(ncycle, next_x, &next_x);
+        if (NULL==cl){ goto cleanup;}
+        listtail = rcons_LIST(CLUSTER)(cl, listtail);
+    }
+    return tile;
+
+cleanup:
+    free_LIST(CLUSTER)(tile->clusterlist);
+    xfree(tile);
+    return NULL;
+}
+
 /** 
  * Append the clusters of tilein onto tileout, selecting data columns. 
  * tileout may be null or have an empty clusterlist, 
@@ -210,8 +243,8 @@ cleanup:
 
 
 #ifdef TEST
-#include <stdio.h>
-#include <err.h>
+//#include <stdio.h>
+//#include <err.h>
 
 const unsigned int nxcat = 4;
 const unsigned int nycat = 4;
@@ -234,28 +267,28 @@ unsigned int whichquad( const CLUSTER cl, const void * dat){
 int main ( int argc, char * argv[]){
     int bds[4] = {0,1000,0,1000};
     if(argc!=3){
-        fputs("Usage: test ncycle filename\n",stdout);
+        xfputs("Usage: test ncycle filename\n", xstdout);
         return EXIT_FAILURE;
     }
 
     unsigned int ncycle = 0;
-    sscanf(argv[1],"%u",&ncycle);
+    sscanf(argv[1],"%u", &ncycle);
 
-    XFILE * fp = xfopen(argv[2],XFILE_UNKNOWN,"r");
-    TILE tile = read_known_TILE(fp,ncycle);
+    XFILE * fp = xfopen(argv[2], XFILE_UNKNOWN, "r");
+    TILE tile = read_known_TILE(fp, ncycle);
     xfclose(fp);
+    show_TILE(xstdout, tile, 10);
+
+    xfputs("Reversing list inplace\n", xstdout);
+    tile->clusterlist = reverse_inplace_list_CLUSTER(tile->clusterlist);
     show_TILE(xstdout,tile,10);
 
-    fputs("Reversing list inplace\n",stdout);
-        tile->clusterlist = reverse_inplace_list_CLUSTER(tile->clusterlist);
-    show_TILE(xstdout,tile,10);
-
-    fputs("Reversing list\n",stdout);
+    xfputs("Reversing list\n",xstdout);
     LIST(CLUSTER) newrcl = reverse_list_CLUSTER(tile->clusterlist);
     show_LIST(CLUSTER)(xstdout,newrcl,10);
     free_LIST(CLUSTER)(newrcl);
 
-    fputs("Reading tile in normal order\n",stdout);
+    xfputs("Reading tile in normal order\n",xstdout);
     fp = xfopen(argv[2],XFILE_UNKNOWN,"r");
     TILE tile_fwd = read_TILE(fp,ncycle);
     xfclose(fp);
@@ -278,6 +311,33 @@ int main ( int argc, char * argv[]){
     tile_fwd = copy_append_TILE(tile_fwd, tile, 1, ncycle/2);    
     show_TILE(xstdout,tile_fwd,10);
     free_TILE(tile_fwd);
+
+    xfputs("Create an array\n", xstdout);
+    unsigned int ncl=0;
+    unsigned int matsize = tile->clusterlist->elt->signals->nrow * ncycle;
+    unsigned int ncluster = tile->ncluster;
+    real_t arry[matsize * ncluster];
+
+    LIST(CLUSTER) node = tile->clusterlist;
+    while (NULL!=node && ncl < ncluster){
+        for (unsigned int idx = 0; idx < matsize; idx++) {
+            arry[ncl * matsize + idx] = node->elt->signals->x[idx];
+        }
+        node = node->nxt;
+        ncl++;
+    }
+
+    xfputs("array values:", xstdout);
+    for (unsigned int idx = 0; idx < matsize * ncluster; idx++) {
+        xfprintf(xstdout, " %#8.2f", arry[idx]);
+    }
+    xfputs("\n", xstdout);
+
+    xfputs("Coerce from array, ignores x,y\n", xstdout);
+    real_t *x = arry;
+    TILE tile_ary = coerce_TILE_from_array(ncluster, ncycle, x);
+    show_TILE(xstdout, tile_ary, 10);
+    /* do not free tile_ary as it points to arry */
 
     fputs("Filtering list\n",stdout);
     LIST(CLUSTER) filteredlist = filter_list_CLUSTER(pick_spot,tile->clusterlist,(void *)bds);

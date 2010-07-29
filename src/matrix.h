@@ -53,6 +53,7 @@ void show_MAT( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mc
 
 // standard variations
 MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x);
+MAT coerce_MAT_from_array(const uint32_t nrow, const uint32_t ncol, real_t * x);
 MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr, bool moredata);
 MAT identity_MAT( const int nrow);
 MAT copyinto_MAT( MAT matout, const MAT matin);
