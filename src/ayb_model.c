@@ -62,10 +62,12 @@ static real_t INITIAL_CROSSTALK[] = {
     0.2896459, 0.2413716, 0.11264008, 1.3194981
 };
 
-/** Name text for matrix messages. */
+/** Name text for matrix messages. Match to IOTYPE enum in dirio. */
 static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Phasing"};
-/** Possible output format text, used to match program argument. */
-static const char *OUTFORM_TEXT[] = {"FASTA", "FASTQ"};
+/** Possible output format text. Match to OUTFORM enum. Used to match program argument and also as file extension. */
+static const char *OUTFORM_TEXT[] = {"fasta", "fastq"};
+/** New cluster symbol in sequence file. Match to OUTFORM enum. */
+static const int OUT_SYMBOL[] = {'>', '@'};
 /** Possible solver routine text. Match to SOLVERS list. Used to match --solver argument. */
 static const char *SOLVER_TEXT[] = {"ls", "zero", "nnls"};
 /** Number of possible solver routines. */
@@ -87,6 +89,10 @@ static unsigned int NIter = 5;                  ///< Number of iterations in bas
 static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
 static AYB Ayb = NULL;                          ///< The model data.
 
+/* Additional data size constraint for debug output, set in read_intensities */
+#ifndef NDEBUG
+static bool ShowDebug = false;
+#endif
 
 /* private functions */
 
@@ -139,13 +145,33 @@ static bool read_matrices() {
  */
 static TILE read_intensities(XFILE *fp, unsigned int ncycle, bool *goon) {
 
-    TILE tile = read_TILE(fp, ncycle);
+    TILE tile = NULL;
+    switch (get_input_format()) {
+        case E_TXT:
+            tile = read_TILE(fp, ncycle);
+            break;
+
+        case E_CIF:
+            tile = read_cif_TILE (fp, ncycle);
+            break;
+
+        default: ;
+    }
+
     if (tile != NULL) {
         if (tile->ncycle < ncycle) {
             /* not enough data */
             message(E_CYCLESIZE_DD, MSG_FATAL, tile->ncycle, ncycle);
             tile = free_TILE(tile);
             *goon = false;
+        }
+        else {
+            message(E_TILESIZE_DD, MSG_INFO, tile->ncluster, tile->ncycle);
+
+#ifndef NDEBUG
+    /* set additional debug output, can overload the process if too much data; vary as required */
+    ShowDebug = ((NIter == 1) && (tile->ncycle <= 20) && (tile->ncluster <= 100));
+#endif
         }
     }
 
@@ -265,23 +291,16 @@ static bool initialise_model() {
     set_MAT(Ayb->we, 1.0);
     set_MAT(Ayb->cycle_var, 1.0);
 
-#ifndef NDEBUG
-    XFILE *fpout = NULL;
-    fpout = open_output("inv");
-#endif
-
     /* process intensities then call initial bases and lambda for each cluster */
     MAT pcl_int = NULL;                     // Shell for processed intensities
     MAT Minv_t = transpose_inplace(invert(Ayb->M));
     MAT Pinv_t = transpose_inplace(invert(Ayb->P));
 
 #ifndef NDEBUG
-    if (!xfisnull(fpout)) {
-        show_MAT(fpout, Minv_t, Minv_t->nrow, Minv_t->ncol);
-        show_MAT(fpout, Pinv_t, Pinv_t->nrow, Pinv_t->ncol);
+    XFILE *fpout = NULL;
+    if (ShowDebug) {
+        fpout = open_output("pi");
     }
-    fpout = xfclose(fpout);
-    fpout = open_output("pi");
 #endif
 
     unsigned int cl = 0;
@@ -290,9 +309,11 @@ static bool initialise_model() {
         pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
 
 #ifndef NDEBUG
+    if (ShowDebug) {
         if (!xfisnull(fpout)) {
             show_MAT(fpout, pcl_int, pcl_int->nrow, pcl_int->ncol);
         }
+    }
 #endif
 
         /* call initial bases for each cycle */
@@ -311,7 +332,9 @@ static bool initialise_model() {
     }
 
 #ifndef NDEBUG
-    fpout = xfclose(fpout);
+    if (ShowDebug) {
+        fpout = xfclose(fpout);
+    }
 #endif
 
     free_MAT(pcl_int);
@@ -553,11 +576,6 @@ static MAT * calculate_covariance(){
 
     real_t wesum = 0.;
 
-#ifndef NDEBUG
-    XFILE *fpout = NULL;
-    fpout = open_output("cov_add");
-#endif
-
     unsigned int cl = 0;
     LIST(CLUSTER) node = Ayb->tile->clusterlist;
     while (NULL != node && cl < ncluster){
@@ -575,13 +593,6 @@ static MAT * calculate_covariance(){
         /* next cluster */
         node = node->nxt;
         cl++;
-
-#ifndef NDEBUG
-    if (!xfisnull(fpout)) {
-        show_MAT(fpout, V[0], NBASE, NBASE);
-    }
-#endif
-
     }
 
     free_MAT(pcl_int);
@@ -594,11 +605,6 @@ static MAT * calculate_covariance(){
             V[cy]->x[i] /= wesum;
         }
     }
-
-#ifndef NDEBUG
-    fpout = xfclose(fpout);
-#endif
-
     return V;
 }
 
@@ -611,25 +617,29 @@ static void estimate_bases() {
 
 #ifndef NDEBUG
     XFILE *fpout = NULL;
-    fpout = open_output("ayb2");
-    if (!xfisnull(fpout)) {
-        show_AYB(fpout, Ayb);
+    if (ShowDebug) {
+        fpout = open_output("ayb2");
+        if (!xfisnull(fpout)) {
+            show_AYB(fpout, Ayb);
+        }
+        fpout = xfclose(fpout);
     }
-    fpout = xfclose(fpout);
 #endif
 
     /* calculate covariance */
     MAT * V = calculate_covariance();
 
 #ifndef NDEBUG
-    fpout = open_output("cov");
-    if (!xfisnull(fpout)) {
-        xfputs("covariance:\n", fpout);
-        for (uint32_t cy = 0; cy < ncycle; cy++){
-            show_MAT(fpout, V[cy], NBASE, NBASE);
+    if (ShowDebug) {
+        fpout = open_output("cov");
+        if (!xfisnull(fpout)) {
+            xfputs("covariance:\n", fpout);
+            for (uint32_t cy = 0; cy < ncycle; cy++){
+                show_MAT(fpout, V[cy], NBASE, NBASE);
+            }
         }
+        fpout = xfclose(fpout);
     }
-    fpout = xfclose(fpout);
 #endif
 
     /* scale is variance of residuals; get from V matrices */
@@ -649,26 +659,17 @@ static void estimate_bases() {
         free_MAT(a);
     }
 
-#ifndef NDEBUG
-    fpout = open_output("om");
-    if (!xfisnull(fpout)) {
-        xfputs("omega:\n", fpout);
-        for (uint32_t cy = 0; cy < ncycle; cy++){
-            show_MAT(fpout, V[cy], NBASE, NBASE);
-        }
-    }
-    fpout = xfclose(fpout);
-#endif
-
     /* process intensities then estimate lambda and call bases for each cluster */
     MAT pcl_int = NULL;                 // Shell for processed intensities
     MAT Minv_t = transpose_inplace(invert(Ayb->M));
     MAT Pinv_t = transpose_inplace(invert(Ayb->P));
 
 #ifndef NDEBUG
-    fpout = open_output("lam2");
-    if (!xfisnull(fpout)) {
-        xfputs("lambda:\n", fpout);
+    if (ShowDebug) {
+        fpout = open_output("lam2");
+        if (!xfisnull(fpout)) {
+            xfputs("lambda:\n", fpout);
+        }
     }
 #endif
 
@@ -684,8 +685,10 @@ static void estimate_bases() {
         Ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x);
 
 #ifndef NDEBUG
-    if (!xfisnull(fpout)) {
-        xfprintf(fpout, "%d: %#12.6f\n", cl + 1, Ayb->lambda->x[cl]);
+    if (ShowDebug) {
+        if (!xfisnull(fpout)) {
+            xfprintf(fpout, "%d: %#12.6f\n", cl + 1, Ayb->lambda->x[cl]);
+        }
     }
 #endif
 
@@ -705,12 +708,14 @@ static void estimate_bases() {
     }
 
 #ifndef NDEBUG
-    fpout = xfclose(fpout);
-    fpout = open_output("ayb3");
-    if (!xfisnull(fpout)) {
-        show_AYB(fpout, Ayb);
+    if (ShowDebug) {
+        fpout = xfclose(fpout);
+        fpout = open_output("ayb3");
+        if (!xfisnull(fpout)) {
+            show_AYB(fpout, Ayb);
+        }
+        fpout = xfclose(fpout);
     }
-    fpout = xfclose(fpout);
 #endif
 
     free_MAT(pcl_int);
@@ -731,17 +736,26 @@ static bool output_results (int blk) {
     if (Ayb == NULL) {return false;}
 
     XFILE *fpout = NULL;
-    fpout = open_output_blk("seq", blk);
+    /* different rules for varying input formats */
+    switch (get_input_format()) {
+        case E_TXT:
+            fpout = open_output_blk("seq", blk);
+            break;
+
+        case E_CIF:
+            fpout = open_output_blk((const CSTRING)OUTFORM_TEXT[OutputFormat], blk);
+            break;
+
+        default: ;
+    }
 
     if (xfisnull(fpout)) {return false;}
 
     const uint32_t ncluster = Ayb->ncluster;
     const uint32_t ncycle = Ayb->ncycle;
 
-    int symbol = (OutputFormat == E_FASTQ)?'@':'>';
-
     for (uint32_t cl = 0; cl < ncluster; cl++){
-        xfprintf(fpout, "%ccluster_%03u\n", symbol, cl + 1);
+        xfprintf(fpout, "%ccluster_%03u\n", OUT_SYMBOL[OutputFormat], cl + 1);
         for (uint32_t cy = 0; cy < ncycle; cy++){
             show_NUC(fpout, Ayb->bases.elt[cl * ncycle + cy]);
         }
@@ -922,12 +936,14 @@ bool analyse_tile (XFILE *fp) {
             message(E_PROCESS_DD, MSG_INFO, blk + 1, Ayb->ncycle);
 
 #ifndef NDEBUG
-            XFILE *fpout = NULL;
-            fpout = open_output_blk("ayb1", (numblock > 1)?blk:-1);
-            if (!xfisnull(fpout)) {
-                show_AYB(fpout, Ayb);
-            }
-            fpout = xfclose(fpout);
+    if (ShowDebug) {
+        XFILE *fpout = NULL;
+        fpout = open_output_blk("ayb1", (numblock > 1)?blk:-1);
+        if (!xfisnull(fpout)) {
+            show_AYB(fpout, Ayb);
+        }
+        fpout = xfclose(fpout);
+    }
 #endif
 
             /* base calling loop */
