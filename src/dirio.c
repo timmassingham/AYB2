@@ -2,7 +2,8 @@
  * \file dirio.c
  * I/O Environment.
  *   - Input and output file locations (parameters).
- *   - Input file pattern match for prefix (parameter) and substring (fixed).
+ *   - Input file pattern match by input type (parameter), 
+ *     prefix (parameter),substring (fixed) and suffix (fixed).
  *   - Search input directory for pattern match files.
  *   - Generate output file name.
  *   - File open and close.
@@ -47,9 +48,17 @@ static const char *DEFAULT_PATH = "./";         ///< Use current directory if no
 static const char *PATH_DELIMSTR = "/";         ///< Path delimiter. For linux, other OS?
 static const char DOT = '.';                    ///< Before file extension, used for tag location.
 static const char DELIM = '_';                  ///< Before tag, used for tag location.
-static const char *INTEN_TAG = "int";           ///< Fixed Intensities file tag.
-static const char *INTEN_SUF = "txt";           ///< Fixed Intensities file suffix.
-static const char BLOCKCHAR = 'a';
+static const char BLOCKCHAR = 'a';              ///< Start for additional block suffix.
+
+/**
+ * Possible input format text. Match to INFORM enum. Used to match program argument.
+ * - Illumina files match name template <prefix>*_int.txt*[.<zip ext>]
+ * - cif files match name template <prefix>*.cif
+ */
+static const char *INFORM_TEXT[] = {"TXT", "CIF"};
+static const char *INTEN_TAG[] = {"int", ""};       ///< Fixed Intensities file tags.
+static const char *INTEN_SUF[] = {"txt", "cif"};    ///< Fixed Intensities file suffixes.
+
 /**
  * Permission flags for a directory; owner/group all plus other read/execute.
  * Used by output directory create but seems to be ignored in favour of parent adoption.
@@ -59,6 +68,7 @@ static const mode_t DIR_MODE = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
 /* members */
 
 /* the I/O settings for this run */
+static INFORM Input_Format = E_TXT;             ///< Selected input format.
 static CSTRING Input_Path = NULL;               ///< Input path, default or program argument.
 static CSTRING Output_Path = NULL;              ///< Output path, default or program argument.
 static CSTRING Pattern = NULL;                  ///< File pattern match, currently a prefix, program argument.
@@ -112,8 +122,8 @@ static bool full_path(const CSTRING dir, const CSTRING filename, CSTRING *filepa
 static void make_substring() {
 
     /* check if anything to match */
-    size_t taglen = strlen(INTEN_TAG);
-    size_t suflen = strlen(INTEN_SUF);
+    size_t taglen = strlen(INTEN_TAG[Input_Format]);
+    size_t suflen = strlen(INTEN_SUF[Input_Format]);
     size_t len = 0;
 
     if (taglen > 0) {
@@ -131,14 +141,14 @@ static void make_substring() {
         if (taglen > 0) {
             /* add delimiter and tag */
             IntenSubstr[pos++] = DELIM;
-            for (pnext = INTEN_TAG; pnext < INTEN_TAG + taglen; pnext++) {
+            for (pnext = INTEN_TAG[Input_Format]; pnext < INTEN_TAG[Input_Format] + taglen; pnext++) {
                 IntenSubstr[pos++] = *pnext;
             }
         }
         if (suflen > 0) {
             /* add dot and suffix */
             IntenSubstr[pos++] = DOT;
-            for (pnext = INTEN_SUF; pnext < INTEN_SUF + suflen; pnext++) {
+            for (pnext = INTEN_SUF[Input_Format]; pnext < INTEN_SUF[Input_Format] + suflen; pnext++) {
                 IntenSubstr[pos++] = *pnext;
             }
         }
@@ -268,6 +278,52 @@ static CSTRING output_name(const CSTRING oldname, const CSTRING tag, int blk) {
 }
 
 /**
+ * Return a new file name created from an original cif.
+ * Replaces the suffix with a new tag.
+ */
+static CSTRING output_name_cif(const CSTRING oldname, const CSTRING tag, int blk) {
+
+    CSTRING newname = NULL;
+    size_t oldlen = strlen(oldname);
+    size_t taglen = strlen(tag);
+
+    /* find the suffix */
+    char *pdot = strrchr(oldname, DOT);
+    if (pdot == NULL) {
+        /* no dot, add to name */
+        pdot = oldname + oldlen;
+    }
+
+    /* get a string of size for new name */
+    newname = new_CSTRING(pdot - oldname + taglen + 1 + (blk >= 0)?1:0);
+
+    if (newname == NULL) {
+        message(E_NOMEM_S, MSG_FATAL, " output name creation");
+    }
+    else {
+        /* copy the component parts to the new name */
+        char *pnext;
+        int pos = 0;
+        for (pnext = oldname; pnext < pdot; pnext++) {
+            newname[pos++] = *pnext;
+        }
+        /* add block suffix before dot */
+        if (blk >= 0) {
+            newname[pos++] = BLOCKCHAR + blk;
+        }
+        newname[pos++] = DOT;
+        for (pnext = tag; pnext < tag + taglen; pnext++) {
+            newname[pos++] = *pnext;
+        }
+        /* finish with string terminator */
+        newname[pos] = '\0';
+    }
+
+//    message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, newname);
+    return newname;
+}
+
+/**
  * Scan the input directory for any files that match the specified pattern.
  * Result placed in Dir_List. Return the number found.
  */
@@ -326,6 +382,12 @@ CSTRING get_current_file() {
     else {
         return Current;
     }
+}
+
+/** Return the selected input format. */
+INFORM get_input_format() {
+
+    return Input_Format;
 }
 
 /** Return the file pattern match argument. */
@@ -435,7 +497,17 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
     }
     else {
         /* create output file name from current input */
-        filename = output_name(Current, tag, blk);
+        switch (Input_Format) {
+            case E_TXT:
+                filename = output_name(Current, tag, blk);
+                break;
+
+            case E_CIF:
+                filename = output_name_cif(Current, tag, blk);
+                break;
+
+            default: ;
+        }
     }
 
     if (filename != NULL) {
@@ -455,6 +527,23 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
     free_CSTRING(filepath);
 
     return fp;
+}
+
+/**
+ * Set the input format. Text must match one of the input format text list. Ignores case.
+ * Returns true if match found.
+ */
+bool set_input_format(const char *inform_str) {
+
+    /* match to one of the possible options */
+    int matchidx = match_string(inform_str, INFORM_TEXT, E_INFORM_NUM);
+    if (matchidx >= 0) {
+        Input_Format = matchidx;
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 /** Set file location information. */

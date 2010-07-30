@@ -33,6 +33,9 @@
 #include "utility.h"            // for CSTRING
 #include "xio.h"                // for XFILE
 
+
+/** Possible input formats. */
+typedef enum InFormT {E_TXT, E_CIF, E_INFORM_NUM} INFORM;
 /**
  * Types of file location information. Also used as index into predetermined input matrices.
  * E_NMATRIX indicates number of such matrices.
@@ -44,6 +47,7 @@ typedef enum IOTypeT {E_CROSSTALK, E_NOISE, E_PHASING, E_INPUT, E_OUTPUT, E_NMAT
 
 bool check_outdir(const CSTRING dirname, const char * typestr);
 CSTRING get_current_file();
+INFORM get_input_format();
 CSTRING get_pattern();
 bool matrix_from_file(IOTYPE idx);
 
@@ -52,6 +56,7 @@ XFILE * open_next(XFILE *fplast);
 XFILE * open_output(CSTRING tag);
 XFILE * open_output_blk(CSTRING tag, int blk);
 
+bool set_input_format(const char *inform_str);
 void set_location(const CSTRING path, IOTYPE mode);
 void set_pattern(const CSTRING pattern);
 
