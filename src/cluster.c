@@ -130,9 +130,42 @@ CLUSTER copy_append_CLUSTER(CLUSTER clustout, const CLUSTER clustin, int colstar
 }
 
 /*
- * Basic input functions from file
+ * Input functions from data or file
  */
-/*  Reads a cluster from file pointer, assuming that the number of cycles is known.
+
+/**
+ * Create a new cluster from the supplied cif data.
+ * Index of cluster is supplied along with number of cycles wanted.
+ */
+CLUSTER read_cif_CLUSTER(CIFDATA cif, const unsigned int cl, unsigned int ncycle) {
+
+    if (NULL==cif) {return NULL;}
+    if ((ncycle > cif_get_ncycle(cif)) || (cl >= cif_get_ncluster(cif))) {return NULL;}
+
+    MAT signals = new_MAT(NBASE, ncycle);
+    if(signals==NULL) {return NULL;}
+    CLUSTER cluster = new_CLUSTER();
+    if(NULL==cluster) {goto cleanup;}
+
+    for (int cy = 0; cy < ncycle; cy++) {
+        for (int base = 0; base < NBASE; base++) {
+            signals->x[cy * NBASE + base] = cif_get_real(cif, cl, base, cy);
+        }
+    }
+    /* x and y not available */
+//    cluster->x = x;
+//    cluster->y = y;
+    cluster->signals = signals;
+    return cluster;
+
+cleanup:
+    free_CLUSTER(cluster);
+    free_MAT(signals);
+    return NULL;
+}
+
+
+/* Read a cluster from file pointer, assuming that the number of cycles is known.
  * Format should be that of Illumina's _int.txt
  * A little validation of the file format is performed.
  */

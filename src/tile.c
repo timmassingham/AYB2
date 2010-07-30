@@ -25,6 +25,7 @@
  */
 
 #include <stdlib.h>
+#include "cif.h"
 #include "tile.h"
 
 
@@ -179,6 +180,66 @@ TILE copy_append_TILE(TILE tileout, const TILE tilein, int colstart, int colend)
 }
 
 /**
+ * Read a tile from a cif file.
+ * Returns a new TILE containing a list of clusters, in the same order as file.
+ */
+TILE read_cif_TILE (XFILE * fp, unsigned int ncycle) {
+
+    if(NULL==fp) {return NULL;}
+    TILE tile = new_TILE();
+    if (NULL==tile) {return NULL;}
+
+    /* read in all the cif data */
+    CIFDATA cif = NULL;
+    cif = readCIFfromStream(fp);
+    if(NULL==cif){
+        warnx("Failed to read tile.");
+        goto cleanup;
+    }
+
+    unsigned int cifcycle = cif_get_ncycle(cif);
+    unsigned int cifcluster = cif_get_ncluster(cif);
+    xfprintf(xstderr, "Read cif tile: %u cycles from %u clusters.\n", cifcycle, cifcluster);
+
+    if (cifcycle < ncycle) {
+        /* not enough cycles, just return the number without bothering to store the data */
+        tile->ncycle = cifcycle;
+    }
+    else {
+        tile->ncycle = ncycle;
+        if (cifcycle > ncycle) {
+            /* extra data */
+            warnx("Intensity file contains more data than requested: additional %d cycles.", cifcycle - ncycle);
+        }
+
+        /* treat first cluster differently */
+        CLUSTER cl = read_cif_CLUSTER(cif, tile->ncluster, ncycle);
+        if (NULL==cl) {goto cleanup;}
+
+        tile->clusterlist = cons_LIST(CLUSTER)(cl, tile->clusterlist);
+        tile->ncluster++;
+
+        /* store remaining clusters, appending to tail of cluster list */
+        LIST(CLUSTER) listtail = tile->clusterlist;
+        while (tile->ncluster < cifcluster) {
+            cl = read_cif_CLUSTER(cif, tile->ncluster, ncycle);
+            if (NULL==cl) {break;}
+            listtail = rcons_LIST(CLUSTER)(cl, listtail);
+            tile->ncluster++;
+        }
+     }
+
+    free_cif(cif);
+    return tile;
+
+cleanup:
+    free_cif(cif);
+    free_LIST(CLUSTER)(tile->clusterlist);
+    xfree(tile);
+    return NULL;
+}
+
+/**
  * Read a tile from an Illumina int.txt file.
  * Returns a list of clusters, in reverse order compared to file.
  * \n read_known_TILE is deprecated in favour of read_TILE, which
@@ -207,7 +268,7 @@ TILE read_TILE( XFILE * fp, unsigned int ncycle){
     TILE tile = new_TILE();
     if (NULL==tile) { return NULL;}
 
-    // Treat first cluster differently
+    /* Treat first cluster differently */
     unsigned int nc = ncycle;
     CLUSTER cl = read_known_CLUSTER(fp, &nc, true);
     if ( NULL==cl){ goto cleanup;}
@@ -224,7 +285,7 @@ TILE read_TILE( XFILE * fp, unsigned int ncycle){
     tile->clusterlist = cons_LIST(CLUSTER)(cl,tile->clusterlist);
     tile->ncluster++;
 
-    // Read in remaining clusters, appending to tail of cluster list
+    /* Read in remaining clusters, appending to tail of cluster list */
     LIST(CLUSTER) listtail = tile->clusterlist;
     while(  cl = read_known_CLUSTER(fp, &nc, false), NULL!=cl ){
         /* check later data */

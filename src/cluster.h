@@ -27,6 +27,7 @@
 #ifndef CLUSTER_H_
 #define CLUSTER_H_
 
+#include "cif.h"
 #include "matrix.h"
 #include "xio.h"
 
@@ -47,6 +48,7 @@ CLUSTER coerce_CLUSTER_from_array(const unsigned int ncycle, real_t * x, real_t 
 CLUSTER copy_append_CLUSTER(CLUSTER clustout, const CLUSTER clustin, int colstart, int colend);
 
 // Input
+CLUSTER read_cif_CLUSTER(CIFDATA cif, const unsigned int cl, unsigned int ncycle);
 CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle, bool moredata);
 CLUSTER read_unknown_CLUSTER( XFILE * fp);
 
