@@ -60,6 +60,12 @@ NUC call_base_simple( const real_t * restrict p){
     return max_real_t(p,NBASE);
 }
 
+/** Return a null base call, used when insufficient data available. */
+struct basequal call_base_null(void){
+    struct basequal b = {0, MIN_PHRED};
+    return b;
+}
+
 /**
  * Call base from processed intensities using minimum Least Squares.
  * Also returns a quality score.
@@ -75,8 +81,9 @@ struct basequal call_base( const real_t * restrict p, const real_t lambda, const
 
     if(0==lambda){
         #warning "Should call bases should return random base when lambda=0?"
-        struct basequal b = {0,33};
-        return b;
+//        struct basequal b = {0,33};
+//        return b;
+        return call_base_null();
         // Special case, return random value
         //return (int)(NBASE*runif());
     }

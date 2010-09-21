@@ -53,6 +53,7 @@ struct AybT {
 
 /* constants */
 static const unsigned int AYB_NITER = 20;       ///< Number of parameter estimation loops.
+static const int DATA_ERR = -1;                 ///< Indicates an error in the data being processed, usually an overflow.
 
 /** Initial Crosstalk matrix if not read in, fixed values of approximately the right shape. */
 static real_t INITIAL_CROSSTALK[] = {
@@ -611,9 +612,9 @@ static MAT * calculate_covariance(){
 
 /**
  * Call bases. Includes calculate covariance and estimate lambda.
- * Returns number of zero lambdas.
+ * Returns number of zero lambdas or data error indication.
  */
-static unsigned int estimate_bases(void) {
+static int estimate_bases(void) {
 
     validate(NULL != Ayb, 0);
     const uint32_t ncluster = Ayb->ncluster;
@@ -632,6 +633,30 @@ static unsigned int estimate_bases(void) {
 
     /* calculate covariance */
     MAT * V = calculate_covariance();
+
+    if (NULL == V) {
+        /* set calls to null and terminate processing */
+        unsigned int cl = 0;
+
+        LIST(CLUSTER) node = Ayb->tile->clusterlist;
+        while (NULL != node && cl < ncluster){
+            NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
+            PHREDCHAR * cl_quals = Ayb->quals.elt + cl * ncycle;
+
+            /* call null base for each cycle */
+            for (uint32_t cy = 0; cy < ncycle; cy++){
+                struct basequal bq = call_base_null();
+                cl_bases[cy] = bq.base;
+                cl_quals[cy] = bq.qual;
+            }
+
+            /* next cluster */
+            node = node->nxt;
+            cl++;
+        }
+
+        return DATA_ERR;
+    }
 
 #ifndef NDEBUG
     if (ShowDebug) {
@@ -678,7 +703,7 @@ static unsigned int estimate_bases(void) {
 #endif
 
     unsigned int cl = 0;
-    unsigned int zerolambda = 0;
+    int zerolambda = 0;
 
     LIST(CLUSTER) node = Ayb->tile->clusterlist;
     while (NULL != node && cl < ncluster){
@@ -740,9 +765,9 @@ static unsigned int estimate_bases(void) {
 /** Output message with counts if any zero lambdas. */
 static void output_zero_lambdas() {
 
-static const unsigned int MAX_ZEROS = 1e6 - 1;      // Up to 6 digits
-static const unsigned int MAX_NUMLEN = 9;           // Enough for "BigNum, \0" or "999999, \0"
-static const char *BIG_NUM = "BigNum";              // Use if number too big for buffer
+static const int MAX_ZEROS = 1e6 - 1;       // Up to 6 digits
+static const int MAX_NUMLEN = 9;            // Enough for "BigNum, \0" or "999999, \0"
+static const char *BIG_NUM = "BigNum";      // Use if number too big for buffer
 
     /* check if any recorded */
     bool any = false;
@@ -763,7 +788,7 @@ static const char *BIG_NUM = "BigNum";              // Use if number too big for
             sprintf(msgstring, "%s", BIG_NUM);
         }
         else {
-            sprintf(msgstring, "%u", ZeroLambda[0]);
+            sprintf(msgstring, "%d", ZeroLambda[0]);
         }
 
         for (int i = 1; i < NIter; i++) {
@@ -771,7 +796,7 @@ static const char *BIG_NUM = "BigNum";              // Use if number too big for
                 sprintf(numstring, ", %s", BIG_NUM);
             }
             else {
-                sprintf(numstring, ", %u", ZeroLambda[i]);
+                sprintf(numstring, ", %d", ZeroLambda[i]);
             }
             strcat(msgstring, numstring);
         }
@@ -999,9 +1024,21 @@ bool analyse_tile (XFILE *fp) {
 #endif
 
             /* base calling loop */
+            int res;
             for (int i = 0; i < NIter; i++){
+                xfprintf(xstdout, "Iteration: %d\n", i+1);
+
                 estimate_MPN();
-                ZeroLambda[i] = estimate_bases();
+                res = estimate_bases();
+
+                if (res == DATA_ERR) {
+                    /* terminate processing */
+                    message(E_PROCESS_FAIL_D, MSG_ERR, i + 1);
+                    break;
+                }
+                else {
+                    ZeroLambda[i] = res;
+                }
             }
 
             /* output any zero lambdas */
@@ -1100,7 +1137,7 @@ bool startup_model(){
         }
         else {
             /* storage for zero lambda count */
-            ZeroLambda = calloc(NIter, sizeof(unsigned int));
+            ZeroLambda = calloc(NIter, sizeof(int));
 
             message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
             message(E_OUTPUT_FORM_S, MSG_INFO, OUTFORM_TEXT[OutputFormat]);

@@ -73,6 +73,7 @@ static const char *MSG_TEXT[] = {
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
+        "Processing failed at iteration %d; calls set to null\n",               // E_PROCESS_FAIL_D
         "Intensity file contains less data than requested; %d instead of %d\n", // E_CYCLESIZE_DD
         "Tile data size: %d clusters of %d cycles\n",                           // E_TILESIZE_DD
         "Failed to initialise model for block %d, %d cycles\n",                 // E_INIT_FAIL_DD

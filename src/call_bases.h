@@ -35,6 +35,7 @@ struct basequal { NUC base; PHREDCHAR qual;};
 
 /* function prototypes */
 NUC call_base_simple( const real_t * restrict p);
+struct basequal call_base_null(void);
 struct basequal call_base( const real_t * restrict p, const real_t lambda, const MAT omega);
 bool set_mu(const char *mu_str);
 
