@@ -86,6 +86,7 @@ typedef enum OutFormT {E_FASTA, E_FASTQ, E_OUTFORM_NUM} OUTFORM;
 static OUTFORM OutputFormat  = E_FASTA;         ///< Selected output format.
 
 static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.
+static unsigned int *ZeroLambda = NULL;         ///< Count of zero lambdas before base call, per iteration.
 static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
 static AYB Ayb = NULL;                          ///< The model data.
 
@@ -608,10 +609,13 @@ static MAT * calculate_covariance(){
     return V;
 }
 
-/** Call bases. Includes calculate covariance and estimate lambda. */
-static void estimate_bases() {
+/**
+ * Call bases. Includes calculate covariance and estimate lambda.
+ * Returns number of zero lambdas.
+ */
+static unsigned int estimate_bases(void) {
 
-    validate(NULL != Ayb,);
+    validate(NULL != Ayb, 0);
     const uint32_t ncluster = Ayb->ncluster;
     const uint32_t ncycle = Ayb->ncycle;
 
@@ -674,6 +678,8 @@ static void estimate_bases() {
 #endif
 
     unsigned int cl = 0;
+    unsigned int zerolambda = 0;
+
     LIST(CLUSTER) node = Ayb->tile->clusterlist;
     while (NULL != node && cl < ncluster){
         NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
@@ -683,6 +689,9 @@ static void estimate_bases() {
         /* estimate lambda using Weighted Least Squares */
 //        Ayb->lambda->x[cl] = estimate_lambdaGWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x, V);
         Ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x);
+        if (Ayb->lambda->x[cl] == 0.0) {
+            zerolambda++;
+        }
 
 #ifndef NDEBUG
     if (ShowDebug) {
@@ -725,6 +734,49 @@ static void estimate_bases() {
         free_MAT(V[cy]);
     }
     xfree(V);
+    return zerolambda;
+}
+
+/** Output message with counts if any zero lambdas. */
+static void output_zero_lambdas() {
+
+static const unsigned int MAX_ZEROS = 1e6 - 1;      // Up to 6 digits
+static const unsigned int MAX_NUMLEN = 9;           // Enough for "BigNum, \0" or "999999, \0"
+static const char *BIG_NUM = "BigNum";              // Use if number too big for buffer
+
+    /* check if any recorded */
+    bool any = false;
+    for (int i = 0; i < NIter; i++) {
+        if (ZeroLambda[i] > 0) {
+            any = true;
+            break;
+        }
+    }
+
+    if (any) {
+        /* create the message as a string to allow variable iterations */
+        char numstring[MAX_NUMLEN];
+        char msgstring[MAX_NUMLEN * NIter];
+
+        /* first one has no preceding comma */
+        if (ZeroLambda[0] > MAX_ZEROS) {
+            sprintf(msgstring, "%s", BIG_NUM);
+        }
+        else {
+            sprintf(msgstring, "%u", ZeroLambda[0]);
+        }
+
+        for (int i = 1; i < NIter; i++) {
+            if (ZeroLambda[i] > MAX_ZEROS) {
+                sprintf(numstring, ", %s", BIG_NUM);
+            }
+            else {
+                sprintf(numstring, ", %u", ZeroLambda[i]);
+            }
+            strcat(msgstring, numstring);
+        }
+        message(E_ZERO_LAMBDA_S, MSG_INFO, msgstring);
+    }
 }
 
 /**
@@ -949,8 +1001,11 @@ bool analyse_tile (XFILE *fp) {
             /* base calling loop */
             for (int i = 0; i < NIter; i++){
                 estimate_MPN();
-                estimate_bases();
+                ZeroLambda[i] = estimate_bases();
             }
+
+            /* output any zero lambdas */
+            output_zero_lambdas();
 
             /* output the results */
             goon = output_results((numblock > 1)?blk:-1);
@@ -1044,6 +1099,9 @@ bool startup_model(){
             return false;
         }
         else {
+            /* storage for zero lambda count */
+            ZeroLambda = calloc(NIter, sizeof(unsigned int));
+
             message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
             message(E_OUTPUT_FORM_S, MSG_INFO, OUTFORM_TEXT[OutputFormat]);
 
@@ -1060,4 +1118,5 @@ void tidyup_model(){
     for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
         Matrix[idx] = free_MAT(Matrix[idx]);
     }
+    xfree(ZeroLambda);
 }
