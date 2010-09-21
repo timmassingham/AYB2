@@ -1,34 +1,47 @@
+# makefile for AYB
+
 CC = gcc
-CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -fomit-frame-pointer -std=gnu99
-#CFLAGS = -std=c99 -Wall -g -std=gnu99
-#CFLAGS = -g -pg -std=c99
-LD = ld
-LDFLAGS =  -lz -lbz2 -lm -lc -lblas -llapack
+FC = gfortran
+CFLAGS = -Wall -O3 -DNDEBUG -std=gnu99
+LDFLAGS =  -lz -lbz2 -llapack -lgfortran
 INCFLAGS = 
 DEFINES = -DUSEFLOAT
-objects =  xio.o matrix.o cluster.o tile.o
+objects =  ayb_main.o ayb_model.o ayb_options.o call_bases.o cif.o cluster.o datablock.o dirio.o handler.o \
+           intensities.o lambda.o matrix.o message.o mpn.o nuc.o statistics.o tile.o utility.o xio.o \
+           snnls.o dnnls.o
 
-ayb: $(objects)
+AYB: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
-
-test: test-cluster test-tile
+	
+test: test-cluster test-matrix test-nuc test-tile
 
 test-cluster: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST cluster.c $(filter-out cluster.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects))
+
+test-matrix: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST matrix.c $(filter-out matrix.o ayb_main.o,$(objects))
+
+test-mpn: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST mpn.c $(filter-out mpn.o ayb_main.o,$(objects))
+
+test-nuc: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST nuc.c $(filter-out nuc.o ayb_main.o,$(objects))
 
 test-tile: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST tile.c $(filter-out tile.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects))
 
 
 .c.o:
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $@ -c $<
 
 .f.o:
-	g77 -O3 -o $@ -c $<
+	$(FC) -m64 -O3 -o $@ -c $<
 
 clean:
-	rm -f *~ *.o  *.obj  *.exe *.lib
-	mkdir -p ../bin
-
+	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib
+	find .. -name "*.log" -exec rm {} \;
+	
 archive: clean
-	cd ../.. && tar zcf ayb.tgz --exclude=.git --exclude=bin --exclude=archive --exclude=test ayb
+	cd ../.. && tar zcf AYB.tgz --exclude=archive --exclude=Debug --exclude=test --exclude=runfiles AYB \
+	--exclude=.git --exclude=.cproject --exclude=.project --exclude=RemoteSystemsTempFiles --exclude=.metadata
+
