@@ -240,7 +240,7 @@ static CSTRING output_name(const CSTRING oldname, const CSTRING tag, int blk) {
     }
 
     /* get a string of size for new name */
-    newname = new_CSTRING(oldlen + taglen + (blk >= 0)?1:0 - (pdot - pdlm - 1));
+    newname = new_CSTRING(oldlen - (pdot - pdlm - 1) + taglen + ((blk >= 0)?1:0));
 
     if (newname == NULL) {
         message(E_NOMEM_S, MSG_FATAL, " output name creation");
@@ -295,7 +295,7 @@ static CSTRING output_name_cif(const CSTRING oldname, const CSTRING tag, int blk
     }
 
     /* get a string of size for new name */
-    newname = new_CSTRING(pdot - oldname + taglen + 1 + (blk >= 0)?1:0);
+    newname = new_CSTRING(pdot - oldname + taglen + 1 + ((blk >= 0)?1:0));
 
     if (newname == NULL) {
         message(E_NOMEM_S, MSG_FATAL, " output name creation");
@@ -329,13 +329,16 @@ static CSTRING output_name_cif(const CSTRING oldname, const CSTRING tag, int blk
  */
 static int scan_inputs() {
 
+    /* hmhm new message func to return a message string */
+    static const char *ERRMESS = "Fatal: Couldn't open the directory: \'%s\'";
+
     int num = scandir (Input_Path, &Dir_List, match_pattern, alphasort);
 
     if (num < 0) {
-        /* hmhm new message func to return a message string */
-        char msg[80];
-        sprintf(msg, "Fatal: Couldn't open the directory: \'%s\'", Input_Path);
+        CSTRING msg = new_CSTRING(strlen(ERRMESS) + strlen(Input_Path));
+        sprintf(msg, ERRMESS, Input_Path);
         perror (msg);
+        free_CSTRING(msg);
     }
     else {
         for (int cnt = 0; cnt < num; ++cnt) {
