@@ -33,7 +33,7 @@
 
 /* members */
 
-static real_t Mu = 1e-5;                        ///< Tolerance used in quality score calculation?
+static real_t Mu = 1e-5;                        ///< Adjusts range of quality scores.
 
 
 /* private functions */

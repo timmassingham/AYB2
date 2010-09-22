@@ -30,6 +30,7 @@
 #include "ayb_model.h"
 #include "ayb_options.h"
 #include "ayb_version.h"
+#include "call_bases.h"
 #include "datablock.h"
 #include "dirio.h"          // I/O for this run hm??
 #include "message.h"        // message file location and level
@@ -79,6 +80,7 @@ static struct option Longopts[] = {
     {"dataformat",  required_argument,  NULL, 'd'},
     {"format",      required_argument,  NULL, 'f'},
     {"niter",       required_argument,  NULL, 'n'},
+    {"mu"   ,       required_argument,  NULL, 'm'},
     {"input",       required_argument,  NULL, 'i'},
     {"output",      required_argument,  NULL, 'o'},
     {"logfile",     required_argument,  NULL, 'e'},
@@ -114,7 +116,7 @@ OPTRET read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:x:d:f:n:i:o:e:l:wM:N:P:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:x:d:f:n:m:i:o:e:l:wM:N:P:S:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'b':
@@ -133,7 +135,7 @@ OPTRET read_options(const int argc, char ** const argv) {
                 /* input format */
                 if (!set_input_format(optarg)) {
                     fprintf(stderr, "Fatal: Unrecognised input format option: \'%s\'\n\n", optarg);
-                     carryon = E_FAIL;
+                    carryon = E_FAIL;
                 }
                 break;
 
@@ -141,13 +143,21 @@ OPTRET read_options(const int argc, char ** const argv) {
                 /* output format */
                 if (!set_output_format(optarg)) {
                     fprintf(stderr, "Fatal: Unrecognised output format option: \'%s\'\n\n", optarg);
-                     carryon = E_FAIL;
+                    carryon = E_FAIL;
                 }
                 break;
 
             case 'n':
                 /* number of cycles */
                 set_niter(optarg);
+                break;
+
+            case 'm':
+                /* phredchar calculation */
+                if (!set_mu(optarg)) {
+                    fprintf(stderr, "Fatal: Mu must be a positive value; \'%s\' supplied\n\n", optarg);
+                    carryon = E_FAIL;
+                }
                 break;
 
             case 'i':
@@ -169,7 +179,7 @@ OPTRET read_options(const int argc, char ** const argv) {
                 /* message output level */
                 if (!set_message_level(optarg)) {
                     fprintf(stderr, "Fatal: Unrecognised error level option: \'%s\'\n\n", optarg);
-                     carryon = E_FAIL;
+                    carryon = E_FAIL;
                 }
                 break;
 
