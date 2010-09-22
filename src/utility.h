@@ -60,12 +60,16 @@ static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr);} }
     #define REAL_FORMAT_IN "%f"
     /** String to real converter for selected real_t. */
     #define strtor strtof
+    /** Rounding function for selected real_t sends halfway cases away from zero. */
+    #define roundr roundf
 #else
     typedef double real_t;
     /** Input format string for selected real_t. */
     #define REAL_FORMAT_IN "%lf"
     /** String to real converter for selected real_t. */
     #define strtor strtod
+    /** Rounding function for selected real_t sends halfway cases away from zero. */
+    #define roundr round
 #endif
 
 /** Simple string type. */

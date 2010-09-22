@@ -84,6 +84,7 @@ encInt cif_get_const_intensities ( const CIFDATA cif ){ return cif->intensity; }
 real_t cif_get_real (const CIFDATA cif, const uint32_t cl, const uint32_t base, const uint32_t cy) {
 
     if (NULL==cif) {return NAN;}
+    if (NULL==cif->intensity.i8) {return NAN;}
     if ((cl >= cif->ncluster) || (base >= NCHANNEL)|| (cy >= cif->ncycle) ) {return NAN;}
 
     switch(cif->datasize) {
@@ -92,6 +93,56 @@ real_t cif_get_real (const CIFDATA cif, const uint32_t cl, const uint32_t base, 
         case 4: return (real_t)cif->intensity.i32[(cy * NCHANNEL + base) * cif->ncluster + cl]; break;
         default: return NAN;
     }
+}
+
+/** Set a single channel value from a real. */
+void cif_set_from_real (CIFDATA cif, const uint32_t cl, const uint32_t base, const uint32_t cy, real_t x) {
+
+    if (NULL==cif) {return;}
+    if ((cl >= cif->ncluster) || (base >= NCHANNEL)|| (cy >= cif->ncycle) ) {return;}
+    if (NULL==cif->intensity.i8) {
+        cif->intensity.i8 = calloc(cif->ncycle * cif->ncluster * NCHANNEL, cif->datasize);
+        if (NULL==cif->intensity.i8) {return;}
+    }
+
+    /* round properly first */
+    x = roundr(x);
+
+    switch(cif->datasize) {
+        case 1:
+            if ((x >= INT8_MIN) && (x <= INT8_MAX)) {
+                cif->intensity.i8 [(cy * NCHANNEL + base) * cif->ncluster + cl] = (int8_t)x; break;
+            }
+        case 2:
+            if ((x >= INT16_MIN) && (x <= INT16_MAX)) {
+                cif->intensity.i16[(cy * NCHANNEL + base) * cif->ncluster + cl] = (int16_t)x; break;
+            }
+        case 4:
+            if ((x >= INT32_MIN) && (x <= INT32_MAX)) {
+                cif->intensity.i32[(cy * NCHANNEL + base) * cif->ncluster + cl] = (int32_t)x; break;
+            }
+        default: ;
+    }
+}
+
+CIFDATA new_cif ( void ){
+   CIFDATA cif = malloc(sizeof(*cif));
+   if(NULL==cif){ return NULL; }
+   cif->version = 1;
+   cif->datasize = 2;
+   cif->firstcycle = 1;
+   cif->ncycle = 0;
+   cif->ncluster = 0;
+   cif->intensity.i8 = NULL;
+   return cif;
+}
+
+/** Create a new empty cif structure ready for data of a known size. */
+CIFDATA create_cif (const uint32_t ncycle, const uint32_t ncluster) {
+    CIFDATA cif = new_cif();
+    cif->ncycle = ncycle;
+    cif->ncluster = ncluster;
+    return cif;
 }
 
 // Delete
@@ -425,18 +476,6 @@ char * cif_create_cifglob ( const char * root, const uint32_t lane, const uint32
    return cif_glob;
 }
 
-CIFDATA new_cif ( void ){
-   CIFDATA cif = malloc(sizeof(*cif));
-   if(NULL==cif){ return NULL; }
-   cif->version = 1;
-   cif->datasize = 2;
-   cif->firstcycle = 1;
-   cif->ncycle = 0;
-   cif->ncluster = 0;
-   cif->intensity.i8 = NULL;
-   return cif;
-}
-
 CIFDATA spliceCIF(const CIFDATA cif, uint32_t ncycle, uint32_t offset){
     if(NULL==cif){return NULL;}
     if(offset+ncycle>cif->ncycle){ return NULL;}
@@ -501,7 +540,7 @@ readCIF_error:
 
 
 /*  Print routine for CIF structure */
-void showCIF ( XFILE * ayb_fp, const CIFDATA const cif){
+void showCIF ( XFILE * ayb_fp, const CIFDATA const cif, bool showall){
     static const char * basechar = "ACGT";
     if ( NULL==ayb_fp) return;
     if ( NULL==cif) return;
@@ -511,9 +550,15 @@ void showCIF ( XFILE * ayb_fp, const CIFDATA const cif){
     xfprintf( ayb_fp, "ncycles = %u, of which the first is cycle number %u\n", cif->ncycle,cif->firstcycle);
     xfprintf( ayb_fp, "nclusters = %u\n", cif->ncluster);
 
-    uint32_t mcluster = (cif->ncluster>5)?5:cif->ncluster;
-    uint32_t mcycle   = (cif->ncycle>5)?5:cif->ncycle;
-
+    uint32_t mcluster, mcycle;
+    if (showall) {
+        mcluster = cif->ncluster;
+        mcycle   = cif->ncycle;
+    }
+    else {
+        mcluster = (cif->ncluster>5)?5:cif->ncluster;
+        mcycle   = (cif->ncycle>5)?5:cif->ncycle;
+    }
 
     for ( int cluster=0 ; cluster<mcluster ; cluster++){
         xfprintf( ayb_fp, "Cluster %d\n", cluster+1 );
@@ -563,7 +608,7 @@ int main ( int argc, char * argv[] ){
 timestamp("Starting\n",stderr);
    CIFDATA cif = readCIFfromDir(argv[3],lane,tile,XFILE_RAW);
 timestamp("Read\n",stderr);
-    showCIF(xstdout,cif);
+    showCIF(xstdout,cif,false);
 timestamp("Splitting\n",stderr);
     CIFDATA newcif = spliceCIF(cif, cif->ncycle/2, 0);
 timestamp("Writing\n",stderr);
@@ -573,7 +618,7 @@ timestamp("Writing\n",stderr);
 timestamp("Reading new\n",stderr);
     cif = readCIFfromFile (argv[4],XFILE_RAW);
 timestamp("Done\n",stderr);
-    showCIF(xstdout,cif);
+    showCIF(xstdout,cif,false);
     free_cif(cif);
 
     return EXIT_SUCCESS;

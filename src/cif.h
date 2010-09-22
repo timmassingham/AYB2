@@ -42,9 +42,12 @@ uint16_t cif_get_firstcycle( const CIFDATA cif );
 uint16_t cif_get_ncycle( const CIFDATA cif );
 uint32_t cif_get_ncluster( const CIFDATA cif );
 encInt cif_get_const_intensities( const CIFDATA cif);
-real_t cif_get_real (const CIFDATA cif, uint32_t cl, uint32_t base, uint32_t cy);
 
-// Deletion
+real_t cif_get_real (const CIFDATA cif, const uint32_t cl, const uint32_t base, const uint32_t cy);
+void cif_set_from_real (CIFDATA cif, const uint32_t cl, const uint32_t base, const uint32_t cy, real_t x );
+
+// Creation/Deletion
+CIFDATA create_cif (const uint32_t ncycle, const uint32_t ncluster);
 void free_cif ( CIFDATA cif);
 
 // Other
@@ -54,7 +57,7 @@ CIFDATA readCIFfromDir ( const char * fn, const uint32_t lane, const uint32_t ti
 bool writeCIFtoFile ( const CIFDATA  cif, const char * fn, const XFILE_MODE mode);
 bool writeCIFtoStream ( const CIFDATA  cif, XFILE * ayb_fp);
 bool write2CIFfile ( const char * fn, const XFILE_MODE mode, const encInt  intensities, const uint16_t firstcycle, const uint32_t ncycle, const uint32_t ncluster, const uint8_t nbyte);
-void showCIF ( XFILE * ayb_fp, const CIFDATA cif);
+void showCIF ( XFILE * ayb_fp, const CIFDATA cif, bool showall);
 CIFDATA spliceCIF(const CIFDATA cif, uint32_t ncycle, uint32_t offset);
 
 #endif /* CIF_H_ */
