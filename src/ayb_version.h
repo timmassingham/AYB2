@@ -28,11 +28,12 @@
 #define AYB_VERSION_H_
 
 /** Program Version. */
-const float Version = 1.05;      // P Solver, MPN unit test, CIF format
+const float Version = 1.06;      // Final working values, mu arg, bad data handling
 /** Release date. */
-const char* VersionDate = "20100730";
+const char* VersionDate = "20100922";
 
 /* keep a history */
+// Version 1.05;    20100730    P Solver, MPN unit test, CIF format
 // Version 1.04;    20100617    MPN, Quality output and Datablocks
 // Version 1.03;    20100520    AYB Base Call Loop
 // Version 1.02;    20100427    AYB Initialisation
