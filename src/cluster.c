@@ -33,15 +33,51 @@
 /* None      */
 
 /* members */
-/* below    */
+/* None    */
 
 
 /* private functions */
-/* undetermined */
+
+/** 
+ * Read the coordinate and intensities part of a cluster line.
+ * Number of cycles wanted is supplied and returned value 
+ * from matrix line passed back as reference parameter.
+ * Extra data check request is passed on to matrix line.
+ * Returns null if any problem.
+ */
+static CLUSTER read_CLUSTER_line(unsigned int *ncycle, char *ptr, const bool moredata) {
+    CLUSTER cluster = NULL;
+    MAT signals = NULL;
+
+    /* Read coordinate information */
+    unsigned long int x, y;
+    x = strtoul(ptr, &ptr, 0);
+    if ('\t' != ptr[0]) {goto cleanup;}
+    y = strtoul(ptr, &ptr, 0);
+
+    /* read cycle data */
+    int nc = *ncycle;
+    signals = new_MAT_from_line(NBASE, &nc, ptr, moredata);
+    if ((NULL == signals) || (nc == 0)) {goto cleanup;}
+
+    /* store all the data in the cluster */
+    cluster = new_CLUSTER();
+    if (NULL == cluster) {goto cleanup;}
+    cluster->x = x;
+    cluster->y = y;
+    cluster->signals = signals;
+
+    *ncycle = nc;
+    return cluster;
+
+cleanup:
+    free_CLUSTER(cluster);
+    free_MAT(signals);
+    return NULL;
+}
+
 
 /* public functions */
-/* undetermined */
-
 
 /*
  * Standard functions for cluster structure
@@ -164,59 +200,84 @@ cleanup:
     return NULL;
 }
 
-
-/* Read a cluster from file pointer, assuming that the number of cycles is known.
- * Format should be that of Illumina's _int.txt
+/** 
+ * Read a cluster line from file pointer, including lane and tile. 
+ * Format should be that of Illumina's _int.txt.
+ * Number of cycles wanted is supplied and actual number available returned.
+ * Extra data check is requested.
  * A little validation of the file format is performed.
+ * Returns null if any problem.
  */
-CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle, bool moredata){
-    char * line = NULL;
-    MAT signals = NULL;
+CLUSTER read_first_CLUSTER( XFILE * fp, unsigned int *ncycle, 
+                            unsigned int *lane, unsigned int *tile){
+    if (NULL == fp) {return NULL;}
+
+    /* Get line from file */
+    char *line = NULL;
+    size_t len = 0;
+    line = xfgetln(fp, &len);
+    char *ptr = line;
     CLUSTER cluster = NULL;
 
-    if(NULL==fp){return NULL;}
-    // Get line from file
-    size_t len = 0;
-    line = xfgetln(fp,&len);
-    char * ptr = line;
+    /* Read lane and tile information to return */
+    *lane = (unsigned int)strtoul(ptr, &ptr, 0);
+    if ('\t' != ptr[0]) {goto cleanup;}
+    *tile = (unsigned int)strtoul(ptr, &ptr, 0);
+    if ('\t' != ptr[0]) {goto cleanup;}
 
-    /* Read lane, tile and coordinate information */
-    unsigned long int lane,tile,x,y;
-    lane = strtoul(ptr,&ptr,0);
-    if('\t'!=ptr[0]){ goto cleanup;}
-    tile = strtoul(ptr,&ptr,0);
-    if('\t'!=ptr[0]){ goto cleanup;}
-    x = strtoul(ptr,&ptr,0);
-    if('\t'!=ptr[0]){ goto cleanup;}
-    y = strtoul(ptr,&ptr,0);
-
-    /* read cycle data */
-    int nc = *ncycle;
-    signals = new_MAT_from_line(NBASE, &nc, ptr, moredata);
-    if((NULL==signals) || (nc == 0)) {goto cleanup;}
-
-    /* store all the data in the cluster */
-    cluster = new_CLUSTER();
-    if(NULL==cluster){goto cleanup;}
-    cluster->x = x;
-    cluster->y = y;
-    cluster->signals = signals;
-
-    xfree(line);
-    *ncycle = nc;
-    return cluster;
+    /* read cluster information */
+    cluster = read_CLUSTER_line(ncycle, ptr, true);
 
 cleanup:
-    free_CLUSTER(cluster);
-    free_MAT(signals);
     xfree(line);
-    return NULL;
+    return cluster;
+}
+
+/** 
+ * Read a cluster line from file pointer. 
+ * Format should be that of Illumina's _int.txt.
+ * Number of cycles wanted is supplied and a different value may be returned if lower.
+ * A little validation of the file format is performed.
+ * Returns null if any problem.
+ */
+CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle){
+    if (NULL == fp) {return NULL;}
+
+    /* Get line from file */
+    char *line = NULL;
+    size_t len = 0;
+    line = xfgetln(fp, &len);
+    char *ptr = line;
+    CLUSTER cluster = NULL;
+
+    /* Read and discard lane and tile information */
+    unsigned long skip;
+    skip = strtoul(ptr, &ptr, 0);
+    if ('\t' != ptr[0]) {goto cleanup;}
+    skip = strtoul(ptr, &ptr, 0);
+    if ('\t' != ptr[0]) {goto cleanup;}
+
+    /* read cluster information */
+    cluster = read_CLUSTER_line(ncycle, ptr, false);
+
+cleanup:
+    xfree(line);
+    return cluster;
 }
 
 // Stub function
 CLUSTER read_unknown_CLUSTER( XFILE * fp){
     return NULL;
 }
+
+/**
+ * Write the coordinates of a cluster to file.
+ * Preceded with tabs as per Illumina int.txt format.
+ */
+void write_coordinates (XFILE * fp, const CLUSTER cluster) {
+    xfprintf(fp, "\t%u\t%u", cluster->x, cluster->y);
+}
+
 
 #ifdef TEST
 //#include <stdio.h>
@@ -233,7 +294,7 @@ int main(int argc, char * argv[]){
     XFILE * fp = xfopen(argv[2], XFILE_UNKNOWN, "r");
     /* don't want return ncycle value */
     unsigned int nc = ncycle;
-    CLUSTER cl = read_known_CLUSTER(fp, &nc, true);
+    CLUSTER cl = read_known_CLUSTER(fp, &nc);
     show_CLUSTER(xstdout, cl);
     
     xfputs("Copy cluster\n", xstdout);

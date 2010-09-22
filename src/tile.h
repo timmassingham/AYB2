@@ -59,4 +59,7 @@ TILE read_known_TILE( XFILE * fp, unsigned int ncycle) __attribute__((deprecated
 // Read tile from file in Illumina int.txt format, forwards order
 TILE read_TILE( XFILE * fp, unsigned int ncycle);
 
+// Output
+void write_lane_tile (XFILE * fp, const TILE tile);
+
 #endif /* TILE_H_ */

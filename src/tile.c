@@ -33,15 +33,13 @@
 /* None      */
 
 /* members */
-/* below */
+/* None    */
 
 
 /* private functions */
-/* undetermined */
+/* None */
 
 /* public functions */
-/* undetermined */
-
 
 /*
  * Standard functions for tile structure
@@ -250,7 +248,7 @@ TILE read_known_TILE( XFILE * fp, unsigned int ncycle){
     warnx("%s is for demonstration and is not fully functional.",__func__);
     TILE tile = new_TILE();
     CLUSTER cl = NULL;
-    while(  cl = read_known_CLUSTER(fp,&ncycle, false), NULL!=cl ){
+    while(  cl = read_known_CLUSTER(fp,&ncycle), NULL!=cl ){
         tile->clusterlist = cons_LIST(CLUSTER)(cl,tile->clusterlist);
         tile->ncluster++;
     }
@@ -261,16 +259,17 @@ TILE read_known_TILE( XFILE * fp, unsigned int ncycle){
 /**
  * Read a tile from an Illumina int.txt file.
  * Returns a new TILE containing a list of clusters, in the same order as file.
+ * Number of cycles required is specified.
+ * Number read stored in tile structure.
  */
 TILE read_TILE( XFILE * fp, unsigned int ncycle){
     if(NULL==fp){return NULL;}
-    warnx("%s is for demonstration and is not fully functional.",__func__);
     TILE tile = new_TILE();
     if (NULL==tile) { return NULL;}
 
-    /* Treat first cluster differently */
+    /* Treat first cluster differently to get lane, tile and number of available cycles */
     unsigned int nc = ncycle;
-    CLUSTER cl = read_known_CLUSTER(fp, &nc, true);
+    CLUSTER cl = read_first_CLUSTER(fp, &nc, &(tile->lane), &(tile->tile));
     if ( NULL==cl){ goto cleanup;}
     if (nc > ncycle) {
         /* extra data */
@@ -287,7 +286,7 @@ TILE read_TILE( XFILE * fp, unsigned int ncycle){
 
     /* Read in remaining clusters, appending to tail of cluster list */
     LIST(CLUSTER) listtail = tile->clusterlist;
-    while(  cl = read_known_CLUSTER(fp, &nc, false), NULL!=cl ){
+    while(  cl = read_known_CLUSTER(fp, &nc), NULL!=cl ){
         /* check later data */
         if (nc < ncycle) { goto cleanup;}
         listtail = rcons_LIST(CLUSTER)(cl,listtail);
@@ -300,6 +299,14 @@ cleanup:
     free_LIST(CLUSTER)(tile->clusterlist);
     xfree(tile);
     return NULL;
+}
+
+/**
+ * Write the lane and tile numbers to file.
+ * Separated with a tab as per Illumina int.txt format.
+ */
+void write_lane_tile (XFILE * fp, const TILE tile) {
+    xfprintf(fp, "%u\t%u", tile->lane, tile->tile);
 }
 
 

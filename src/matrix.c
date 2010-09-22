@@ -157,75 +157,6 @@ MAT coerce_MAT_from_array(const uint32_t nrow, const uint32_t ncol, real_t * x){
     return mat;
 }
 
-/**
- * Create a new matrix from tab separated sets of columns in a line of char.
- * Check for extra columns if requested.
- * Return actual number of columns found as reference parameter if not enough or extra check requested.
- */
-MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr, bool moredata){
-
-    if (ptr == NULL) {return NULL;}
-    MAT mat = new_MAT(nrow, *ncol);
-    if(mat == NULL) {return NULL;}
-
-    int nc = -1;
-    bool found = true;
-    /* read until number required or run out */
-    while (found && (++nc < *ncol)) {
-
-        /* should start with a tab */
-        if(ptr[0] != '\t'){
-            found = false;
-        }
-        else {
-            for (int nr = 0; nr < nrow; nr++) {
-                if (ptr[0] == 0) {
-                    found = false;
-                    break;
-                }
-                else {
-                    mat->x[nc * nrow + nr] = strtor(ptr, &ptr);
-                }
-            }
-        }
-    }
-
-    if (found) {
-        if (moredata) {
-            /* check if any more data */
-            while (found) {
-                if(ptr[0] != '\t'){
-                    found = false;
-                }
-                else {
-                    int cnt = 0;
-                    real_t temp;
-                    for (int nr = 0; nr < nrow; nr++) {
-                        if (ptr[0] == 0) {
-                            found = false;
-                            break;
-                        }
-                        else {
-                            temp = strtor(ptr, &ptr);
-                            cnt++;
-                        }
-                    }
-                    /* only count complete columns */
-                    if (cnt == nrow) {++nc;}
-                }
-            }
-            *ncol = nc;
-        }
-    }
-    else {
-        /* resize the matrix to match number of columns found */
-        mat = trim_MAT(mat, nrow, nc, true);
-        *ncol = nc;
-    }
-
-    return mat;
-}
-
 /** Create a new identity matrix of the specified size. */
 MAT identity_MAT( const int nrow){
     MAT mat = new_MAT(nrow,nrow);
@@ -321,6 +252,94 @@ MAT set_MAT( MAT mat, const real_t x){
         mat->x[i] = x;
     }
     return mat;
+}
+
+/**
+ * Create a new matrix from tab separated sets of columns in a line of char.
+ * Check for extra columns if requested.
+ * Return actual number of columns found as reference parameter if not enough or extra check requested.
+ */
+MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr, bool moredata){
+
+    if (ptr == NULL) {return NULL;}
+    MAT mat = new_MAT(nrow, *ncol);
+    if(mat == NULL) {return NULL;}
+
+    int nc = -1;
+    bool found = true;
+    /* read until number required or run out */
+    while (found && (++nc < *ncol)) {
+
+        /* should start with a tab */
+        if(ptr[0] != '\t'){
+            found = false;
+        }
+        else {
+            for (int nr = 0; nr < nrow; nr++) {
+                if (ptr[0] == 0) {
+                    found = false;
+                    break;
+                }
+                else {
+                    mat->x[nc * nrow + nr] = strtor(ptr, &ptr);
+                }
+            }
+        }
+    }
+
+    if (found) {
+        if (moredata) {
+            /* check if any more data */
+            while (found) {
+                if(ptr[0] != '\t'){
+                    found = false;
+                }
+                else {
+                    int cnt = 0;
+                    real_t temp;
+                    for (int nr = 0; nr < nrow; nr++) {
+                        if (ptr[0] == 0) {
+                            found = false;
+                            break;
+                        }
+                        else {
+                            temp = strtor(ptr, &ptr);
+                            cnt++;
+                        }
+                    }
+                    /* only count complete columns */
+                    if (cnt == nrow) {++nc;}
+                }
+            }
+            *ncol = nc;
+        }
+    }
+    else {
+        /* resize the matrix to match number of columns found */
+        mat = trim_MAT(mat, nrow, nc, true);
+        *ncol = nc;
+    }
+
+    return mat;
+}
+
+/** Write a matrix to file in a single line as tab separated sets of columns (standard illumina format). */
+void write_MAT_to_line (XFILE * fp, const MAT mat) {
+    if (NULL == fp) {return;}
+    if (NULL == mat) {return;}
+
+    const int nrow = mat->nrow;
+    const int ncol = mat->ncol;
+
+    for (int col = 0; col < ncol; col++) {
+        /* each set begins with a tab and then separated with space */
+        xfprintf(fp, "\t%0.1f", mat->x[col * nrow]);
+        for (int row = 1; row < nrow; row++) {
+            xfprintf(fp, " %0.1f", mat->x[col * nrow + row]);
+        }
+    }
+    /* end with a new line */
+    xfprintf(fp, "\n");
 }
 
 /**

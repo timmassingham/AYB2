@@ -49,7 +49,12 @@ CLUSTER copy_append_CLUSTER(CLUSTER clustout, const CLUSTER clustin, int colstar
 
 // Input
 CLUSTER read_cif_CLUSTER(CIFDATA cif, const unsigned int cl, unsigned int ncycle);
-CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle, bool moredata);
+CLUSTER read_first_CLUSTER( XFILE * fp, unsigned int *ncycle, 
+                            unsigned int *lane, unsigned int *tile);
+CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle);
 CLUSTER read_unknown_CLUSTER( XFILE * fp);
+
+// Output
+void write_coordinates (XFILE * fp, const CLUSTER cluster);
 
 #endif /* CLUSTER_H_ */
