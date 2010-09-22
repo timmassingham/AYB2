@@ -948,7 +948,7 @@ static bool output_results (int blk) {
     const uint32_t ncycle = Ayb->ncycle;
 
     for (uint32_t cl = 0; cl < ncluster; cl++){
-        xfprintf(fpout, "%ccluster_%03u\n", OUT_SYMBOL[OutputFormat], cl + 1);
+        xfprintf(fpout, "%ccluster_%u\n", OUT_SYMBOL[OutputFormat], cl + 1);
         for (uint32_t cy = 0; cy < ncycle; cy++){
             show_NUC(fpout, Ayb->bases.elt[cl * ncycle + cy]);
         }
