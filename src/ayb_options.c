@@ -83,6 +83,7 @@ static struct option Longopts[] = {
     {"output",      required_argument,  NULL, 'o'},
     {"logfile",     required_argument,  NULL, 'e'},
     {"loglevel",    required_argument,  NULL, 'l'},
+    {"working",     no_argument,        NULL, 'w'},
     {"M",           required_argument,  NULL, 'M'},
     {"N",           required_argument,  NULL, 'N'},
     {"P",           required_argument,  NULL, 'P'},
@@ -113,7 +114,7 @@ OPTRET read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:x:d:f:n:i:o:e:l:M:N:P:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:x:d:f:n:i:o:e:l:wM:N:P:S:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'b':
@@ -170,6 +171,11 @@ OPTRET read_options(const int argc, char ** const argv) {
                     fprintf(stderr, "Fatal: Unrecognised error level option: \'%s\'\n\n", optarg);
                      carryon = E_FAIL;
                 }
+                break;
+
+            case 'w':
+                /* show working flag */
+                set_show_working();
                 break;
 
             case 'M':
