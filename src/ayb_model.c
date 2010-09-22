@@ -54,6 +54,8 @@ struct AybT {
 /* constants */
 static const unsigned int AYB_NITER = 20;       ///< Number of parameter estimation loops.
 static const int DATA_ERR = -1;                 ///< Indicates an error in the data being processed, usually an overflow.
+static const real_t DELTA_DIAG = 1.0;           ///< Delta for P solver routine.
+
 
 /** Initial Crosstalk matrix if not read in, fixed values of approximately the right shape. */
 static real_t INITIAL_CROSSTALK[] = {
@@ -77,7 +79,7 @@ static const unsigned int E_SOLVER_NUM = 3;
 /* members */
 
 /** Template for P solver routine. */
-typedef int (*SOLVER)(MAT , MAT, real_t *);
+typedef int (*SOLVER)(MAT , MAT, real_t *, const real_t);
 /** Possible solver routines. */
 SOLVER SOLVERS[] = { solverSVD, solverZeroSVD, solverNNLS };
 static SOLVER SolverRoutine = solverSVD;       ///< Selected solver routine.
@@ -432,7 +434,7 @@ static real_t estimate_MPN(){
          */
         plhs = calculatePlhs(Wbar,Sbar,matMt,J,tmp,plhs);
         prhs = calculatePrhs(Ibar,matMt,K,tmp,prhs);
-        SolverRoutine(plhs,prhs,tmp);
+        SolverRoutine(plhs,prhs,tmp, DELTA_DIAG);
         for ( uint32_t i=0 ; i<ncycle ; i++){
             for(uint32_t j=0 ; j<ncycle ; j++){
                 matP->x[i*ncycle+j] = prhs->x[i*ncycle+j];
@@ -451,7 +453,7 @@ static real_t estimate_MPN(){
          */
         mlhs = calculateMlhs(Ayb->cycle_var,Wbar,SbarT,matP,Jt,tmp,mlhs);
         mrhs = calculateMrhs(Ayb->cycle_var,IbarT,matP,Kt,tmp,mrhs);
-        solverSVD(mlhs,mrhs,tmp);
+        solverSVD(mlhs,mrhs,tmp,0.0);
 
         for(uint32_t i=0 ; i<NBASE ; i++){
             for(uint32_t j=0 ; j<NBASE ; j++){
@@ -634,7 +636,7 @@ static int estimate_bases(void) {
     /* calculate covariance */
     MAT * V = calculate_covariance();
 
-    if (NULL == V) {
+    if (V == NULL) {
         /* set calls to null and terminate processing */
         unsigned int cl = 0;
 

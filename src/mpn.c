@@ -433,7 +433,7 @@ int solverChol( MAT lhs, MAT rhs, real_t * null){
  * Result is stored in rhs.
  * tmp should be 6*N.
  */
-int solverSVD(MAT lhs, MAT rhs, real_t * tmp){
+int solverSVD(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag) {
     validate(NULL!=lhs,-4);
     validate(NULL!=rhs,-6);
     validate(NULL!=tmp,-11);
@@ -441,6 +441,14 @@ int solverSVD(MAT lhs, MAT rhs, real_t * tmp){
     const int N = lhs->nrow;
     int INFO=0,RANK=0,IWORK=5*N;
     real_t RCOND = 3e-8;
+
+    /* add a diagonal offset to avoid failure to solve */
+    if(0.0 != delta_diag){
+        for (int i = 0; i < N; i++){
+            lhs->x[i * N + i] += delta_diag;
+        }
+    }
+
     gelss(&lhs->nrow,&lhs->ncol,&rhs->ncol,lhs->x,&lhs->nrow,
                       rhs->x,&rhs->nrow,tmp,&RCOND,&RANK,tmp+N,&IWORK,&INFO);
     return INFO;
@@ -453,8 +461,8 @@ int solverSVD(MAT lhs, MAT rhs, real_t * tmp){
  * Result is stored in rhs.
  * tmp should be 6*N.
  */
-int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp){
-    int info = solverSVD(lhs,rhs,tmp);
+int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag){
+    int info = solverSVD(lhs,rhs,tmp, delta_diag);
     if(info==0){
         // Success
         const int N = lhs->nrow;
@@ -466,12 +474,6 @@ int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp){
 }
 
 
-#ifdef NFORTRAN
-/* Eclipse IDE does not handle fortran */
-int solverNNLS(MAT lhs, MAT rhs, real_t *tmp){
-    return 0;
-}
-#else
 /** 
  * Solve system of linear equations using non-negative least squares.
  * Wrapper for Fortran routine in s/dnnls.f.
@@ -479,7 +481,11 @@ int solverNNLS(MAT lhs, MAT rhs, real_t *tmp){
  * Result is stored in rhs.
  * lhs must be square, tmp should be N*rhs->ncol.
  */
-int solverNNLS(MAT lhs, MAT rhs, real_t *tmp){
+int solverNNLS(MAT lhs, MAT rhs, real_t *tmp, const real_t delta_diag){
+#ifdef NFORTRAN
+    /* Eclipse IDE does not handle fortran */
+    return 0;
+#else
     validate(NULL!=lhs,-4);
     validate(NULL!=rhs,-6);
     validate(NULL!=tmp,-11);
@@ -494,6 +500,13 @@ int solverNNLS(MAT lhs, MAT rhs, real_t *tmp){
     real_t W[N];
     real_t ZZ[N];
     int INDEX[N],MODE;
+
+    /* add a diagonal offset to avoid failure to solve */
+    if(0.0 != delta_diag){
+        for (int i = 0; i < N; i++){
+            lhs->x[i * N + i] += delta_diag;
+        }
+    }
 
     /* nnls only calculates for a vector so loop for each column of rhs
        results collected sequentially in tmp
@@ -513,8 +526,8 @@ int solverNNLS(MAT lhs, MAT rhs, real_t *tmp){
     free(lhs_tmp);
     free(rhs_tmp);
     return MODE;
-}
 #endif
+}
 
 
 #ifdef TEST
@@ -707,7 +720,7 @@ int main ( void){
     fputs("M rhs matrix:\n",stdout);
     show_MAT(xstdout,rhs,0,0);
 
-    int retM = solverSVD(lhs, rhs, tmp);
+    int retM = solverSVD(lhs, rhs, tmp, 0.0);
     xfprintf(xstdout,"M solution matrix (info=%d):\n",retM);
     show_MAT(xstdout,rhs,0,0);
 
@@ -723,7 +736,7 @@ int main ( void){
     MAT Prhs_copy = copy_MAT(Prhs);
 
     /* SVD */
-    int retP = solverSVD(Plhs_copy, Prhs_copy, tmp);
+    int retP = solverSVD(Plhs_copy, Prhs_copy, tmp, 0.0);
     xfprintf(xstdout,"P ls solution matrix (info=%d):\n",retP);
     show_MAT(xstdout,Prhs_copy,0,0);
 
@@ -731,7 +744,7 @@ int main ( void){
     Plhs_copy = copyinto_MAT(Plhs_copy, Plhs);
     Prhs_copy = copyinto_MAT(Prhs_copy, Prhs);
 
-    retP = solverZeroSVD(Plhs_copy, Prhs_copy, tmp);
+    retP = solverZeroSVD(Plhs_copy, Prhs_copy, tmp, 0.0);
     xfprintf(xstdout,"P zero solution matrix (info=%d):\n",retP);
     show_MAT(xstdout,Prhs_copy,0,0);
 
@@ -739,7 +752,7 @@ int main ( void){
     Plhs_copy = copyinto_MAT(Plhs_copy, Plhs);
     Prhs_copy = copyinto_MAT(Prhs_copy, Prhs);
 
-    retP = solverNNLS(Plhs_copy, Prhs_copy, tmp);
+    retP = solverNNLS(Plhs_copy, Prhs_copy, tmp, 0.0);
     xfprintf(xstdout,"P nnls solution matrix (info=%d):\n",retP);
     show_MAT(xstdout,Prhs_copy,0,0);
 
