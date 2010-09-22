@@ -58,6 +58,7 @@ static const char *MSG_TEXT[] = {
         "Log message output level: %s\n",                                       // E_MSG_LEVEL_S
         "Input from directory: %s\n",                                           // E_INPUT_DIR_S
         "Output to directory: %s\n",                                            // E_OUTPUT_DIR_S
+        "Input Format selected: %s\n",                                          // E_INPUT_FORM_S
         "Output Format selected: %s\n",                                         // E_OUTPUT_FORM_S
         "Input file found: %s\n",                                               // E_INPUT_FOUND_S
         "Failed to read input file: %s\n",                                      // E_BAD_INPUT_S

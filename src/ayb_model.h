@@ -39,12 +39,13 @@ typedef struct AybT * AYB;
 AYB new_AYB(const uint32_t ncycle, const uint32_t ncluster);
 AYB free_AYB(AYB ayb);
 AYB copy_AYB(const AYB ayb);
-void show_AYB(XFILE * fp, const AYB ayb);
+void show_AYB(XFILE * fp, const AYB ayb, bool showall);
 
 bool analyse_tile (XFILE *fp);
 void set_niter(const char *niter_str);
 bool set_solver(const char *solver_str);
 bool set_output_format(const char *outform_str);
+void set_show_working(void);
 bool startup_model();
 void tidyup_model();
 
