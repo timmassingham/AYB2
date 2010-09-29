@@ -26,6 +26,8 @@
 #include <assert.h>
 #include <math.h>
 #include "call_bases.h"
+/* Include set calibration table to be used when none given */
+#include "../tables/newcalibrationS2.tab"
 
 /* constants */
 /* None      */
@@ -62,7 +64,7 @@ NUC call_base_simple( const real_t * restrict p){
 
 /** Return a null base call, used when insufficient data available. */
 struct basequal call_base_null(void){
-    struct basequal b = {0, MIN_PHRED};
+    struct basequal b = {0, 0.0};
     return b;
 }
 
@@ -80,12 +82,7 @@ struct basequal call_base( const real_t * restrict p, const real_t lambda, const
     assert(NBASE==omega->ncol);
 
     if(0==lambda){
-        #warning "Should call bases should return random base when lambda=0?"
-//        struct basequal b = {0,33};
-//        return b;
         return call_base_null();
-        // Special case, return random value
-        //return (int)(NBASE*runif());
     }
 
     int call = 0;
@@ -117,13 +114,45 @@ struct basequal call_base( const real_t * restrict p, const real_t lambda, const
      */
     real_t post_prob = (maxprob<Mu) ?
        // Case probabilities small compared to mu
-       (Mu + maxprob ) / (4*Mu + maxprob*tot) :
+       (Mu + maxprob ) / (4.0*Mu + maxprob*tot) :
        // Case probabilities large compared to mu
        (Mu/maxprob + 1.) / (4.0*Mu/maxprob + tot);
 
-    struct basequal b = {call,phredchar_from_prob(post_prob)};
+    struct basequal b = {call,quality_from_prob(post_prob)};
     return b;
 }
+
+/**  Adjust quality score for base using a linear calibration and neighbours
+  *  Vectors used are defined in calibration table (e.g. tables/newcalibrationS2.tab)
+  * or a path given from commandline.
+  *  The first and last bases of a read are special cases and dealt with separately
+  * (see adjust_first_quality and adjust_last_quality).
+  */
+real_t adjust_quality(const real_t qual, const NUC prior, const NUC base, const NUC next){
+   return calibration_intercept + calibration_scale * qual + 
+          calibration_baseprior_adj[prior*NBASE+base] + 
+          calibration_basenext_adj[next*NBASE+base] + 
+          calibration_priorbasenext_adj[(next*NBASE+prior)*NBASE+base];
+}
+
+/**  Adjust quality score for first base using a linear calibration and neighbour
+  *  Vectors used are defined in calibration table (e.g. tables/newcalibrationS2.tab)
+  * or a path given from commandline.
+  */
+real_t adjust_first_quality(const real_t qual, const NUC base, const NUC next){
+   return calibration_intercept + calibration_scale * qual + 
+          calibration_basenext_adj[next*NBASE+base];
+}
+
+/**  Adjust quality score for last base using a linear calibration and neighbour
+  *  Vectors used are defined in calibration table (e.g. tables/newcalibrationS2.tab)
+  * or a path given from commandline.
+  */
+real_t adjust_last_quality(const real_t qual, const NUC prior, const NUC base){
+   return calibration_intercept + calibration_scale * qual + 
+          calibration_baseprior_adj[prior*NBASE+base];
+}
+
 
 /** Set value for Mu. */
 bool set_mu(const char *mu_str) {

@@ -833,10 +833,21 @@ static int estimate_bases(const bool lastiter) {
 #endif
 
         /* call bases for each cycle */
+	real_t qual[ncycle]; // Tempory storage for (real_t) quality values
         for (uint32_t cy = 0; cy < ncycle; cy++){
             struct basequal bq = call_base(pcl_int->x+cy * NBASE, Ayb->lambda->x[cl], V[cy]);
             cl_bases[cy] = bq.base;
-            cl_quals[cy] = bq.qual;
+            qual[cy] = bq.qual;
+        }
+	/* Adjust quality values. First and Last bases of read are special cases */
+	qual[0] = adjust_first_quality(qual[0],cl_bases[0],cl_bases[1]);
+	for ( uint32_t cy=1 ; cy<(ncycle-1) ; cy++){
+        	qual[cy] = adjust_quality(qual[cy],cl_bases[cy-1],cl_bases[cy],cl_bases[cy+1]);
+        }
+	qual[ncycle-1] = adjust_last_quality(qual[ncycle-1],cl_bases[ncycle-2],cl_bases[ncycle-1]);
+	/* Convert qualities to phred scores */
+	for ( uint32_t cy=0 ; cy<ncycle ; cy++){
+        	cl_quals[cy] = phredchar_from_quality(qual[cy]);
         }
 
         /* repeat estimate lambda with the new bases */

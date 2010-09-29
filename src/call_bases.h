@@ -31,12 +31,15 @@
 #include "utility.h"
 
 /** Pair type allows return of base and quality. */
-struct basequal { NUC base; PHREDCHAR qual;};
+struct basequal { NUC base; real_t qual;};
 
 /* function prototypes */
 NUC call_base_simple( const real_t * restrict p);
 struct basequal call_base_null(void);
 struct basequal call_base( const real_t * restrict p, const real_t lambda, const MAT omega);
 bool set_mu(const char *mu_str);
+real_t adjust_quality(const real_t qual, const NUC prior, const NUC base, const NUC next);
+real_t adjust_first_quality(const real_t qual, const NUC base, const NUC next);
+real_t adjust_last_quality(const real_t qual, const NUC prior, const NUC base);
 
 #endif /* CALL_BASES_H_ */
