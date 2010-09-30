@@ -63,7 +63,7 @@ typedef struct WorkT * WORKPTR;
 /* constants */
 static const unsigned int AYB_NITER = 20;       ///< Number of parameter estimation loops.
 static const int DATA_ERR = -1;                 ///< Indicates an error in the data being processed, usually an overflow.
-static const real_t DELTA_DIAG = 1.0;           ///< Delta for P solver routine.
+static const real_t DELTA_DIAG = 1.0;           ///< Delta for solver routines.
 
 
 /** Initial Crosstalk matrix if not read in, fixed values of approximately the right shape. */
@@ -467,7 +467,7 @@ static real_t estimate_MPN(){
          */
         mlhs = calculateMlhs(Ayb->cycle_var,Wbar,SbarT,matP,Jt,tmp,mlhs);
         mrhs = calculateMrhs(Ayb->cycle_var,IbarT,matP,Kt,tmp,mrhs);
-        solverSVD(mlhs,mrhs,tmp,0.0);
+        solverSVD(mlhs,mrhs,tmp,DELTA_DIAG);
 
         for(uint32_t i=0 ; i<NBASE ; i++){
             for(uint32_t j=0 ; j<NBASE ; j++){
