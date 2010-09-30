@@ -131,25 +131,41 @@ C     ------------------------------------------------------------------
 C                            ****** CONSTRUCT THE TRANSFORMATION. ******
           DO 10 J=L1,M  
    10     CL=MAX(abs(U(1,J)),CL)  
-      IF (CL) 130,130,20
+      IF (CL.LE.0) THEN
+          GO TO 130
+      ELSE 
+          GO TO 20
+      END IF
    20 CLINV=ONE/CL  
       SM=(U(1,LPIVOT)*CLINV)**2   
           DO 30 J=L1,M  
    30     SM=SM+(U(1,J)*CLINV)**2 
       CL=CL*SQRT(SM)   
-      IF (U(1,LPIVOT)) 50,50,40     
+      IF (U(1,LPIVOT).LE.0) THEN
+          GO TO 50
+      ELSE
+          GO TO 40
+      END IF
    40 CL=-CL
    50 UP=U(1,LPIVOT)-CL 
       U(1,LPIVOT)=CL    
       GO TO 70  
 C            ****** APPLY THE TRANSFORMATION  I+U*(U**T)/B  TO C. ******
 C   
-   60 IF (CL) 130,130,70
+   60 IF (CL.LE.0) THEN
+          GO TO 130
+      ELSE
+          GO TO 70
+      END IF
    70 IF (NCV.LE.0) RETURN  
       B= UP*U(1,LPIVOT)
 C                       B  MUST BE NONPOSITIVE HERE.  IF B = 0., RETURN.
 C   
-      IF (B) 80,130,130 
+      IF (B.LT.0) THEN
+          GO TO 80
+      ELSE
+          GO TO 130 
+      END IF
    80 B=ONE/B   
       I2=1-ICV+ICE*(LPIVOT-1)   
       INCR=ICE*(L1-LPIVOT)  
@@ -161,7 +177,11 @@ C
               DO 90 I=L1,M  
               SM=SM+C(I3)*U(1,I)
    90         I3=I3+ICE 
-          IF (SM) 100,120,100   
+          IF (SM.NE.0) THEN
+              GO TO 100
+          ELSE
+              GO TO 120
+          END IF
   100     SM=SM*B   
           C(I2)=C(I2)+SM*UP
               DO 110 I=L1,M 
