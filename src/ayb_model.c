@@ -39,6 +39,8 @@
 #include "statistics.h"
 #include "tile.h"
 
+#define ifnot(A) if(!(A))
+#define iszero(A) (0==A)
 
 /** AYB structure contains the data required for modelling. */
 struct AybT {
@@ -64,7 +66,6 @@ typedef struct WorkT * WORKPTR;
 static const unsigned int AYB_NITER = 20;       ///< Number of parameter estimation loops.
 static const int DATA_ERR = -1;                 ///< Indicates an error in the data being processed, usually an overflow.
 static const real_t DELTA_DIAG = 1.0;           ///< Delta for solver routines.
-
 
 /** Initial Crosstalk matrix if not read in, fixed values of approximately the right shape. */
 static real_t INITIAL_CROSSTALK[] = {
@@ -338,8 +339,14 @@ static bool initialise_model() {
         NUC * cl_bases = Ayb->bases.elt + cl * Ayb->ncycle;
         PHREDCHAR * cl_quals = Ayb->quals.elt + cl * Ayb->ncycle;
         for ( uint32_t cy = 0; cy < Ayb->ncycle; cy++){
-            cl_bases[cy] = call_base_simple(pcl_int->x + cy * NBASE);
-            cl_quals[cy] = MIN_PHRED;
+	    const real_t * sig = node->elt->signals->x + cy * NBASE;
+	    ifnot( iszero(sig[0]) && iszero(sig[1]) && iszero(sig[2]) && iszero(sig[3]) ){
+                cl_bases[cy] = call_base_simple(pcl_int->x + cy * NBASE);
+                cl_quals[cy] = MIN_PHRED;
+	    } else {
+	        cl_bases[cy] = NUC_AMBIG;
+		cl_quals[cy] = MIN_PHRED;
+	    }
         }
         /* initial lambda */
         Ayb->lambda->x[cl] = estimate_lambdaOLS(pcl_int, cl_bases);
@@ -531,6 +538,7 @@ static MAT * accumulate_covariance( const real_t we, const MAT p, const real_t l
     validate(NULL!=p,NULL);
     validate(NBASE==p->nrow,NULL);
     validate(lambda>=0.,NULL);
+
     const uint32_t ncycle = p->ncol;
     // Allocate memory for V if necessary
     if ( NULL==V ){
@@ -547,13 +555,13 @@ static MAT * accumulate_covariance( const real_t we, const MAT p, const real_t l
     //                   - \lambda P I_b^t + \lambda^2 I_b I_b^2
     for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
         const int cybase = base[cycle];
-        validate(cybase<NBASE,NULL);
         // P P^t
         for ( uint32_t i=0 ; i<NBASE ; i++){
             for ( uint32_t j=0 ; j<NBASE ; j++){
                 V[cycle]->x[i*NBASE+j] += we * p->x[cycle*NBASE+i] * p->x[cycle*NBASE+j];
             }
         }
+	if(NUC_AMBIG==cybase){ continue;}
         // \lambda I_b P^t and \lambda P I_b^t
         for ( uint32_t i=0 ; i<NBASE ; i++){
             V[cycle]->x[cybase*NBASE+i] -= we * lambda * p->x[cycle*NBASE+i];
@@ -564,7 +572,7 @@ static MAT * accumulate_covariance( const real_t we, const MAT p, const real_t l
     }
     // Create residuals
     for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        p->x[cy*NBASE+base[cy]] -= lambda;
+        if(NUC_AMBIG!=base[cy]){ p->x[cy*NBASE+base[cy]] -= lambda;}
     }
 
     return V;
@@ -620,6 +628,7 @@ static MAT * calculate_covariance(){
     /* scale sum of squares to make covariance */
     for ( uint32_t cy = 0; cy < ncycle; cy++){
         for ( uint32_t i = 0; i < NBASE * NBASE; i++){
+	    V[cy]->x[i] += 1.0;
             V[cy]->x[i] /= wesum;
         }
     }
@@ -737,7 +746,7 @@ static int estimate_bases(const bool lastiter) {
             for (uint32_t cy = 0; cy < ncycle; cy++){
                 struct basequal bq = call_base_null();
                 cl_bases[cy] = bq.base;
-                cl_quals[cy] = bq.qual;
+                cl_quals[cy] = MIN_PHRED;// bq.qual is in quality-score space, want PHRED
             }
 
             /* next cluster */
@@ -835,16 +844,22 @@ static int estimate_bases(const bool lastiter) {
         /* call bases for each cycle */
 	real_t qual[ncycle]; // Tempory storage for (real_t) quality values
         for (uint32_t cy = 0; cy < ncycle; cy++){
-            struct basequal bq = call_base(pcl_int->x+cy * NBASE, Ayb->lambda->x[cl], V[cy]);
-            cl_bases[cy] = bq.base;
-            qual[cy] = bq.qual;
+	   const real_t * sig = node->elt->signals->x + cy * NBASE;
+	   ifnot( iszero(sig[0]) && iszero(sig[1]) && iszero(sig[2]) && iszero(sig[3]) ){
+                struct basequal bq = call_base(pcl_int->x+cy * NBASE, Ayb->lambda->x[cl], V[cy]);
+                cl_bases[cy] = bq.base;
+                qual[cy] = bq.qual;
+	   } else {
+	        cl_bases[cy] = NUC_AMBIG;
+		qual[cy] = MIN_QUALITY;
+	   }
         }
 	/* Adjust quality values. First and Last bases of read are special cases */
-	qual[0] = adjust_first_quality(qual[0],cl_bases[0],cl_bases[1]);
+	qual[0] = adjust_quality(qual[0],NUC_AMBIG,cl_bases[0],cl_bases[1]);
 	for ( uint32_t cy=1 ; cy<(ncycle-1) ; cy++){
         	qual[cy] = adjust_quality(qual[cy],cl_bases[cy-1],cl_bases[cy],cl_bases[cy+1]);
         }
-	qual[ncycle-1] = adjust_last_quality(qual[ncycle-1],cl_bases[ncycle-2],cl_bases[ncycle-1]);
+	qual[ncycle-1] = adjust_quality(qual[ncycle-1],cl_bases[ncycle-2],cl_bases[ncycle-1],NUC_AMBIG);
 	/* Convert qualities to phred scores */
 	for ( uint32_t cy=0 ; cy<ncycle ; cy++){
         	cl_quals[cy] = phredchar_from_quality(qual[cy]);

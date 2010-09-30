@@ -125,34 +125,23 @@ struct basequal call_base( const real_t * restrict p, const real_t lambda, const
 /**  Adjust quality score for base using a linear calibration and neighbours
   *  Vectors used are defined in calibration table (e.g. tables/newcalibrationS2.tab)
   * or a path given from commandline.
-  *  The first and last bases of a read are special cases and dealt with separately
-  * (see adjust_first_quality and adjust_last_quality).
+  *  First and last bases of a read are special cases, dealt with by setting the
+  *  prior or next base (respectively) to be NUC_AMBIG.
   */
 real_t adjust_quality(const real_t qual, const NUC prior, const NUC base, const NUC next){
-   return calibration_intercept + calibration_scale * qual + 
-          calibration_baseprior_adj[prior*NBASE+base] + 
-          calibration_basenext_adj[next*NBASE+base] + 
-          calibration_priorbasenext_adj[(next*NBASE+prior)*NBASE+base];
+   if(NUC_AMBIG==base){ return MIN_QUALITY; }
+   real_t new_qual = calibration_intercept + calibration_scale * qual;
+   if(NUC_AMBIG!=prior){
+      new_qual += calibration_baseprior_adj[prior*NBASE+base];
+   }
+   if(NUC_AMBIG!=next){
+      new_qual += calibration_basenext_adj[next*NBASE+base];
+   }
+   if(NUC_AMBIG!=next && NUC_AMBIG!=prior){
+      new_qual += calibration_priorbasenext_adj[(next*NBASE+prior)*NBASE+base];
+   }
+   return new_qual;
 }
-
-/**  Adjust quality score for first base using a linear calibration and neighbour
-  *  Vectors used are defined in calibration table (e.g. tables/newcalibrationS2.tab)
-  * or a path given from commandline.
-  */
-real_t adjust_first_quality(const real_t qual, const NUC base, const NUC next){
-   return calibration_intercept + calibration_scale * qual + 
-          calibration_basenext_adj[next*NBASE+base];
-}
-
-/**  Adjust quality score for last base using a linear calibration and neighbour
-  *  Vectors used are defined in calibration table (e.g. tables/newcalibrationS2.tab)
-  * or a path given from commandline.
-  */
-real_t adjust_last_quality(const real_t qual, const NUC prior, const NUC base){
-   return calibration_intercept + calibration_scale * qual + 
-          calibration_baseprior_adj[prior*NBASE+base];
-}
-
 
 /** Set value for Mu. */
 bool set_mu(const char *mu_str) {

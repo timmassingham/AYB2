@@ -121,7 +121,9 @@ MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const
     for ( uint32_t cl=0 ; cl<ncluster ; cl++){
         for ( uint32_t cy=0 ; cy<ncycle ; cy++){
             int base = bases.elt[cl*ncycle+cy];
-            Sbar->x[cy*NBASE+base] += we->x[cl] * lambda->x[cl];
+            if(NUC_AMBIG!=base){
+                Sbar->x[cy*NBASE+base] += we->x[cl] * lambda->x[cl];
+            }
         }
     }
 
@@ -156,10 +158,14 @@ MAT calculateJ( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const ui
         const real_t welam = we->x[cl] * lambda->x[cl] * lambda->x[cl];
         for ( uint32_t cy=0 ; cy<ncycle ; cy++){
             const int base = bases.elt[cl*ncycle+cy];
-            const int offset = cy*ncycle*NBASE*NBASE + base*NBASE;
-            for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
-                const int base2 = bases.elt[cl*ncycle+cy2];
-                J->x[offset+cy2*lda+base2] += welam;
+            if(NUC_AMBIG!=base){
+                const int offset = cy*ncycle*NBASE*NBASE + base*NBASE;
+                for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
+                    const int base2 = bases.elt[cl*ncycle+cy2];
+                    if(NUC_AMBIG!=base2){
+                        J->x[offset+cy2*lda+base2] += welam;
+                    }
+                }
             }
         }
     }
@@ -193,7 +199,6 @@ real_t calculateDeltaLSE(const MAT Mt, const MAT P, const MAT N, const MAT J, co
     return delta;
 }
 
-//MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const ARRAY(int16_t) ints, const uint32_t ncycle, MAT K){
 MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TILE tile, const uint32_t ncycle, MAT K){
     validate(NULL!=lambda,NULL);
     validate(NULL!=we,NULL);
@@ -215,9 +220,11 @@ MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TI
             const uint32_t ioffset = cy*NBASE;
             for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
                 const int base = bases.elt[cl*ncycle+cy2];
-                const uint32_t koffset = cy*lda*ncycle + cy2*lda + base;
-                for ( uint32_t ch=0 ; ch<NBASE ; ch++){
-                    K->x[ koffset + ch*NBASE] += welam * node->elt->signals->x[ioffset + ch];
+                if(NUC_AMBIG!=base){
+                    const uint32_t koffset = cy*lda*ncycle + cy2*lda + base;
+                    for ( uint32_t ch=0 ; ch<NBASE ; ch++){
+                        K->x[ koffset + ch*NBASE] += welam * node->elt->signals->x[ioffset + ch];
+                    }
                 }
             }
         }
