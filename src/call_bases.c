@@ -64,7 +64,7 @@ NUC call_base_simple( const real_t * restrict p){
 
 /** Return a null base call, used when insufficient data available. */
 struct basequal call_base_null(void){
-    struct basequal b = {0, 0.0};
+    struct basequal b = {0, MIN_QUALITY};
     return b;
 }
 

@@ -45,6 +45,8 @@ typedef char PHREDCHAR;
 #define MAX_PHRED   126                         // end of printable chars
 #define ERR_PHRED   0
 
+#define MIN_QUALITY (-10.0*log10(0.75))		// Minimum quality 
+
 /* standard functions */
 void show_NUC(XFILE * fp, const NUC nuc);
 void show_PHREDCHAR(XFILE * fp, const PHREDCHAR nuc);
@@ -68,7 +70,7 @@ NUC complement(const NUC nuc) __attribute__((const));
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
 PHREDCHAR phredchar_from_char( const char c)  __attribute__((const)); 
 PHREDCHAR phredchar_from_prob( const real_t p)  __attribute__((const));
-real_t quality_from_prob(const real_t p) __attribute__((const)) __attribute__((const));
-PHREDCHAR phredchar_from_quality( real_t qual) __attribute__((const)) __attribute__((const));
+real_t quality_from_prob(const real_t p) __attribute__((const));
+PHREDCHAR phredchar_from_quality( real_t qual) __attribute__((const));
 
 #endif /* NUC_H_ */
