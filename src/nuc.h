@@ -61,12 +61,14 @@ PHREDCHAR read_PHREDCHAR(XFILE * fp);
 
 
 /* function prototypes */
-NUC nuc_from_char( const char c);
-char char_from_nuc(const NUC nuc);
+NUC nuc_from_char( const char c) __attribute__((const));  // Strictly not constant but is constant or abort
+char char_from_nuc(const NUC nuc) __attribute__((const));
 ARRAY(NUC) nucs_from_string( const char * nucstr );
-NUC complement(const NUC nuc);
+NUC complement(const NUC nuc) __attribute__((const));
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
-PHREDCHAR phredchar_from_char( const char c);
-PHREDCHAR phredchar_from_prob( const real_t p);
+PHREDCHAR phredchar_from_char( const char c)  __attribute__((const)); 
+PHREDCHAR phredchar_from_prob( const real_t p)  __attribute__((const));
+real_t quality_from_prob(const real_t p) __attribute__((const)) __attribute__((const));
+PHREDCHAR phredchar_from_quality( real_t qual) __attribute__((const)) __attribute__((const));
 
 #endif /* NUC_H_ */
