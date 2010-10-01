@@ -1,0 +1,111 @@
+AYB(1)
+======
+
+
+NAME
+----
+AYB - produce base-calls using the intensity data produced by the
+Illumina sequencing platform.
+
+SYNOPSIS
+--------
+*AYB*	-b blockstring -x prefix
+	[-d informat] [-f outformat] [-n iterations] [-m mu]
+	[-i input path] [-o output path] [-e log path] [-l log level]
+	[-w] [-M Crosstalk] [-P Phasing] [-N Noise] [-S Solver]
+
+
+*AYB* --help
+
+*AYB* --licence
+
+*AYB* --version
+
+DESCRIPTION
+-----------
+Wibble
+
+OPTIONS
+-------
+*-b,  --blockstring* <Rn[InCn...]>::
+	How to group cycle data in intensity files for analysis
+	(R=Read, I=Ignore, C=Concatenate onto previous block)
+	(First R must precede first C).
+
+*-d,  --dataformat* <format> [default: txt]::
+	Input format (txt/cif).
+
+*-e,  --logfile* <path> [default: none]::
+	Location of message output. (Alternative to script redirect of
+error output).
+
+*-f,  --format* <format> [default: fasta]::
+	Output format (fasta/fastq).
+
+*-i,  --input* <path> [default: ""]::
+	Location of input files.
+
+*-l,  --loglevel* <level> [default: warning]::
+	Level of message output.
+
+*-M,  --M* <filepath>::
+	Predetermined Crosstalk matrix file path.
+
+*-m,  --mu* <num> [default: 1.0E-5]::
+	Adjust range of quality scores (Smaller value for higher 
+maximum quality score).
+
+*-N,  --N* <filepath>::
+	Predetermined Noise matrix file path.
+
+*-n,  --niter* <num> [default: 5]::
+	Number of model iterations.
+
+*-o,  --output* <path> [default: ""]::
+	Location to create output files
+
+*-P,  --P* <filepath>::
+	Predetermined Phasing matrix file path.
+
+*-S,  --solver* <solver>::
+	Linear equation solver to use for P matrix.
+
+Options
+
+  ls      least squares, allow negatives [default].
+
+  zero    least squares then set negatives to zero.
+
+  nnls    non-negative least squares.
+
+*-w,  --working*::
+	Output final working values.
+
+*-x,  --prefix* <path>::
+	Filter input files by match to prefix
+
+*--help*::
+	Display this help.
+
+*--licence*::
+	Display AYB licence information.
+
+*--version*::
+	Display AYB version information.
+
+AUTHOR
+------
+Written by Hazel Marsden <hazelm@ebi.ac.uk> and 
+Tim Massingham <tim.massingham@ebi.ac.uk>.
+
+RESOURCES
+---------
+See <http://www.ebi.ac.uk/goldman/AYB/>.
+
+COPYING
+-------
+Copyright (C) 2010 European Bioinformatics Institute. Free use of this 
+software is granted under the terms of the GNU General Public License 
+(GPL). See the file *COPYING* in the AYB distribution or  
+<http://www.gnu.org/licenses/gpl.html> for details.
+
