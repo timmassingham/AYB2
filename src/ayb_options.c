@@ -92,6 +92,7 @@ static struct option Longopts[] = {
     {"solver",      required_argument,  NULL, 'S'},
     {"help",        no_argument,        NULL, OPT_HELP },
     {"licence",     no_argument,        NULL, OPT_LICENCE },
+    {"license",     no_argument,        NULL, OPT_LICENCE },
     {"version",     no_argument,        NULL, OPT_VERSION },
     {0,0,0,0}
 };

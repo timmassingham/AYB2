@@ -19,6 +19,8 @@ SYNOPSIS
 
 *AYB* --licence
 
+*AYB* --license
+
 *AYB* --version
 
 DESCRIPTION
@@ -88,6 +90,7 @@ Options
 	Display this help.
 
 *--licence*::
+*--license*::
 	Display AYB licence information.
 
 *--version*::
