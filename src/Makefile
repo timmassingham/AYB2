@@ -30,6 +30,7 @@ test-nuc: $(objects)
 test-tile: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects))
 
+ayb_options.o: ayb_options.c ayb_usage.h ayb_help.h
 
 .c.o:
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $@ -c $<
