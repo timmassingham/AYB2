@@ -102,6 +102,7 @@ typedef enum OutFormT {E_FASTA, E_FASTQ, E_OUTFORM_NUM} OUTFORM;
 static OUTFORM OutputFormat  = E_FASTA;         ///< Selected output format.
 
 static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.
+static real_t BasePenalty[NBASE] = {0.0,0.0,0.0,0.0}; ///< Penalty for least-squares base-calling
 static unsigned int *ZeroLambda = NULL;         ///< Count of zero lambdas before base call, per iteration.
 static bool ShowWorking = false;                ///< Set to output final working values.
 static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
@@ -846,7 +847,7 @@ static int estimate_bases(const bool lastiter) {
         for (uint32_t cy = 0; cy < ncycle; cy++){
 	   const real_t * sig = node->elt->signals->x + cy * NBASE;
 	   ifnot( iszero(sig[0]) && iszero(sig[1]) && iszero(sig[2]) && iszero(sig[3]) ){
-                struct basequal bq = call_base(pcl_int->x+cy * NBASE, Ayb->lambda->x[cl], V[cy]);
+                struct basequal bq = call_base(pcl_int->x+cy * NBASE, Ayb->lambda->x[cl], BasePenalty, V[cy]);
                 cl_bases[cy] = bq.base;
                 qual[cy] = bq.qual;
 	   } else {
@@ -1215,6 +1216,24 @@ void set_niter(const char *niter_str) {
 
     char *endptr;
     NIter = strtoul(niter_str, &endptr, 0);
+}
+
+/** Set the GC composition of the sequence.
+  *  Reads proportion from string and create a penalty vector
+  * for the least square statistic such that the penalty is zero
+  * for equaly likely bases
+  */
+bool set_composition(const char *comp_str){
+    char *endptr;
+    const double gc = strtod(comp_str,&endptr);
+    if(gc<0. || gc>1.){ return false; } /* GC should be proportion */
+    const double pen_AT = -2.0*log1p(-gc) + 2.0*log(0.5);
+    const double pen_CG = -2.0*log(gc) + 2.0*log(0.5);
+    BasePenalty[NUC_A] = pen_AT;
+    BasePenalty[NUC_C] = pen_CG;
+    BasePenalty[NUC_G] = pen_CG;
+    BasePenalty[NUC_T] = pen_AT;
+    return true;
 }
 
 /**

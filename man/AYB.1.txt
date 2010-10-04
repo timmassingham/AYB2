@@ -10,7 +10,7 @@ Illumina sequencing platform.
 SYNOPSIS
 --------
 *AYB*	-b blockstring -x prefix
-	[-d informat] [-f outformat] [-n iterations] [-m mu]
+	[-c composition] [-d informat] [-f outformat] [-n iterations] [-m mu]
 	[-i input path] [-o output path] [-e log path] [-l log level]
 	[-w] [-M Crosstalk] [-P Phasing] [-N Noise] [-S Solver]
 
@@ -33,6 +33,13 @@ OPTIONS
 	How to group cycle data in intensity files for analysis
 	(R=Read, I=Ignore, C=Concatenate onto previous block)
 	(First R must precede first C).
+
+*-c, --composition* <proportion GC> [default: 0.5]::
+        The GC content of the material being sequenced, for use as a
+	prior when calling bases. The default setting is equivalent
+	to an equal prior on all bases.
+	The composition should be a proportion strictly between zero
+	and one.
 
 *-d,  --dataformat* <format> [default: txt]::
 	Input format (txt/cif).

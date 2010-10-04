@@ -43,6 +43,7 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall);
 
 bool analyse_tile (XFILE *fp);
 void set_niter(const char *niter_str);
+bool set_composition(const char *comp_str);
 bool set_solver(const char *solver_str);
 bool set_output_format(const char *outform_str);
 void set_show_working(void);

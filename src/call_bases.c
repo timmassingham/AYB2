@@ -75,7 +75,7 @@ struct basequal call_base_null(void){
  * - lambda:  Cluster brightness
  * - omega:   Cycle specific inverse covariance matrix
  */
-struct basequal call_base( const real_t * restrict p, const real_t lambda, const MAT omega){
+struct basequal call_base( const real_t * restrict p, const real_t lambda, const real_t * restrict penalty, const MAT omega){
     assert(NULL!=p);
     assert(NULL!=omega);
     assert(NBASE==omega->nrow);
@@ -93,30 +93,33 @@ struct basequal call_base( const real_t * restrict p, const real_t lambda, const
         for ( int j=0 ; j<NBASE ; j++){
             stat[i] -= 2.0 * p[j] * omega->x[i*NBASE+j];
         }
+	stat[i] *= lambda;
+	stat[i] += penalty[i];
         if(stat[i]<minstat){
             minstat = stat[i];
             call = i;
         }
     }
     /* Summation of probabilities for normalisation,
-     * having removed factor exp(-0.5*(K+lambda*minstat))
+     * having removed factor exp(-0.5*(K+minstat))
      */
     real_t tot = 0.;
     for ( int i=0 ; i<NBASE ; i++){
-        tot += exp(-0.5*lambda*(stat[i]-minstat));
+        tot += exp(-0.5*(stat[i]-minstat));
     }
 
     real_t K = xMy(p,omega,p);
-    real_t maxprob = exp(-0.5*(K+lambda*minstat));
+    real_t maxprob = exp(-0.5*(K+minstat));
 
     /* Calculate posterior probability in numerically stable fashion
      * Note that maxp can be extremely small.
      */
+    const real_t exp_pen = exp(-0.5*penalty[call]);
     real_t post_prob = (maxprob<Mu) ?
        // Case probabilities small compared to mu
-       (Mu + maxprob ) / (4.0*Mu + maxprob*tot) :
+       (exp_pen*Mu + maxprob ) / (4.0*Mu + maxprob*tot) :
        // Case probabilities large compared to mu
-       (Mu/maxprob + 1.) / (4.0*Mu/maxprob + tot);
+       (exp_pen*Mu/maxprob + 1.) / (4.0*Mu/maxprob + tot);
 
     struct basequal b = {call,quality_from_prob(post_prob)};
     return b;

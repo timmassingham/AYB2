@@ -76,6 +76,7 @@ enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
 /** Long option structure used by getopt_long. */
 static struct option Longopts[] = {
     {"blockstring", required_argument,  NULL, 'b'},
+    {"composition", required_argument,  NULL, 'c'},
     {"prefix",      required_argument,  NULL, 'x'},
     {"dataformat",  required_argument,  NULL, 'd'},
     {"format",      required_argument,  NULL, 'f'},
@@ -117,7 +118,7 @@ OPTRET read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:x:d:f:n:m:i:o:e:l:wM:N:P:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:x:d:f:n:m:i:o:e:l:wM:N:P:S:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'b':
@@ -126,7 +127,13 @@ OPTRET read_options(const int argc, char ** const argv) {
                     carryon = E_FAIL;
                 }
                 break;
-
+            case 'c':
+	        /* Genome composition of reference sequence */
+	        if(!set_composition(optarg)) {
+		    fprintf(stderr, "Fatal: Invalid genome composition: \'%s\'\n\n", optarg);
+		    carryon = E_FAIL;
+		}
+		break;
             case 'x':
                 /* file pattern match */
                 set_pattern(optarg);
