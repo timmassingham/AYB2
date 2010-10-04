@@ -11,6 +11,7 @@
 "\t(R=Read, I=Ignore, C=Concatenate onto previous block)\n"
 "\t(First R must precede first C)\n\n"
 "  -x  --prefix <path>\t\tFilter input files by match to prefix [required]\n"
+"  -c  --composition <prop. CG>\tGenome CG composition [default: 0.5]\n"
 "  -d  --dataformat <format>\tInput format [default: txt]\n"
 "\t\t\t\t(txt/cif)\n"
 "  -f  --format <format>\t\tOutput format [default: fasta]\n"
