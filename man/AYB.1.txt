@@ -108,6 +108,10 @@ AUTHOR
 Written by Hazel Marsden <hazelm@ebi.ac.uk> and 
 Tim Massingham <tim.massingham@ebi.ac.uk>.
 
+Contains the Non-Negative Least Squares routine of Charles L. Lawson and 
+Richard J. Hanson (Jet Propulsion Laboratory, 1973). See 
+<http://www.netlib.org/lawson-hanson/> for details.
+
 RESOURCES
 ---------
 See <http://www.ebi.ac.uk/goldman/AYB/>.
