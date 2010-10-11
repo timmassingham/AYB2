@@ -121,7 +121,7 @@ MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const
     for ( uint32_t cl=0 ; cl<ncluster ; cl++){
         for ( uint32_t cy=0 ; cy<ncycle ; cy++){
             int base = bases.elt[cl*ncycle+cy];
-            if(NUC_AMBIG!=base){
+            if(!isambig(base)){
                 Sbar->x[cy*NBASE+base] += we->x[cl] * lambda->x[cl];
             }
         }
@@ -158,11 +158,11 @@ MAT calculateJ( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const ui
         const real_t welam = we->x[cl] * lambda->x[cl] * lambda->x[cl];
         for ( uint32_t cy=0 ; cy<ncycle ; cy++){
             const int base = bases.elt[cl*ncycle+cy];
-            if(NUC_AMBIG!=base){
+            if(!isambig(base)){
                 const int offset = cy*ncycle*NBASE*NBASE + base*NBASE;
                 for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
                     const int base2 = bases.elt[cl*ncycle+cy2];
-                    if(NUC_AMBIG!=base2){
+                    if(!isambig(base2)){
                         J->x[offset+cy2*lda+base2] += welam;
                     }
                 }
@@ -220,7 +220,7 @@ MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TI
             const uint32_t ioffset = cy*NBASE;
             for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
                 const int base = bases.elt[cl*ncycle+cy2];
-                if(NUC_AMBIG!=base){
+                if(!isambig(base)){
                     const uint32_t koffset = cy*lda*ncycle + cy2*lda + base;
                     for ( uint32_t ch=0 ; ch<NBASE ; ch++){
                         K->x[ koffset + ch*NBASE] += welam * node->elt->signals->x[ioffset + ch];

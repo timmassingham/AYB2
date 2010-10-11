@@ -60,13 +60,13 @@ real_t estimate_lambdaOLS( const MAT p, const NUC * base){
     real_t numerator = 0.0, denominator = 0.0;
     for (uint32_t cycle=0 ; cycle<ncycle ; cycle++){
         const int cybase = base[cycle];
-        if(NUC_AMBIG!=cybase){
+        if (!isambig(cybase)){
             numerator += p->x[cycle*NBASE+cybase];
             denominator += 1.0;
         }
     }
 
-    real_t lambda = (numerator>0.)?(numerator / denominator):0.;
+    real_t lambda = (denominator>0.0)?(numerator / denominator):0.0;
     return (lambda>0.)?lambda:0.;
 }
 
@@ -90,8 +90,8 @@ real_t estimate_lambdaWLS( const MAT p, const NUC * base, const real_t oldlambda
     real_t numerator = 0.0, denominator=0.0;
     for (uint32_t cycle=0 ; cycle<ncycle ; cycle++){
         const int cybase = base[cycle];
-        if(NUC_AMBIG!=cybase){
-        // Calculate Sum Squared Error, then weight
+        if(!isambig(cybase)){
+            // Calculate Sum Squared Error, then weight
             real_t sse = 0.0;
             for ( int j=0 ; j<NBASE ; j++){
                 sse += p->x[cycle*NBASE+j] * p->x[cycle*NBASE+j];
@@ -105,6 +105,6 @@ real_t estimate_lambdaWLS( const MAT p, const NUC * base, const real_t oldlambda
         }
     }
 
-    real_t lambda = (numerator>0.)?(numerator / denominator):0.;
+    real_t lambda = (denominator>0.)?(numerator / denominator):0.;
     return (lambda>0.)?lambda:0.;
 }

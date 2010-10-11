@@ -96,10 +96,10 @@ MAT expected_intensities(const real_t lambda, const NUC * bases,
     for(uint32_t cy2=0 ; cy2<ncycle ; cy2++){
         for(uint32_t cy=0 ; cy<ncycle ; cy++){
             const NUC base = bases[cy];
-	    if(NUC_AMBIG!=base){
+            if(!isambig(base)){
                 for ( uint32_t ch=0 ; ch<NBASE ; ch++){
                     e->x[cy2*NBASE+ch] += M->x[base*NBASE+ch] * P->x[cy2*ncycle+cy];
-	        }
+                }
             }
         }
     }
