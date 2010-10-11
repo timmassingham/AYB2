@@ -62,6 +62,11 @@ NUC call_base_simple( const real_t * restrict p){
     return max_real_t(p,NBASE);
 }
 
+/** Return a nodata base call, used when missing data. */
+NUC call_base_nodata(void){
+    return NUC_AMBIG;
+}
+
 /** Return a null base call, used when insufficient data available. */
 struct basequal call_base_null(void){
     struct basequal b = {0, MIN_QUALITY};
@@ -93,13 +98,14 @@ struct basequal call_base( const real_t * restrict p, const real_t lambda, const
         for ( int j=0 ; j<NBASE ; j++){
             stat[i] -= 2.0 * p[j] * omega->x[i*NBASE+j];
         }
-	stat[i] *= lambda;
-	stat[i] += penalty[i];
+        stat[i] *= lambda;
+        stat[i] += penalty[i];
         if(stat[i]<minstat){
             minstat = stat[i];
             call = i;
         }
     }
+
     /* Summation of probabilities for normalisation,
      * having removed factor exp(-0.5*(K+minstat))
      */
@@ -116,31 +122,32 @@ struct basequal call_base( const real_t * restrict p, const real_t lambda, const
      */
     const real_t exp_pen = exp(-0.5*penalty[call]);
     real_t post_prob = (maxprob<Mu) ?
-       // Case probabilities small compared to mu
-       (exp_pen*Mu + maxprob ) / (4.0*Mu + maxprob*tot) :
-       // Case probabilities large compared to mu
-       (exp_pen*Mu/maxprob + 1.) / (4.0*Mu/maxprob + tot);
+        // Case probabilities small compared to mu
+        (exp_pen*Mu + maxprob ) / (4.0*Mu + maxprob*tot) :
+        // Case probabilities large compared to mu
+        (exp_pen*Mu/maxprob + 1.0) / (4.0*Mu/maxprob + tot);
 
-    struct basequal b = {call,quality_from_prob(post_prob)};
+    struct basequal b = {call, quality_from_prob(post_prob)};
     return b;
 }
 
-/**  Adjust quality score for base using a linear calibration and neighbours
-  *  Vectors used are defined in calibration table (e.g. tables/newcalibrationS2.tab)
-  * or a path given from commandline.
-  *  First and last bases of a read are special cases, dealt with by setting the
-  *  prior or next base (respectively) to be NUC_AMBIG.
-  */
+/**
+ * Adjust quality score for base using a linear calibration and neighbours.
+ * Vectors used are defined in calibration table (e.g. tables/newcalibrationS2.tab)
+ * or a path given from command line.
+ * First and last bases of a read are special cases, dealt with by setting the
+ * prior or next base (respectively) to be NUC_AMBIG.
+ */
 real_t adjust_quality(const real_t qual, const NUC prior, const NUC base, const NUC next){
-   if(NUC_AMBIG==base){ return MIN_QUALITY; }
+   if(isambig(base)){ return MIN_QUALITY; }
    real_t new_qual = calibration_intercept + calibration_scale * qual;
-   if(NUC_AMBIG!=prior){
+   if(!isambig(prior)){
       new_qual += calibration_baseprior_adj[prior*NBASE+base];
    }
-   if(NUC_AMBIG!=next){
+   if(!isambig(next)){
       new_qual += calibration_basenext_adj[next*NBASE+base];
    }
-   if(NUC_AMBIG!=next && NUC_AMBIG!=prior){
+   if(!isambig(next) && !isambig(prior)){
       new_qual += calibration_priorbasenext_adj[(next*NBASE+prior)*NBASE+base];
    }
    return new_qual;
