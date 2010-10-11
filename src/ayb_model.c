@@ -39,8 +39,6 @@
 #include "statistics.h"
 #include "tile.h"
 
-#define ifnot(A) if(!(A))
-#define iszero(A) (0==A)
 
 /** AYB structure contains the data required for modelling. */
 struct AybT {
@@ -102,7 +100,7 @@ typedef enum OutFormT {E_FASTA, E_FASTQ, E_OUTFORM_NUM} OUTFORM;
 static OUTFORM OutputFormat  = E_FASTA;         ///< Selected output format.
 
 static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.
-static real_t BasePenalty[NBASE] = {0.0,0.0,0.0,0.0}; ///< Penalty for least-squares base-calling
+static real_t BasePenalty[NBASE] = {0.0,0.0,0.0,0.0}; ///< Penalty for least-squares base-calling.
 static unsigned int *ZeroLambda = NULL;         ///< Count of zero lambdas before base call, per iteration.
 static bool ShowWorking = false;                ///< Set to output final working values.
 static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
@@ -284,6 +282,15 @@ static MAT init_matrix(MAT mat, const IOTYPE idx) {
     return mat;
 }
 
+/** Returns true if array of data is missing (all zero). */
+static inline bool nodata(const real_t * sig, const int num) {
+
+    for (unsigned int i = 0; i < num; i++) {
+        if (sig[i] != 0) {return false;}
+    }
+    return true;
+}
+
 /**
  * Set initial values for the model.
  * Returns false if one of the initial matrices is wrong dimension.
@@ -340,14 +347,14 @@ static bool initialise_model() {
         NUC * cl_bases = Ayb->bases.elt + cl * Ayb->ncycle;
         PHREDCHAR * cl_quals = Ayb->quals.elt + cl * Ayb->ncycle;
         for ( uint32_t cy = 0; cy < Ayb->ncycle; cy++){
-	    const real_t * sig = node->elt->signals->x + cy * NBASE;
-	    ifnot( iszero(sig[0]) && iszero(sig[1]) && iszero(sig[2]) && iszero(sig[3]) ){
+            /* deal differently with missing data */
+            if (nodata(node->elt->signals->x + cy * NBASE, NBASE)) {
+                cl_bases[cy] = call_base_nodata();
+            }
+            else {
                 cl_bases[cy] = call_base_simple(pcl_int->x + cy * NBASE);
-                cl_quals[cy] = MIN_PHRED;
-	    } else {
-	        cl_bases[cy] = NUC_AMBIG;
-		cl_quals[cy] = MIN_PHRED;
-	    }
+            }
+            cl_quals[cy] = MIN_PHRED;
         }
         /* initial lambda */
         Ayb->lambda->x[cl] = estimate_lambdaOLS(pcl_int, cl_bases);
@@ -562,7 +569,9 @@ static MAT * accumulate_covariance( const real_t we, const MAT p, const real_t l
                 V[cycle]->x[i*NBASE+j] += we * p->x[cycle*NBASE+i] * p->x[cycle*NBASE+j];
             }
         }
-	if(NUC_AMBIG==cybase){ continue;}
+
+        if (isambig(cybase)) { continue;}
+
         // \lambda I_b P^t and \lambda P I_b^t
         for ( uint32_t i=0 ; i<NBASE ; i++){
             V[cycle]->x[cybase*NBASE+i] -= we * lambda * p->x[cycle*NBASE+i];
@@ -573,7 +582,7 @@ static MAT * accumulate_covariance( const real_t we, const MAT p, const real_t l
     }
     // Create residuals
     for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        if(NUC_AMBIG!=base[cy]){ p->x[cy*NBASE+base[cy]] -= lambda;}
+        if (!isambig(base[cy])) { p->x[cy*NBASE+base[cy]] -= lambda;}
     }
 
     return V;
@@ -628,8 +637,11 @@ static MAT * calculate_covariance(){
 
     /* scale sum of squares to make covariance */
     for ( uint32_t cy = 0; cy < ncycle; cy++){
+        /* add a diagonal offset to help with bad data */
+        for ( uint32_t i = 0; i < NBASE; i++){
+            V[cy]->x[i * NBASE + i] += 1.0;
+        }
         for ( uint32_t i = 0; i < NBASE * NBASE; i++){
-	    V[cy]->x[i] += 1.0;
             V[cy]->x[i] /= wesum;
         }
     }
@@ -843,27 +855,33 @@ static int estimate_bases(const bool lastiter) {
 #endif
 
         /* call bases for each cycle */
-	real_t qual[ncycle]; // Tempory storage for (real_t) quality values
+        real_t qual[ncycle]; // Tempory storage for (real_t) quality values
         for (uint32_t cy = 0; cy < ncycle; cy++){
-	   const real_t * sig = node->elt->signals->x + cy * NBASE;
-	   ifnot( iszero(sig[0]) && iszero(sig[1]) && iszero(sig[2]) && iszero(sig[3]) ){
+            /* deal differently with missing data */
+            if (nodata(node->elt->signals->x + cy * NBASE, NBASE)) {
+                cl_bases[cy] = call_base_nodata();
+                qual[cy] = MIN_QUALITY;
+            }
+            else {
                 struct basequal bq = call_base(pcl_int->x+cy * NBASE, Ayb->lambda->x[cl], BasePenalty, V[cy]);
                 cl_bases[cy] = bq.base;
                 qual[cy] = bq.qual;
-	   } else {
-	        cl_bases[cy] = NUC_AMBIG;
-		qual[cy] = MIN_QUALITY;
-	   }
+            }
         }
-	/* Adjust quality values. First and Last bases of read are special cases */
-	qual[0] = adjust_quality(qual[0],NUC_AMBIG,cl_bases[0],cl_bases[1]);
-	for ( uint32_t cy=1 ; cy<(ncycle-1) ; cy++){
-        	qual[cy] = adjust_quality(qual[cy],cl_bases[cy-1],cl_bases[cy],cl_bases[cy+1]);
+
+        if (Ayb->lambda->x[cl] != 0.0) {
+            /* adjust quality values; first and Last bases of read are special cases */
+            qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
+            for (uint32_t cy=1; cy<(ncycle-1); cy++) {
+                qual[cy] = adjust_quality(qual[cy], cl_bases[cy-1], cl_bases[cy], cl_bases[cy+1]);
+            }
+            qual[ncycle-1] = adjust_last_quality(qual[ncycle-1], cl_bases[ncycle-2], cl_bases[ncycle-1]);
+
         }
-	qual[ncycle-1] = adjust_quality(qual[ncycle-1],cl_bases[ncycle-2],cl_bases[ncycle-1],NUC_AMBIG);
-	/* Convert qualities to phred scores */
-	for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        	cl_quals[cy] = phredchar_from_quality(qual[cy]);
+
+        /* convert qualities to phred char */
+        for ( uint32_t cy=0 ; cy<ncycle ; cy++){
+            cl_quals[cy] = phredchar_from_quality(qual[cy]);
         }
 
         /* repeat estimate lambda with the new bases */
@@ -1218,21 +1236,23 @@ void set_niter(const char *niter_str) {
     NIter = strtoul(niter_str, &endptr, 0);
 }
 
-/** Set the GC composition of the sequence.
-  *  Reads proportion from string and create a penalty vector
-  * for the least square statistic such that the penalty is zero
-  * for equaly likely bases
-  */
+/**
+ * Set the GC composition of the sequence.
+ * Reads proportion from string and creates a penalty vector for the
+ * least square statistic such that the penalty is zero for equally likely bases.
+ * Returns true if valid value (0 to 1 non-inclusive).
+ */
 bool set_composition(const char *comp_str){
+
     char *endptr;
-    const double gc = strtod(comp_str,&endptr);
-    if(gc<0. || gc>1.){ return false; } /* GC should be proportion */
-    const double pen_AT = -2.0*log1p(-gc) + 2.0*log(0.5);
-    const double pen_CG = -2.0*log(gc) + 2.0*log(0.5);
-    BasePenalty[NUC_A] = pen_AT;
-    BasePenalty[NUC_C] = pen_CG;
-    BasePenalty[NUC_G] = pen_CG;
-    BasePenalty[NUC_T] = pen_AT;
+    const double gc = strtod(comp_str, &endptr);
+
+    /* limit GC to a proportion and avoid log overflow */
+    if (gc <= 0.0 || gc >= 1.0) {return false;}
+
+    const double pen_mid = 2.0 * log(0.5);
+    BasePenalty[NUC_A] = BasePenalty[NUC_T] = -2.0 * log1p(-gc) + pen_mid;
+    BasePenalty[NUC_C] = BasePenalty[NUC_G] = -2.0 * log(gc) + pen_mid;
     return true;
 }
 
