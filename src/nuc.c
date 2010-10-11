@@ -24,7 +24,6 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdbool.h>
 #include <tgmath.h>
 #include "message.h"
 #include "nuc.h"
@@ -39,7 +38,6 @@
 
 
 /* private functions */
-/* undetermined */
 
 bool isprob( const real_t p){
     if(p>1.0){ return false; }
@@ -48,8 +46,6 @@ bool isprob( const real_t p){
 }
 
 /* public functions */
-/* undetermined */
-
 
 void show_NUC(XFILE * fp, const NUC nuc){
     validate(NULL!=fp,);
@@ -135,28 +131,31 @@ ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs){
     return new_nuc;
 }
 
+/** Convert a char to PHRED-style character, ensuring within range. */
 PHREDCHAR phredchar_from_char( const char c){
     validate(c>=MIN_PHRED,MIN_PHRED);
     validate(c<=MAX_PHRED,MAX_PHRED);
     return c;
 }
 
+/** Convert probability of error to PHRED-style character representation. */
 PHREDCHAR phredchar_from_prob( real_t p){
     validate(isprob(p),ERR_PHRED);
-    real_t c = 33-10*log1p(-p)/log(10);
+    real_t c = MIN_PHRED - 10*log1p(-p)/log(10);
     if(c<MIN_PHRED){c=MIN_PHRED;}
     if(c>MAX_PHRED){c=MAX_PHRED;}
     return (PHREDCHAR)(c+0.5);
 }
 
-/** Convert probability of error to PHRED-style quality value */
+/** Convert probability of error to PHRED-style quality value. */
 real_t quality_from_prob( real_t p){
+    validate(isprob(p),ERR_PHRED);
 	return -10.*log1p(-p)/log(10.);
 }
 
-/** Convert PHRED-style quality value to character representation */
+/** Convert PHRED-style quality value to character representation. */
 PHREDCHAR phredchar_from_quality( real_t qual){
-   real_t c= 32+qual;
+   real_t c  = MIN_PHRED + qual;
    if(c<MIN_PHRED){c=MIN_PHRED;}
    if(c>MAX_PHRED){c=MAX_PHRED;}
    return (PHREDCHAR)(c+0.5);

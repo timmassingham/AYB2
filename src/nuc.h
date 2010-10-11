@@ -27,31 +27,35 @@
 #ifndef NUC_H_
 #define NUC_H_
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "xio.h"
 
 typedef char NUC;
-#define NBASE       4
+#define NBASE       4                           ///< Number of nucleotide bases.
 
-#define NUC_AMBIG   4
-#define NUC_A       0
-#define NUC_C       1
-#define NUC_G       2
-#define NUC_T       3
+#define NUC_AMBIG   4                           ///< Indicates unable to determine base.
+#define NUC_A       0                           ///< Position for base A.
+#define NUC_C       1                           ///< Position for base C.
+#define NUC_G       2                           ///< Position for base G.
+#define NUC_T       3                           ///< Position for base T.
 
 typedef char PHREDCHAR;
-#define NULL_PHRED  32                          // ascii space
-#define MIN_PHRED   33                          // start of printable chars
-#define MAX_PHRED   126                         // end of printable chars
+#define NULL_PHRED  32                          ///< Ascii space character.
+#define MIN_PHRED   33                          ///< Start of printable characters.
+#define MAX_PHRED   126                         ///< End of printable characters.
 #define ERR_PHRED   0
 
-#define MIN_QUALITY (-10.0*log10(0.75))		// Minimum quality 
+#define MIN_QUALITY 0.0                         ///< Minimum quality indicates unable to compute.
 
 /* standard functions */
 void show_NUC(XFILE * fp, const NUC nuc);
 void show_PHREDCHAR(XFILE * fp, const PHREDCHAR nuc);
 NUC read_NUC(XFILE * fp);
 PHREDCHAR read_PHREDCHAR(XFILE * fp);
+
+/** Returns true if NUC set to ambiguous. */
+static inline bool isambig(const NUC nuc) { return ((nuc - NUC_AMBIG) == 0); }
 
 /* use type safe ARRAY construct to define arrays of NUC and PHREDCHAR */
 #define X(A) A ## NUC
@@ -68,6 +72,7 @@ char char_from_nuc(const NUC nuc) __attribute__((const));
 ARRAY(NUC) nucs_from_string( const char * nucstr );
 NUC complement(const NUC nuc) __attribute__((const));
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
+
 PHREDCHAR phredchar_from_char( const char c)  __attribute__((const)); 
 PHREDCHAR phredchar_from_prob( const real_t p)  __attribute__((const));
 real_t quality_from_prob(const real_t p) __attribute__((const));
