@@ -377,7 +377,7 @@ static bool initialise_model() {
 }
 
 /** Calculate new weights. */
-static real_t update_cluster_weights(){
+static real_t update_cluster_weights(void){
     validate(NULL!=Ayb,NAN);
     const uint32_t ncluster = Ayb->ncluster;
     const uint32_t ncycle   = Ayb->ncycle;
@@ -428,7 +428,7 @@ static real_t estimate_MPN(){
     const uint32_t ncycle = Ayb->ncycle;
     /*  Calculate new weights */
     //timestamp("Updating weights\n",stderr);
-    real_t sumLSS = update_cluster_weights(Ayb);
+    real_t sumLSS = update_cluster_weights();
 
     /*  Precalculate terms for iteration */
     //timestamp("Calculating matrices\n",stderr);
