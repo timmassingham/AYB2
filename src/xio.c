@@ -118,16 +118,6 @@ static int BZ2_bzvprintf ( BZFILE * bzfp, const char * fmt, va_list args ){
     return ret;                                             
 }
 
-/** Set the selected file pointer to null. */
-static void xnull_file(XFILE * fp){
-    switch( fp->mode ){
-      case XFILE_UNKNOWN:
-      case XFILE_RAW: fp->ptr.fh = NULL; break;
-      case XFILE_GZIP: fp->ptr.zfh = NULL; break;
-      case XFILE_BZIP2: fp->ptr.bzfh = NULL; break;
-    }
-}
-
 /** Return true if selected file pointer is not null. */
 static int xnotnull_file(XFILE * fp){
     switch( fp->mode ){
