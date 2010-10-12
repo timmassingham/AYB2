@@ -190,7 +190,7 @@ char *strcasestr(const char *s1, const char *s2) {
  * Assumes match substring already set up.
  * Returns non-zero value if match found as required by scandir.
  */
-static int match_pattern(const struct dirent *list) {
+static int match_pattern(struct dirent *list) {
 
     int ret = 0;
 
