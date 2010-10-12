@@ -30,12 +30,12 @@ test-nuc: $(objects)
 test-tile: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects))
 
-test-weibull: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST weibull.c $(filter-out weibull.o ayb_main.o,$(objects)) && \
-	   ln -s ../bin/$@ ../bin/qweibull && \
-	   ln -s ../bin/$@ ../bin/pweibull && \
-	   ln -s ../bin/$@ ../bin/dweibull && \
-	   ln -s ../bin/$@ ../bin/fweibull
+test-weibull: statistics.o
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST weibull.c $< && \
+	   ln -fs ../bin/$@ ../bin/qweibull && \
+	   ln -fs ../bin/$@ ../bin/pweibull && \
+	   ln -fs ../bin/$@ ../bin/dweibull && \
+	   ln -fs ../bin/$@ ../bin/fweibull
 
 ayb_options.o: ayb_options.c ayb_usage.h ayb_help.h
 
