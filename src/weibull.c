@@ -143,6 +143,62 @@ pair_real fit_weibull ( const real_t * x_orig, const uint32_t n ){
     free(y_sorted);
     return resf;
 }
+
+/** Fit Weibull distribution to data using weighted least-squares method
+ * Tests suggest that the fit achieved using this method agrees more
+ * closely with the maximum likelihood fitting than the OLS method used 
+ * by fit_weibull although it is possible that the fit is less robust
+ * if the data in not from a Weibull distribution.
+ * 
+ * Since CDF = 1 - exp( -(x/l)^k )
+ * Then log(-log(1-CDF)) = k log x - k log l
+ * is a linear relationship; fit to data using WLS.
+ * 
+ * The weights for the regression are calculated by taking the variance
+ * of each order statistic and transforming using the delta method.
+ *
+ * Returns a pair_real structure containing the fitted shape and 
+ * scale.
+ */
+pair_real wfit_weibull ( const real_t * x_orig, const uint32_t n ){
+    real_t * x_sorted = calloc(n,sizeof(real_t));
+    real_t * y_sorted = calloc(n,sizeof(real_t));
+    real_t * w_sorted = calloc(n,sizeof(real_t));
+    if(NULL==x_sorted || NULL==y_sorted || NULL==w_sorted){
+        errx(EXIT_FAILURE,"Failed to allocate memory in %s (%s:%d)",__func__,__FILE__,__LINE__);
+    }
+    for( uint32_t i=0 ; i<n ; i++){
+        x_sorted[i] = log(x_orig[i]);
+        y_sorted[i] = log(-log( (n-i)/(n+1.0) ));
+        /*  Calculate weight.
+         * k'th order statistic is distributed Beta(k,n+1-k),
+         * which has variance V = k * (n+1-k) / ( (n+2)(n+1)^2 )
+         *  The variance of log(-log(1-p)) is therefore
+         * V/((1-p)log(1-p))^2 by the delta method.
+         *  Finally, the weight for the linear regression is
+         * inversely proportional to the variance.
+         */
+        real_t p = (i+1.0)/(n+1.0);
+        w_sorted[i] = (i+1.0)*(n-i)/((n+1.0)*(n+1.0)*(n+2.0));
+	w_sorted[i] /= (1-p)*(1-p)*log1p(-p)*log1p(-p);
+        w_sorted[i] = 1.0/w_sorted[i];
+    }
+    qsort(x_sorted,n,sizeof(*x_sorted),cmp_real_t);
+
+    real_t * res = wLinearRegression(w_sorted,x_sorted,y_sorted,n,NULL);
+    pair_real resf = {NAN,NAN};
+    if(NULL!=res){
+        resf.e1 = res[0];
+        resf.e2 = exp(-res[1]/res[0]);
+        free(res);
+    }
+
+    free(w_sorted);
+    free(y_sorted);
+    free(x_sorted);
+    return resf;
+}
+
     
     
 
@@ -215,8 +271,21 @@ int main ( int argc, char * argv[] ){
         for ( int i=0 ; i<n ; i++){
             fscanf(fp,REAL_FORMAT_IN,&x[i]);
         }
+
+	// OLS fit
+	real_t loglike = 0.;
         pair_real param = fit_weibull(x,n);
-        printf(": shape = %f  scale = %f\n",param.e1,param.e2);
+        for ( uint32_t i=0 ; i<n ; i++){
+		loglike -= dweibull(x[i],param.e1,param.e2,true);
+	}
+        printf("\nOLS: shape = %f  scale = %f  loglike = %f\n",param.e1,param.e2,loglike);
+	// WLS fit
+        loglike = 0.;
+	param = wfit_weibull(x,n);
+        for ( uint32_t i=0 ; i<n ; i++){
+                loglike -= dweibull(x[i],param.e1,param.e2,true);
+        }
+        printf("WLS: shape = %f  scale = %f  loglike = %f\n",param.e1,param.e2,loglike);
     }
     
     return EXIT_FAILURE;
