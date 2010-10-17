@@ -286,6 +286,7 @@ int main ( int argc, char * argv[] ){
                 loglike -= dweibull(x[i],param.e1,param.e2,true);
         }
         printf("WLS: shape = %f  scale = %f  loglike = %f\n",param.e1,param.e2,loglike);
+	return EXIT_SUCCESS;
     }
     
     return EXIT_FAILURE;
