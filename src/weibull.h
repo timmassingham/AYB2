@@ -38,5 +38,6 @@ real_t pweibull(  real_t x,  real_t shape,  real_t scale,  bool tail,  bool logp
 real_t qweibull(  real_t p,  real_t shape,  real_t scale,  bool tail,  bool logp);
 real_t dweibull(  real_t x,  real_t shape,  real_t scale,  bool logd );
 pair_real fit_weibull( const real_t * x_orig, const uint32_t n );
+pair_real wfit_weibull ( const real_t * x_orig, const uint32_t n );
 
 #endif
