@@ -96,11 +96,10 @@ static const char * find_suffix ( const char * fn ){
 
 /** gzip printf. */
 static int gzvprintf ( gzFile zfp, const char * fmt, va_list args ){
-    int ret,len;
+    int ret;
     char * buf;
 
     vasprintf(&buf,fmt,args);
-    len = strlen(buf);
     ret = gzputs(zfp,buf);
     free(buf);
     return ret;
