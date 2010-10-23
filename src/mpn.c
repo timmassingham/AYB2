@@ -544,7 +544,7 @@ int solverNNLS(MAT lhs, MAT rhs, real_t *tmp, const real_t delta_diag){
     real_t RNORM;
     real_t W[N];
     real_t ZZ[N];
-    int INDEX[N],MODE;
+    int INDEX[N],MODE=0;
 
     /* add a diagonal offset to avoid failure to solve */
     if(0.0 != delta_diag){
