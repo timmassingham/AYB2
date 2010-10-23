@@ -267,10 +267,9 @@ CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle){
     CLUSTER cluster = NULL;
 
     /* Read and discard lane and tile information */
-    unsigned long skip;
-    skip = strtoul(ptr, &ptr, 0);
+    strtoul(ptr, &ptr, 0); // skip value
     if ('\t' != ptr[0]) {goto cleanup;}
-    skip = strtoul(ptr, &ptr, 0);
+    strtoul(ptr, &ptr, 0); // skip value
     if ('\t' != ptr[0]) {goto cleanup;}
 
     /* read cluster information */
