@@ -26,6 +26,8 @@
 
 #include <math.h>
 #include "ayb_model.h"
+#include "ayb_options.h"
+#include "ayb_version.h"
 #include "call_bases.h"
 #include "cif.h"
 #include "datablock.h"
@@ -38,6 +40,7 @@
 #include "nuc.h"
 #include "statistics.h"
 #include "tile.h"
+#include "weibull.h"
 
 
 /** AYB structure contains the data required for modelling. */
@@ -102,6 +105,8 @@ static OUTFORM OutputFormat  = E_FASTA;         ///< Selected output format.
 static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.
 static real_t BasePenalty[NBASE] = {0.0,0.0,0.0,0.0}; ///< Penalty for least-squares base-calling.
 static unsigned int *ZeroLambda = NULL;         ///< Count of zero lambdas before base call, per iteration.
+static bool SimData = false;                    ///< Set to output simulation data.
+static CSTRING SimText = NULL;                  ///< Header text for simulation data file.
 static bool ShowWorking = false;                ///< Set to output final working values.
 static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
 static AYB Ayb = NULL;                          ///< The model data.
@@ -118,7 +123,7 @@ static bool ShowDebug = false;
  * Read in any external crosstalk (M), Phasing (P) and Noise (N) matrices.
  * Returns false if failed to read a supplied matrix file.
  */
-static bool read_matrices() {
+static bool read_matrices(void) {
     XFILE *fpmat = NULL;
     bool found = true;
 
@@ -295,7 +300,7 @@ static inline bool nodata(const real_t * sig, const int num) {
  * Set initial values for the model.
  * Returns false if one of the initial matrices is wrong dimension.
  */
-static bool initialise_model() {
+static bool initialise_model(void) {
 
     /* initial M, P, N */
     Ayb->M = init_matrix(Ayb->M, E_CROSSTALK);
@@ -423,7 +428,7 @@ static real_t update_cluster_weights(void){
  * - Recalculates weights
  * - Scales all lambda by factor
  */
-static real_t estimate_MPN(){
+static real_t estimate_MPN(void){
     validate(NULL!=Ayb,NAN);
     const uint32_t ncycle = Ayb->ncycle;
     /*  Calculate new weights */
@@ -535,6 +540,70 @@ static real_t estimate_MPN(){
  */
 
 /**
+ * Accumulate full covariance matrix (ncycle * NBASE x ncycle * NBASE).
+ * \n Note: If V is NULL, the required memory is allocated.
+ * - p:        Matrix of processed intensities
+ * - lambda:   Brightness of cluster
+ * - base:     Current base call
+ * - V:        Array of covariance matrices of size 1; single element used for accumulation
+ *
+ */
+static MAT * accumulate_all_covariance( const real_t we, const MAT p, const real_t lambda, const NUC * base, MAT * V) {
+    validate(NULL!=p, NULL);
+    validate(NBASE==p->nrow, NULL);
+    validate(lambda>=0.0, NULL);
+
+    const uint32_t ncycle = p->ncol;
+    const uint32_t ncyclebase = ncycle * NBASE;
+
+    // Allocate memory for V if necessary
+    // for compatibility of return value with normal accumulate use an array of size 1
+    if ( NULL==V ){
+        V = calloc(1, sizeof(*V));
+        if(NULL==V) {return NULL;}
+        V[0] = new_MAT(ncyclebase, ncyclebase);
+        if(NULL==V[0]) {
+            xfree(V);
+            return NULL;
+        }
+    }
+
+    // Perform accululation. V += R R^t
+    // Note: R = P - \lambda I_b, where I_b is unit vector with b'th elt = 1
+    //  so R R^t = P P^t - \lambda I_b P^t
+    //                   - \lambda P I_b^t + \lambda^2 I_b I_b^2
+    // P P^t
+    for (uint32_t i = 0; i < ncyclebase; i++) {
+        for (uint32_t j = 0; j < ncyclebase; j++) {
+            (V[0])->x[j * ncyclebase + i] += we * p->x[i] * p->x[j];
+        }
+    }
+
+    // \lambda I_b P^t and \lambda P I_b^t
+    for (uint32_t cy1 = 0; cy1 < ncycle; cy1++){
+
+        if (isambig(base[cy1])) { continue;}
+
+        uint32_t ibase1 = cy1 * NBASE + base[cy1];
+        for (uint32_t j = 0; j < ncyclebase; j++) {
+            (V[0])->x[j * ncyclebase + ibase1] -= we * lambda * p->x[j];
+            (V[0])->x[ibase1 * ncyclebase + j] -= we * lambda * p->x[j];
+        }
+
+        // \lambda^2 I_b I_b^t
+        for (uint32_t cy2 = 0; cy2 < ncycle; cy2++) {
+
+            if (isambig(base[cy2])) { continue;}
+
+            uint32_t ibase2 = cy2 * NBASE + base[cy2];
+            (V[0])->x[ibase2 * ncyclebase + ibase1] += we * lambda * lambda;
+        }
+    }
+
+    return V;
+}
+
+/**
  * Accumulate required variances (inner summation of variance calculation).
  * \n Note: If V is NULL, the required memory is allocated.
  * - p:        Matrix of processed intensities
@@ -599,7 +668,7 @@ cleanup:
  * Calculate covariance of (processed) residuals.
  * Returns a pointer to array of matrices, one per cycle.
  */
-static MAT * calculate_covariance(){
+static MAT * calculate_covariance(bool all){
 
     const uint32_t ncluster = Ayb->ncluster;
     const uint32_t ncycle = Ayb->ncycle;
@@ -620,7 +689,12 @@ static MAT * calculate_covariance(){
         validate(NULL != pcl_int, NULL);
 
         /* add this cluster values */
-        V = accumulate_covariance(Ayb->we->x[cl], pcl_int, Ayb->lambda->x[cl], cl_bases, V);
+        if (all) {
+            V = accumulate_all_covariance(Ayb->we->x[cl], pcl_int, Ayb->lambda->x[cl], cl_bases, V);
+        }
+        else {
+            V = accumulate_covariance(Ayb->we->x[cl], pcl_int, Ayb->lambda->x[cl], cl_bases, V);
+        }
         validate(NULL != V, NULL);
 
         /* sum denominator */
@@ -636,13 +710,16 @@ static MAT * calculate_covariance(){
     free_MAT(Minv_t);
 
     /* scale sum of squares to make covariance */
-    for ( uint32_t cy = 0; cy < ncycle; cy++){
-        /* add a diagonal offset to help with bad data */
-        for ( uint32_t i = 0; i < NBASE; i++){
-            V[cy]->x[i * NBASE + i] += 1.0;
-        }
-        for ( uint32_t i = 0; i < NBASE * NBASE; i++){
-            V[cy]->x[i] /= wesum;
+    if (all) {
+        scale_MAT(V[0], 1.0/wesum);
+    }
+    else {
+        for ( uint32_t cy = 0; cy < ncycle; cy++){
+            /* add a diagonal offset to help with bad data */
+            for ( uint32_t i = 0; i < NBASE; i++){
+                V[cy]->x[i * NBASE + i] += 1.0;
+            }
+            scale_MAT(V[cy], 1.0/wesum);
         }
     }
     return V;
@@ -744,7 +821,7 @@ static int estimate_bases(const bool lastiter) {
 #endif
 
     /* calculate covariance */
-    MAT * V = calculate_covariance();
+    MAT * V = calculate_covariance(false);
 
     if (V == NULL) {
         /* set calls to null and terminate processing */
@@ -924,7 +1001,7 @@ static int estimate_bases(const bool lastiter) {
 }
 
 /** Output message with counts if any zero lambdas. */
-static void output_zero_lambdas() {
+static void output_zero_lambdas(void) {
 
 static const int MAX_ZEROS = 1e6 - 1;       // Up to 6 digits
 static const int MAX_NUMLEN = 9;            // Enough for "BigNum, \0" or "999999, \0"
@@ -1009,6 +1086,127 @@ static bool output_results (int blk) {
     }
     fpout = xfclose(fpout);
     return true;
+}
+
+/** Return true if the string contains any spaces. */
+static bool has_whitespace(const char * str) {
+
+    size_t len = strlen(str);
+    for (int i = 0; i < len; i++) {
+        if (str[i] == ' ') {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Make any header formatting adjustments.
+ * Check for any new lines and ensure they are followed by a hash.
+ */
+static CSTRING format_header (CSTRING simtext) {
+
+    /* count newlines so can resize string */
+    size_t oldlen = strlen(simtext);
+    size_t count = 0;
+    for (int i = 0; i < oldlen; i++) {
+        if (simtext[i] == '\n') {
+            count++;
+        }
+    }
+
+    if (count > 0) {
+        CSTRING new = new_CSTRING(oldlen + count);
+
+        int idx = 0;
+        char *token = strtok(simtext, "\n");
+        while ((token != NULL) && (idx <= count)) {
+            if (idx++ == 0) {
+                strcpy(new, token);
+            }
+            else {
+                strcat(new, "\n#");
+                strcat(new, token);
+            }
+            token = strtok(NULL, "\n");
+        }
+
+        simtext = free_CSTRING(simtext);
+        simtext = new;
+    }
+    return simtext;
+}
+
+/** Output data for use by simulator. */
+static void output_simdata(const int argc, char ** const argv, int blk) {
+
+    XFILE *fpsim = open_output_blk("runfile", blk);
+    if (xfisnull(fpsim)) {return;}
+
+    /* header required if a single or first block */
+    if (blk != BLK_APPEND) {
+        /* remove any zeros as weibull uses log */
+        real_t * lambdas = calloc(Ayb->lambda->nrow, sizeof(real_t));
+        uint32_t num = 0;
+        for (uint32_t i = 0; i < Ayb->lambda->nrow; i++) {
+            if (Ayb->lambda->x[i] != 0.0) {
+                lambdas[num++] = Ayb->lambda->x[i];
+            }
+        }
+
+        /* get parameters for fitted lambda distribution */
+        pair_real lambdafit = fit_weibull(lambdas, num);
+
+        /* header text followed by AYB version */
+        SimText = format_header(SimText);
+        xfprintf(fpsim, "# %s\n", SimText);
+        xfprintf(fpsim, "# AYB Version %0.2f  %u\n", get_version(), get_version_date());
+
+        /* add the command line */
+        xfputs("# ", fpsim);
+        xfputs(argv[0], fpsim);
+        bool sfound = false;
+        for (int i = 1; i < argc; i++){
+            xfputc(' ', fpsim);
+            /* substitute for header as already printed above */
+            if (sfound) {
+                xfputs("\"header\"", fpsim);
+                sfound = false;
+            }
+            else {
+                /* add quotes if would have been required for whitespace */
+                if (has_whitespace(argv[i])) {
+                    xfputc('\"', fpsim);
+                    xfputs(argv[i], fpsim);
+                    xfputc('\"', fpsim);
+                }
+                else {
+                    xfputs(argv[i], fpsim);
+                }
+
+                /* detect simdata option and flag that next is the header */
+                if (match_option(argv[i], E_SIMDATA)) {
+                    sfound = true;
+                }
+            }
+        }
+        xfputs("\n", fpsim);
+
+        /* number of cycles and lambda fit parameters */
+        xfprintf(fpsim, "%u %f %f \n", Ayb->ncycle, lambdafit.e1, lambdafit.e2);
+        xfree(lambdas);
+    }
+
+    /* calculate and output all covariance */
+    MAT * V = calculate_covariance(true);
+    
+    if (V != NULL) {
+        show_MAT_rownum(fpsim, V[0], 0, 0, false);
+        free_MAT(V[0]);
+        xfree(V);
+    }
+
+    fpsim = xfclose(fpsim);
 }
 
 
@@ -1128,7 +1326,7 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
  * Analyse a single input file. File is already opened.
  * Returns true if analysis should continue to next file.
  */
-bool analyse_tile (XFILE *fp) {
+bool analyse_tile (const int argc, char ** const argv, XFILE *fp) {
 
     if (xfisnull(fp)) {return true;}
     bool goon = true;
@@ -1178,7 +1376,7 @@ bool analyse_tile (XFILE *fp) {
 #ifndef NDEBUG
     if (ShowDebug) {
         XFILE *fpout = NULL;
-        fpout = open_output_blk("ayb1", (numblock > 1)?blk:-1);
+        fpout = open_output_blk("ayb1", (numblock > 1) ? blk : BLK_SINGLE);
         if (!xfisnull(fpout)) {
             show_AYB(fpout, Ayb, true);
         }
@@ -1208,8 +1406,15 @@ bool analyse_tile (XFILE *fp) {
             output_zero_lambdas();
 
             /* output the results */
-            goon = output_results((numblock > 1)?blk:-1);
+            goon = output_results((numblock > 1) ? blk : BLK_SINGLE);
+            
+            /* output simulation data if requested */
+            if (SimData) {
+                /* block indicator is append if not first of multiple blocks otherwise single */
+                output_simdata(argc, argv, ((numblock > 1) && (blk > 0)) ? BLK_APPEND : BLK_SINGLE);
+            }
         }
+
         else {
             message(E_INIT_FAIL_DD, MSG_ERR, blk + 1, Ayb->ncycle);
         }
@@ -1227,13 +1432,6 @@ cleanup:
         xfree(tileblock);
     }
     return goon;
-}
-
-/** Set the number of base call iterations. */
-void set_niter(const char *niter_str) {
-
-    char *endptr;
-    NIter = strtoul(niter_str, &endptr, 0);
 }
 
 /**
@@ -1256,22 +1454,11 @@ bool set_composition(const char *comp_str){
     return true;
 }
 
-/**
- * Set solver routine to use for estimation of P.
- * Text must match one of options specified in SOLVER_TEXT, case insensitive.
- * Returns true if match found.
- */
-bool set_solver(const char *solver_str) {
+/** Set the number of base call iterations. */
+void set_niter(const char *niter_str) {
 
-    /* match to options */
-    int matchidx = match_string(solver_str, SOLVER_TEXT, E_SOLVER_NUM);
-    if (matchidx>=0) {
-        SolverRoutine = SOLVERS[matchidx];
-        return true;
-    }
-    else {
-        return false;
-    }
+    char *endptr;
+    NIter = strtoul(niter_str, &endptr, 0);
 }
 
 /**
@@ -1291,6 +1478,12 @@ bool set_output_format(const char *outform_str) {
     }
 }
 
+/** Set simdata flag and text for file. */
+void set_simdata(const CSTRING simdata_str) {
+    SimData = true;
+    SimText = copy_CSTRING(simdata_str);
+}
+
 /** Set show working flag. */
 void set_show_working(void) {
 
@@ -1298,11 +1491,29 @@ void set_show_working(void) {
 }
 
 /**
+ * Set solver routine to use for estimation of P.
+ * Text must match one of options specified in SOLVER_TEXT, case insensitive.
+ * Returns true if match found.
+ */
+bool set_solver(const char *solver_str) {
+
+    /* match to options */
+    int matchidx = match_string(solver_str, SOLVER_TEXT, E_SOLVER_NUM);
+    if (matchidx>=0) {
+        SolverRoutine = SOLVERS[matchidx];
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+/**
  * Start up; call at program start after options.
  * Returns true if cycle blocks and iterations parameters are ok
  * and M, N, P matrix initialisation is successful.
  */
-bool startup_model(){
+bool startup_model(void){
 
     InputFormat = get_input_format();
     message(E_INPUT_FORM_S, MSG_INFO, INFORM_TEXT[InputFormat]);
@@ -1341,9 +1552,10 @@ bool startup_model(){
 }
 
 /** Tidy up; call at program shutdown. */
-void tidyup_model(){
+void tidyup_model(void){
 
     /* free memory */
+    SimText = free_CSTRING(SimText);
     for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
         Matrix[idx] = free_MAT(Matrix[idx]);
     }

@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
         }
         else {
             /* analyse this input file */
-            more = analyse_tile(fp);
+            more = analyse_tile(argc, argv, fp);
         }
     }
     fprintf(stdout, "End of AYB\n");

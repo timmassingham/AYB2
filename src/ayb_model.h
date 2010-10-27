@@ -28,6 +28,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "utility.h"
 #include "xio.h"
 
 /** AYB defined as a hidden data structure. Access via structure pointer. */
@@ -41,13 +42,14 @@ AYB free_AYB(AYB ayb);
 AYB copy_AYB(const AYB ayb);
 void show_AYB(XFILE * fp, const AYB ayb, bool showall);
 
-bool analyse_tile (XFILE *fp);
-void set_niter(const char *niter_str);
+bool analyse_tile (const int argc, char ** const argv, XFILE *fp);
 bool set_composition(const char *comp_str);
-bool set_solver(const char *solver_str);
+void set_niter(const char *niter_str);
 bool set_output_format(const char *outform_str);
 void set_show_working(void);
-bool startup_model();
-void tidyup_model();
+void set_simdata(const CSTRING simdata_str);
+bool set_solver(const char *solver_str);
+bool startup_model(void);
+void tidyup_model(void);
 
 #endif /* AYB_MODEL_H_ */
