@@ -730,10 +730,10 @@ static MAT * calculate_covariance(bool all){
  * Open output file to be in same format as intensities input file.
  * If cif then also create cif structure.
  */
-static WORKPTR open_processed(void) {
+static WORKPTR open_processed(int blk) {
 
     WORKPTR work = calloc(1, sizeof(*work));
-    work->fp = open_output("pif");
+    work->fp = open_output_blk("pif", blk);
 
     switch (InputFormat) {
         case E_TXT:
@@ -803,7 +803,7 @@ static WORKPTR close_processed(WORKPTR work) {
  * Last iteration parameter for final working.
  * Returns number of zero lambdas or data error indication.
  */
-static int estimate_bases(const bool lastiter) {
+static int estimate_bases(int blk, const bool lastiter) {
 
     validate(NULL != Ayb, 0);
     const uint32_t ncluster = Ayb->ncluster;
@@ -897,7 +897,7 @@ static int estimate_bases(const bool lastiter) {
     bool show_processed = (ShowWorking && lastiter);
     WORKPTR work = NULL;
     if (show_processed) {
-        work = open_processed();
+        work = open_processed(blk);
     }
 
     unsigned int cl = 0;
@@ -983,7 +983,7 @@ static int estimate_bases(const bool lastiter) {
 
     if (show_processed) {
         XFILE *fpfin = NULL;
-        fpfin = open_output("final");
+        fpfin = open_output_blk("final", blk);
         if (!xfisnull(fpfin)) {
             show_AYB(fpfin, Ayb, false);
         }
@@ -1390,7 +1390,10 @@ bool analyse_tile (const int argc, char ** const argv, XFILE *fp) {
                 xfprintf(xstdout, "Iteration: %d\n", i+1);
 
                 estimate_MPN();
-                res = estimate_bases((i == (NIter - 1)));
+
+                /* parameters to estimate bases are block index and flag to indicate last iteration */
+                /* return is number of zero lambdas or error */
+                res = estimate_bases((numblock > 1) ? blk : BLK_SINGLE, (i == (NIter - 1)));
 
                 if (res == DATA_ERR) {
                     /* terminate processing */
