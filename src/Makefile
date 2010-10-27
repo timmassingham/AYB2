@@ -8,7 +8,7 @@ INCFLAGS =
 DEFINES = 
 objects =  ayb_main.o ayb_model.o ayb_options.o call_bases.o cif.o cluster.o datablock.o dirio.o handler.o \
            intensities.o lambda.o matrix.o message.o mpn.o nuc.o statistics.o tile.o utility.o xio.o \
-           snnls.o dnnls.o
+           snnls.o dnnls.o weibull.o
 
 AYB: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
@@ -29,6 +29,13 @@ test-nuc: $(objects)
 
 test-tile: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects))
+
+test-weibull: statistics.o
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST weibull.c $< && \
+	   ln -fs ../bin/$@ ../bin/qweibull && \
+	   ln -fs ../bin/$@ ../bin/pweibull && \
+	   ln -fs ../bin/$@ ../bin/dweibull && \
+	   ln -fs ../bin/$@ ../bin/fweibull
 
 ayb_options.o: ayb_options.c ayb_usage.h ayb_help.h
 

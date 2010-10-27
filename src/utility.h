@@ -62,6 +62,8 @@ static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr);} }
     #define strtor strtof
     /** Rounding function for selected real_t sends halfway cases away from zero. */
     #define roundr roundf
+    /** Infinity */
+    #define HUGE_VALR HUGE_VALF
 #else
     typedef double real_t;
     /** Input format string for selected real_t. */
@@ -70,6 +72,8 @@ static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr);} }
     #define strtor strtod
     /** Rounding function for selected real_t sends halfway cases away from zero. */
     #define roundr round
+    /** Infinity */
+    #define HUGE_VALR HUGE_VAL
 #endif
 
 /** Simple string type. */
