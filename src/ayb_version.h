@@ -1,8 +1,7 @@
 /**
  * \file ayb_version.h
- * AYB version number.
- * Before making a release, ensure this file is updated.
-  *//*
+ * Public parts of AYB version number.
+ *//*
  *  Created : 5 Mar 2010
  *  Author  : Hazel Marsden
  *
@@ -27,17 +26,9 @@
 #ifndef AYB_VERSION_H_
 #define AYB_VERSION_H_
 
-/** Program Version. */
-const float Version = 1.06;      // Final working values, mu arg, bad data handling
-/** Release date. */
-const char* VersionDate = "20100922";
+/* function prototypes */
 
-/* keep a history */
-// Version 1.05;    20100730    P Solver, MPN unit test, CIF format
-// Version 1.04;    20100617    MPN, Quality output and Datablocks
-// Version 1.03;    20100520    AYB Base Call Loop
-// Version 1.02;    20100427    AYB Initialisation
-// Version 1.01     20100406    File I/O and Data Structures
-// Version 1.00     20100312    Initial with basic infrastructure
+float get_version(void);
+unsigned int get_version_date(void);
 
 #endif /* AYB_VERSION_H_ */

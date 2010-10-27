@@ -6,14 +6,14 @@ CFLAGS = -Wall -O3 -DNDEBUG -std=gnu99
 LDFLAGS =  -lz -lbz2 -llapack -lgfortran
 INCFLAGS = 
 DEFINES = 
-objects =  ayb_main.o ayb_model.o ayb_options.o call_bases.o cif.o cluster.o datablock.o dirio.o handler.o \
-           intensities.o lambda.o matrix.o message.o mpn.o nuc.o statistics.o tile.o utility.o xio.o \
-           snnls.o dnnls.o weibull.o
+objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o call_bases.o cif.o cluster.o datablock.o dirio.o handler.o \
+           intensities.o lambda.o matrix.o message.o mpn.o nuc.o statistics.o tile.o utility.o weibull.o xio.o \
+           snnls.o dnnls.o
 
 AYB: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
 	
-test: test-cluster test-matrix test-nuc test-tile
+test: test-cluster test-matrix test-mpn test-nuc test-tile
 
 test-cluster: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects))
