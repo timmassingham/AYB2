@@ -111,6 +111,11 @@ MAT copy_MAT( const MAT mat){
 }
 
 void show_MAT ( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol){
+    /* original default was with rownum */
+    show_MAT_rownum( fp, mat, mrow, mcol, true);
+}
+
+void show_MAT_rownum( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol, bool rownum) {
     if(NULL==fp){ return;}
     if(NULL==mat){ return;}
 
@@ -129,7 +134,9 @@ void show_MAT ( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t m
     const uint32_t maxcol = ncol;
 #endif
     for( int row=0 ; row<maxrow ; row++){
-        xfprintf(fp,"%d:",row+1);
+        if (rownum) {
+            xfprintf(fp,"%d:",row+1);
+        }
         for ( int col=0 ; col<maxcol ; col++){
             xfprintf(fp,fmt,mat->x[col*nrow+row]);
         }

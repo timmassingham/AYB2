@@ -50,6 +50,7 @@ MAT new_MAT( const int nrow, const int ncol );
 MAT free_MAT( MAT mat );
 MAT copy_MAT( const MAT mat);
 void show_MAT( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol);
+void show_MAT_rownum( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol, bool rownum);
 
 // standard variations
 MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x);
