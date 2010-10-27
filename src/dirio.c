@@ -480,12 +480,14 @@ XFILE * open_next(XFILE *fplast) {
 
 /** Open an output file with no block suffix. */
 XFILE * open_output(const CSTRING tag) {
-    return open_output_blk(tag, -1);
+    return open_output_blk(tag, BLK_SINGLE);
 }
 
 /**
  * Open an output file corresponding to current input file with supplied tag.
  * A non-negative blk indicates a block suffix should be added to the name.
+ * BLK_SINGLE indicates no block suffix.
+ * BLK_APPEND indicates open in append mode.
  * Return the file handle or NULL if failed to open.
  */
 XFILE * open_output_blk(const CSTRING tag, int blk) {
@@ -515,15 +517,16 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
 
     if (filename != NULL) {
         if (full_path(Output_Path, filename, &filepath)) {
-           fp =  xfopen(filepath, XFILE_RAW, "w" );
+            const char *mode_str = ((blk == BLK_APPEND) ? "a" : "w");
+            fp =  xfopen(filepath, XFILE_RAW, mode_str );
 
-           if (xfisnull(fp)) {
-               message(E_OPEN_FAIL_SS, MSG_ERR, "Output", filepath);
-               fp = xfclose(fp);
-           }
-           else {
-               message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, filename);
-           }
+            if (xfisnull(fp)) {
+                message(E_OPEN_FAIL_SS, MSG_ERR, "Output", filepath);
+                fp = xfclose(fp);
+            }
+            else {
+                message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, filename);
+            }
         }
     }
     free_CSTRING(filename);

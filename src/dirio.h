@@ -42,6 +42,11 @@ typedef enum InFormT {E_TXT, E_CIF, E_INFORM_NUM} INFORM;
  */
 typedef enum IOTypeT {E_CROSSTALK, E_NOISE, E_PHASING, E_INPUT, E_OUTPUT, E_NMATRIX = 3} IOTYPE;
 
+/**
+ * Open output file special block options.
+ * Indicate append to existing file, if any, or a single data block (no block suffix).
+ */
+enum {BLK_APPEND = -2, BLK_SINGLE = -1};
 
 /* function prototypes */
 
