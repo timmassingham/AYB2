@@ -26,17 +26,22 @@
 #ifndef AYB_OPTIONS_H_
 #define AYB_OPTIONS_H_
 
-#include <stdbool.h>        // temp for flag
+#include <stdbool.h>
 
 
 #define PROGNAME "AYB"                          ///< Program name in generic text.
 #define AUTHOR "Hazel Marsden"                  ///< Author in generic text.
 #define CONTACT "hazelm@ebi.ac.uk"              ///< Contact details in generic text.
 
+/** Possible return values from read options. */
 typedef enum OptRetT {E_CONTINUE, E_FAIL, E_STOP} OPTRET;
+
+/** Index into option structure for subsequent identification in command line. */
+typedef enum OptIndexT {E_SIMDATA = 11} OPTINDEX;
 
 /* function prototypes */
 
 OPTRET read_options(const int argc, char ** const argv);
+bool match_option(const char *string, const OPTINDEX index);
 
 #endif /* AYB_OPTIONS_H_ */

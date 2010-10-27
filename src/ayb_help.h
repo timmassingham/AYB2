@@ -25,6 +25,7 @@
 "\t\t\t\t(Alternative to script redirect of error output)\n"
 "  -l  --loglevel <level>\tLevel of message output [default: warning]\n"
 "\t\t\t\t(none/fatal/error/warning/information/debug)\n"
+"  -s  --simdata <header>\tOutput simulation data\n"
 "  -w  --working\t\t\tOutput final working values\n"
 "  -M  --M <filepath>\t\tPredetermined Crosstalk matrix file path\n"
 "  -P  --P <filepath>\t\tPredetermined Phasing matrix file path\n"

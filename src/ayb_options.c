@@ -86,6 +86,7 @@ static struct option Longopts[] = {
     {"output",      required_argument,  NULL, 'o'},
     {"logfile",     required_argument,  NULL, 'e'},
     {"loglevel",    required_argument,  NULL, 'l'},
+    {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 11 in header file
     {"working",     no_argument,        NULL, 'w'},
     {"M",           required_argument,  NULL, 'M'},
     {"N",           required_argument,  NULL, 'N'},
@@ -118,7 +119,7 @@ OPTRET read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:c:x:d:f:n:m:i:o:e:l:wM:N:P:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:x:d:f:n:m:i:o:e:l:s:wM:N:P:S:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'b':
@@ -127,13 +128,15 @@ OPTRET read_options(const int argc, char ** const argv) {
                     carryon = E_FAIL;
                 }
                 break;
+
             case 'c':
-	        /* Genome composition of reference sequence */
-	        if(!set_composition(optarg)) {
-		    fprintf(stderr, "Fatal: Invalid genome composition: \'%s\'\n\n", optarg);
-		    carryon = E_FAIL;
-		}
-		break;
+                /* Genome composition of reference sequence */
+                if(!set_composition(optarg)) {
+                    fprintf(stderr, "Fatal: Invalid genome composition: \'%s\'\n\n", optarg);
+                    carryon = E_FAIL;
+                }
+                break;
+
             case 'x':
                 /* file pattern match */
                 set_pattern(optarg);
@@ -191,6 +194,11 @@ OPTRET read_options(const int argc, char ** const argv) {
                 }
                 break;
 
+            case 's':
+                 /* output file location */
+                 set_simdata(optarg);
+                 break;
+
             case 'w':
                 /* show working flag */
                 set_show_working();
@@ -231,7 +239,7 @@ OPTRET read_options(const int argc, char ** const argv) {
                 break;
 
             case OPT_VERSION:
-                fprintf( stderr, "\n" PROGNAME " Version %0.2f  %s\n\n", Version, VersionDate);
+                fprintf(stderr, "\n" PROGNAME " Version %0.2f  %u\n\n", get_version(), get_version_date());
 
                 carryon = E_STOP;
                 break;
@@ -244,4 +252,30 @@ OPTRET read_options(const int argc, char ** const argv) {
     }
 
     return carryon;
+}
+
+/**
+ * Return true if supplied string matches long or short form of supplied option structure index.
+ * Only some indexes identified in OptIndexT enum.
+ */
+bool match_option(const char *string, const OPTINDEX index) {
+
+    bool ret = false;
+
+    /* must start with option indicator */
+    if (*string == '-') {
+        if (*(string + 1) == '-') {
+            /* long form */
+            if (strcmp(string + 2, Longopts[index].name) == 0) {
+                ret = true;
+            }
+        }
+        else {
+            /* short form */
+            if (*(string + 1) == Longopts[index].val) {
+                ret = true;
+            }
+        }
+    }
+    return ret;
 }
