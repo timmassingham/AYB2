@@ -200,6 +200,7 @@ real_t calculateDeltaLSE(const MAT Mt, const MAT P, const MAT N, const MAT J, co
 }
 
 MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TILE tile, const uint_fast32_t ncycle, MAT K){
+    real_t * tmp = NULL;
     validate(NULL!=lambda,NULL);
     validate(NULL!=we,NULL);
     validate(NULL!=tile,NULL);
@@ -207,15 +208,21 @@ MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TI
 
     if(NULL==K){
         K = new_MAT(NBASE*NBASE,ncycle*ncycle);
-        validate(NULL!=K,NULL);
+        if(NULL==K){ goto cleanup; }
     }
     memset(K->x, 0, K->nrow*K->ncol*sizeof(real_t));
+
+    tmp = calloc(NBASE*ncycle,sizeof(real_t));
+    if(NULL==tmp){ goto cleanup; }
 
     const uint_fast32_t lda = NBASE*NBASE;
     uint_fast32_t cl = 0;
     LIST(CLUSTER) node = tile->clusterlist;
     while (NULL != node && cl < ncluster){
         const real_t welam = we->x[cl] * lambda->x[cl];
+	for ( uint_fast32_t i=0 ; i<(NBASE*ncycle) ; i++){
+	   tmp[i] = welam * node->elt->signals->x[i];
+	}
         for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
             const uint_fast32_t ioffset = cy*NBASE;
             for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
@@ -223,7 +230,7 @@ MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TI
                 if(!isambig(base)){
                     const uint_fast32_t koffset = cy*lda*ncycle + cy2*lda + base;
                     for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
-                        K->x[ koffset + ch*NBASE] += welam * node->elt->signals->x[ioffset + ch];
+                        K->x[ koffset + ch*NBASE] += tmp[ioffset + ch];
                     }
                 }
             }
@@ -235,6 +242,11 @@ MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TI
     }
 
     return K;
+
+cleanup:
+    free(tmp);
+    free_MAT(K);
+    return NULL;
 }
 
 
