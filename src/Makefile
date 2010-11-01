@@ -2,7 +2,7 @@
 
 CC = gcc
 FC = gfortran
-CFLAGS = -Wall -O3 -DNDEBUG -std=gnu99
+CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -std=gnu99
 LDFLAGS =  -lz -lbz2 -llapack -lgfortran
 INCFLAGS = 
 DEFINES = 
