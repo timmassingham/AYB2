@@ -93,10 +93,22 @@ MAT expected_intensities(const real_t lambda, const NUC * bases,
         validate(NULL!=e,NULL);
     }
     memset(e->x, 0, NBASE*ncycle*sizeof(real_t));
-    for(uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
-        for(uint_fast32_t cy=0 ; cy<ncycle ; cy++){
-            const uint_fast32_t base = bases[cy];
-            if(!isambig(base)){
+
+    if(has_ambiguous_base(bases,ncycle)){
+        for(uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
+            for(uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+                const uint_fast32_t base = bases[cy];
+                if(!isambig(base)){
+                    for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
+                        e->x[cy2*NBASE+ch] += M->x[base*NBASE+ch] * P->x[cy2*ncycle+cy];
+		    }
+                }
+            }
+        }
+    } else {
+       for(uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
+            for(uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+                const uint_fast32_t base = bases[cy];
                 for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
                     e->x[cy2*NBASE+ch] += M->x[base*NBASE+ch] * P->x[cy2*ncycle+cy];
                 }
