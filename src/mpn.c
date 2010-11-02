@@ -240,6 +240,7 @@ MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TI
         node = node->nxt;
         cl++;
     }
+    free(tmp);
 
     return K;
 
