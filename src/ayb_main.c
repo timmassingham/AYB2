@@ -65,6 +65,9 @@ static void tidyup() {
 int main(int argc, char **argv) {
 
     int ret = EXIT_SUCCESS;
+    XFILE *fp = NULL;
+    bool more = true;
+
 
     /* install signal handler   */
     signal(SIGINT, INThandler);
@@ -110,8 +113,6 @@ int main(int argc, char **argv) {
     }
 
     /* process each intensity file until no more or a no continue error */
-    XFILE *fp = NULL;
-    bool more = true;
 
     while (more) {
         fp = open_next(fp);
