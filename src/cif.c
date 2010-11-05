@@ -155,10 +155,10 @@ void free_cif ( CIFDATA cif ){
 
 bool __attribute__((const)) isCifAllowedDatasize ( const uint8_t datasize );
 CIFDATA readCifHeader (XFILE * ayb_fp);
-encInt readCifIntensities ( XFILE * ayb_fp , const CIFDATA const header, encInt intensties );
+encInt readCifIntensities ( XFILE * ayb_fp , const CIFDATA header, encInt intensties );
 encInt readEncodedFloats ( XFILE  * ayb_fp, const uint32_t nfloat, const uint8_t nbyte, encInt  tmp_mem );
-bool writeCifHeader ( XFILE * ayb_fp, const CIFDATA const header);
-bool writeCifIntensities ( XFILE * ayb_fp , const CIFDATA const header,
+bool writeCifHeader ( XFILE * ayb_fp, const CIFDATA header);
+bool writeCifIntensities ( XFILE * ayb_fp , const CIFDATA header,
                            const encInt intensities );
 bool writeEncodedFloats ( XFILE * ayb_fp , const uint32_t nfloat , const uint8_t nbyte,
                           const encInt floats );
@@ -246,7 +246,7 @@ encInt readEncodedFloats ( XFILE  * ayb_fp, const uint32_t nfloat, const uint8_t
 
 
 /* Write header for CIF file */
-bool writeCifHeader ( XFILE * ayb_fp, const CIFDATA const header){
+bool writeCifHeader ( XFILE * ayb_fp, const CIFDATA header){
     assert( isCifAllowedDatasize(header->datasize) );
     assert( 1==header->version );
 
@@ -376,7 +376,7 @@ bool write2CIFfile ( const char * fn, const XFILE_MODE mode, const encInt  inten
     return ret;
 }
 
-bool writeCIFtoFile ( const CIFDATA const cif, const char * fn, const XFILE_MODE mode){
+bool writeCIFtoFile ( const CIFDATA cif, const char * fn, const XFILE_MODE mode){
     if(NULL==cif){ return false;}
     if(NULL==fn){ return false;}
     return write2CIFfile(fn,mode,cif->intensity,cif->firstcycle,cif->ncycle,cif->ncluster,cif->datasize);
@@ -540,7 +540,7 @@ readCIF_error:
 
 
 /*  Print routine for CIF structure */
-void showCIF ( XFILE * ayb_fp, const CIFDATA const cif, bool showall){
+void showCIF ( XFILE * ayb_fp, const CIFDATA cif, bool showall){
     static const char * basechar = "ACGT";
     if ( NULL==ayb_fp) return;
     if ( NULL==cif) return;
