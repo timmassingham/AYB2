@@ -413,11 +413,15 @@ bool consistent_cif_headers( const CIFDATA cif1, const CIFDATA cif2 ){
 }
 
 CIFDATA cif_add_file( const char * fn, const XFILE_MODE mode, CIFDATA cif ){
+   XFILE * ayb_fp = NULL;
+   CIFDATA newheader = NULL;
+   encInt mem = {.i32=NULL};
+
    if ( NULL==fn){ goto cif_add_error;}
-   XFILE * ayb_fp = xfopen(fn,mode,"rb");
+   ayb_fp = xfopen(fn,mode,"rb");
    if ( NULL==ayb_fp){ goto cif_add_error;}
 
-   CIFDATA newheader = readCifHeader(ayb_fp);
+   newheader = readCifHeader(ayb_fp);
    if ( NULL==newheader ){ goto cif_add_error;}
    if ( NULL==cif->intensity.i8 ){
       cif->ncluster = newheader->ncluster;
@@ -427,7 +431,6 @@ CIFDATA cif_add_file( const char * fn, const XFILE_MODE mode, CIFDATA cif ){
    }
    if ( ! consistent_cif_headers(cif,newheader) ){ goto cif_add_error;}
    const uint32_t offset = (newheader->firstcycle - 1) * cif->ncluster * NCHANNEL;
-   encInt mem = {.i8=NULL};
    switch(cif->datasize){
        case 1: mem.i8 = cif->intensity.i8 + offset; break;
        case 2: mem.i16 = cif->intensity.i16 + offset; break;
