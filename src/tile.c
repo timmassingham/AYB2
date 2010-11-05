@@ -97,20 +97,24 @@ void show_TILE(XFILE * fp, const TILE tile, const unsigned int n){
  * as no size checking can be done. Ignores lane and tile.
  */
 TILE coerce_TILE_from_array(unsigned int ncluster, unsigned int ncycle, real_t * x){
+    TILE tile = NULL;
+    CLUSTER cl = NULL;
+    LIST(CLUSTER) listtail = NULL;
+
     if(NULL==x){ return NULL;}
-    TILE tile = new_TILE();
+    tile = new_TILE();
     if(NULL==tile){ return NULL;}
     tile->ncluster = ncluster;
     tile->ncycle = ncycle;
     real_t * next_x;
 
     /* first cluster, create new list */
-    CLUSTER cl = coerce_CLUSTER_from_array(ncycle, x, &next_x);
+    cl = coerce_CLUSTER_from_array(ncycle, x, &next_x);
     if (NULL==cl){ goto cleanup;}
     tile->clusterlist = cons_LIST(CLUSTER)(cl, tile->clusterlist);
 
     /* read in remaining clusters, appending to tail of cluster list */
-    LIST(CLUSTER) listtail = tile->clusterlist;
+    listtail = tile->clusterlist;
     for (int idx = 1; idx < ncluster; idx++) {
         cl = coerce_CLUSTER_from_array(ncycle, next_x, &next_x);
         if (NULL==cl){ goto cleanup;}
@@ -182,21 +186,25 @@ TILE copy_append_TILE(TILE tileout, const TILE tilein, int colstart, int colend)
  * Returns a new TILE containing a list of clusters, in the same order as file.
  */
 TILE read_cif_TILE (XFILE * fp, unsigned int ncycle) {
+    CIFDATA cif = NULL;
+    CLUSTER cl = NULL;
+    LIST(CLUSTER) listtail = NULL;
+    unsigned int cifcycle=0, cifcluster=0;
 
     if(NULL==fp) {return NULL;}
     TILE tile = new_TILE();
     if (NULL==tile) {return NULL;}
 
     /* read in all the cif data */
-    CIFDATA cif = NULL;
+    cif = NULL;
     cif = readCIFfromStream(fp);
     if(NULL==cif){
         warnx("Failed to read tile.");
         goto cleanup;
     }
 
-    unsigned int cifcycle = cif_get_ncycle(cif);
-    unsigned int cifcluster = cif_get_ncluster(cif);
+    cifcycle = cif_get_ncycle(cif);
+    cifcluster = cif_get_ncluster(cif);
     xfprintf(xstderr, "Read cif tile: %u cycles from %u clusters.\n", cifcycle, cifcluster);
 
     if (cifcycle < ncycle) {
@@ -211,14 +219,14 @@ TILE read_cif_TILE (XFILE * fp, unsigned int ncycle) {
         }
 
         /* treat first cluster differently */
-        CLUSTER cl = read_cif_CLUSTER(cif, tile->ncluster, ncycle);
+        cl = read_cif_CLUSTER(cif, tile->ncluster, ncycle);
         if (NULL==cl) {goto cleanup;}
 
         tile->clusterlist = cons_LIST(CLUSTER)(cl, tile->clusterlist);
         tile->ncluster++;
 
         /* store remaining clusters, appending to tail of cluster list */
-        LIST(CLUSTER) listtail = tile->clusterlist;
+        listtail = tile->clusterlist;
         while (tile->ncluster < cifcluster) {
             cl = read_cif_CLUSTER(cif, tile->ncluster, ncycle);
             if (NULL==cl) {break;}
@@ -263,13 +271,17 @@ TILE read_known_TILE( XFILE * fp, unsigned int ncycle){
  * Number read stored in tile structure.
  */
 TILE read_TILE( XFILE * fp, unsigned int ncycle){
+    TILE tile = NULL;
+    CLUSTER cl = NULL;
+    LIST(CLUSTER) listtail = NULL;
+
     if(NULL==fp){return NULL;}
-    TILE tile = new_TILE();
+    tile = new_TILE();
     if (NULL==tile) { return NULL;}
 
     /* Treat first cluster differently to get lane, tile and number of available cycles */
     unsigned int nc = ncycle;
-    CLUSTER cl = read_first_CLUSTER(fp, &nc, &(tile->lane), &(tile->tile));
+    cl = read_first_CLUSTER(fp, &nc, &(tile->lane), &(tile->tile));
     if ( NULL==cl){ goto cleanup;}
     if (nc > ncycle) {
         /* extra data */
@@ -285,7 +297,7 @@ TILE read_TILE( XFILE * fp, unsigned int ncycle){
     tile->ncluster++;
 
     /* Read in remaining clusters, appending to tail of cluster list */
-    LIST(CLUSTER) listtail = tile->clusterlist;
+    listtail = tile->clusterlist;
     while(  cl = read_known_CLUSTER(fp, &nc), NULL!=cl ){
         /* check later data */
         if (nc < ncycle) { goto cleanup;}
