@@ -37,7 +37,7 @@
  * An attempt has been made to order the enumeration according to the parameters required. 
  * See also MSG_TEXT defined in message.c.
  */
-typedef enum MsgTypeT {E_NOCYCLES,
+typedef enum MsgTypeT {E_DEFAULTBLOCK,
                        E_NOBLOCKS,
                        E_NOPATTERN,
                        E_BADITER,

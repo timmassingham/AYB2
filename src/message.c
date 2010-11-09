@@ -50,8 +50,8 @@
  * Ensure list matches MsgTypeT enum.
  */
 static const char *MSG_TEXT[] = {
-        "Number of cycles to analyse must be supplied as a positive integer\n", // E_NOCYCLES
-        "Blockstring option not supplied or contains no datablocks\n",          // E_NOBLOCKS
+        "All available cycles in one block selected\n",                         // E_DEFAULTBLOCK
+        "Blockstring option contains no datablocks\n",                          // E_NOBLOCKS
         "No file pattern match supplied\n",                                     // E_NOPATTERN
         "Number of model iterations incorrectly supplied\n",                    // E_BADITER
         "Memory allocation failed during %s\n",                                 // E_NOMEM_S

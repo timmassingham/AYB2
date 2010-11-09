@@ -45,16 +45,17 @@ typedef struct DataBlockT * DATABLOCK;
 /* function prototypes */
 
 // Standard functions
-DATABLOCK new_DATABLOCK();
+DATABLOCK new_DATABLOCK(void);
 DATABLOCK free_DATABLOCK(DATABLOCK datablock);
 DATABLOCK copy_DATABLOCK(const DATABLOCK datablock);
 void show_DATABLOCK(XFILE * fp, const DATABLOCK datablock);
 
-DATABLOCK get_next_block();
-unsigned int get_numblock() ;
-unsigned int get_totalcycle();
+bool get_defaultblock(void);
+DATABLOCK get_next_block(void);
+unsigned int get_numblock(void);
+unsigned int get_totalcycle(void);
 bool parse_blockopt(const char *blockstr);
-void tidyup_datablock();
+void tidyup_datablock(void);
 
 
 #endif /* DATABLOCK_H_ */

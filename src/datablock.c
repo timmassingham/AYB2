@@ -34,6 +34,7 @@
 
 /* members */
 
+static bool DefaultBlock = true;                    ///< Default to all available cycles in one block if no argument.
 static unsigned int TotalCycle = 0;                 ///< Total number of cycles to analyse.
 static unsigned int NumBlock = 0;                   ///< Number of distinct blocks to analyse.
 static LIST(DATABLOCK) BlockList = NULL;            ///< List of data blocks.
@@ -58,7 +59,7 @@ static BLOCKTYPE decode_token(const char ch) {
 }
 
 /** Free the list of blocks. */
-static void free_blocklist() {
+static void free_blocklist(void) {
     free_LIST(DATABLOCK)(BlockList);
     BlockList = NULL;
     TotalCycle = 0;
@@ -95,8 +96,13 @@ void show_DATABLOCK(XFILE * fp, const DATABLOCK datablock) {
     xfprintf(fp, "Block type: %d; Cycles: %u\n", datablock->type, datablock->num);
 }
 
+/** Return if default block selected. */
+bool get_defaultblock(void) {
+    return DefaultBlock;
+}
+
 /** Return the next data block. Returns NULL if are none or no more. */
-DATABLOCK get_next_block() {
+DATABLOCK get_next_block(void) {
     if (BlockList == NULL) {return NULL;}
     if (Current == NULL) {
         Current = BlockList;
@@ -109,12 +115,12 @@ DATABLOCK get_next_block() {
 }
 
 /** Return the number of distinct blocks to analyse. */
-unsigned int get_numblock() {
+unsigned int get_numblock(void) {
     return NumBlock;
 }
 
 /** Return the total number of cycles to be analysed. */
-unsigned int get_totalcycle() {
+unsigned int get_totalcycle(void) {
     return TotalCycle;
 }
 
@@ -132,9 +138,9 @@ bool parse_blockopt(const char *blockstr) {
     char *endptr;
     int cycles;
     bool ok = true;
-#ifndef NDEBUG
-    unsigned int count = 0;
-#endif 
+
+    /* argument supplied, turn default off even if an error detected */
+    DefaultBlock = false;
 
     /* parse the string from the beginning */
     ch = blockstr;
@@ -175,11 +181,6 @@ bool parse_blockopt(const char *blockstr) {
         }
         
         if (ok) {
-
-#ifndef NDEBUG
-            xfprintf(xstderr,"%d: ",++count);
-            show_DATABLOCK(xstderr, newblock);
-#endif
             /* add new data block to list */
             if (BlockList == NULL) {
                 BlockList = cons_LIST(DATABLOCK)(newblock, BlockList);
@@ -202,18 +203,12 @@ bool parse_blockopt(const char *blockstr) {
         /* clear the structure */
         free_blocklist();
     }
-    else {
-#ifndef NDEBUG
-    xfprintf(xstderr, "Total cycles: %u\n", get_totalcycle());
-    xfprintf(xstderr, "Number of blocks: %u\n", get_numblock());
-#endif
-    }
 
     return ok;
 }
 
 /** Tidy up; call at program shutdown. */
-void tidyup_datablock() {
+void tidyup_datablock(void) {
     /* clear the structure */
     free_blocklist();
 }

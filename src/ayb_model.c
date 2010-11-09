@@ -202,39 +202,49 @@ static TILE read_intensities(XFILE *fp, unsigned int ncycle, bool *goon) {
 /** Create the sub-tile datablocks to be analysed. */
 static TILE * create_datablocks(TILE maintile, const unsigned int numblock) {
 
-    /* create the sub-tiles with an array of pointers */
-    TILE * tileblock = calloc(numblock, sizeof(*tileblock));
-    if(tileblock == NULL) {return NULL;}
+    TILE * tileblock = NULL;
+    if (get_defaultblock()) {
+        /* copy all into single block */
+        tileblock = calloc(1, sizeof(*tileblock));
+        if(tileblock == NULL) {return NULL;}
+        tileblock[0] = copy_TILE(maintile);
+    }
 
-    int blk = 0;
-    int colstart = 0;
-    int colend = 0;
+    else {
+        /* create the sub-tiles with an array of pointers */
+        tileblock = calloc(numblock, sizeof(*tileblock));
+        if(tileblock == NULL) {return NULL;}
 
-    /* block specification already decoded */
-    DATABLOCK datablock = get_next_block();
-    while (datablock != NULL) {
-        colend = colstart + datablock->num - 1;
-        switch (datablock->type) {
-        case E_READ :
-            /* new block if not first */
-            if (tileblock[blk] != NULL) {
-                blk++;
+        int blk = 0;
+        int colstart = 0;
+        int colend = 0;
+
+        /* block specification already decoded */
+        DATABLOCK datablock = get_next_block();
+        while (datablock != NULL) {
+            colend = colstart + datablock->num - 1;
+            switch (datablock->type) {
+            case E_READ :
+                /* new block if not first */
+                if (tileblock[blk] != NULL) {
+                    blk++;
+                }
+
+            /* no break; fall through to case CONCAT */
+            case E_CONCAT :
+                tileblock[blk] = copy_append_TILE(tileblock[blk], maintile, colstart, colend);
+                break;
+
+            case E_IGNORE :
+                /* just increment column pointers, done outside of switch */
+                break;
+
+            default :;
             }
 
-        /* no break; fall through to case CONCAT */
-        case E_CONCAT :
-            tileblock[blk] = copy_append_TILE(tileblock[blk], maintile, colstart, colend);
-            break;
-
-        case E_IGNORE :
-            /* just increment column pointers, done outside of switch */
-            break;
-
-        default :;
+            colstart = colend + 1;
+            datablock = get_next_block();
         }
-
-        colstart = colend + 1;
-        datablock = get_next_block();
     }
 
     return tileblock;
@@ -1338,7 +1348,7 @@ bool analyse_tile (const int argc, char ** const argv, XFILE *fp) {
         return goon;
     }
     const unsigned int ncluster = maintile->ncluster;
-    const unsigned int numblock = get_numblock();
+    const unsigned int numblock =  get_defaultblock() ? 1 : get_numblock();
 
     /* put the data into distinct blocks */
     TILE * tileblock = NULL;
@@ -1525,31 +1535,33 @@ bool startup_model(void){
 
     message(E_GENERIC_SD, MSG_DEBUG, "total cycles:", totalcycle);
     message(E_GENERIC_SD, MSG_DEBUG, "distinct blocks:", numblock);
-    if ((totalcycle == 0) || (numblock == 0)) {
-        message(E_NOBLOCKS, MSG_FATAL);
-        return false;
+    if (get_defaultblock()) {
+        message(E_DEFAULTBLOCK, MSG_INFO);
     }
     else {
-        message(E_OPT_SELECT_SD, MSG_INFO, "cycles total", totalcycle);
-        message(E_OPT_SELECT_SD, MSG_INFO, "distinct data blocks", numblock);
-
-        /* check number of iterations supplied - may be left at default */
-        message(E_GENERIC_SD, MSG_DEBUG, "niter:", NIter);
-        if (NIter == 0) {
-            message(E_BADITER, MSG_FATAL);
+        if ((totalcycle == 0) || (numblock == 0)) {
+            message(E_NOBLOCKS, MSG_FATAL);
             return false;
         }
-        else {
-            /* storage for zero lambda count */
-            ZeroLambda = calloc(NIter, sizeof(int));
-
-            message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
-            message(E_OPT_SELECT_SS, MSG_INFO, "P solver", SOLVER_TEXT[SolverIndex]);
-
-            /* read any M, N, P */
-            return read_matrices();
-        }
+        message(E_OPT_SELECT_SD, MSG_INFO, "cycles total", totalcycle);
+        message(E_OPT_SELECT_SD, MSG_INFO, "distinct data blocks", numblock);
     }
+
+    /* check number of iterations supplied - may be left at default */
+    message(E_GENERIC_SD, MSG_DEBUG, "niter:", NIter);
+    if (NIter == 0) {
+        message(E_BADITER, MSG_FATAL);
+        return false;
+    }
+
+    /* storage for zero lambda count */
+    ZeroLambda = calloc(NIter, sizeof(int));
+
+    message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
+    message(E_OPT_SELECT_SS, MSG_INFO, "P solver", SOLVER_TEXT[SolverIndex]);
+
+    /* read any M, N, P */
+    return read_matrices();
 }
 
 /** Tidy up; call at program shutdown. */
