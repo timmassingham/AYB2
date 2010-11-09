@@ -76,8 +76,6 @@ static real_t INITIAL_CROSSTALK[] = {
     0.2896459, 0.2413716, 0.11264008, 1.3194981
 };
 
-/** Text for input format messages. Match to INFORM enum in dirio. */
-static const char *INFORM_TEXT[] = {"standard illumina txt", "cif"};
 /** Name text for matrix messages. Match to IOTYPE enum in dirio. */
 static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Phasing"};
 /** Possible output format text. Match to OUTFORM enum. Used to match program argument and also as file extension. */
@@ -86,21 +84,21 @@ static const char *OUTFORM_TEXT[] = {"fasta", "fastq"};
 static const int OUT_SYMBOL[] = {'>', '@'};
 /** Possible solver routine text. Match to SOLVERS list. Used to match --solver argument. */
 static const char *SOLVER_TEXT[] = {"ls", "zero", "nnls"};
-/** Number of possible solver routines. */
-static const unsigned int E_SOLVER_NUM = 3;
 
 /* members */
 
+/** Possible solver routines and number. */
+typedef enum SolvIdT {E_LS, E_ZERO, E_NNLS, E_SOLVER_NUM} SOLVID;
+static SOLVID SolverIndex = E_ZERO;             ///< Selected solver routine index.
 /** Template for P solver routine. */
 typedef int (*SOLVER)(MAT , MAT, real_t *, const real_t);
 /** Possible solver routines. */
 SOLVER SOLVERS[] = { solverSVD, solverZeroSVD, solverNNLS };
-static SOLVER SolverRoutine = solverSVD;       ///< Selected solver routine.
+static SOLVER SolverRoutine = solverZeroSVD;    ///< Selected solver routine, match to index.
 
-static INFORM InputFormat = E_TXT;              ///< Selected input format.
 /** Possible output formats, and number. */
 typedef enum OutFormT {E_FASTA, E_FASTQ, E_OUTFORM_NUM} OUTFORM;
-static OUTFORM OutputFormat  = E_FASTA;         ///< Selected output format.
+static OUTFORM OutputFormat  = E_FASTQ;         ///< Selected output format.
 
 static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.
 static real_t BasePenalty[NBASE] = {0.0,0.0,0.0,0.0}; ///< Penalty for least-squares base-calling.
@@ -169,7 +167,7 @@ static bool read_matrices(void) {
 static TILE read_intensities(XFILE *fp, unsigned int ncycle, bool *goon) {
 
     TILE tile = NULL;
-    switch (InputFormat) {
+    switch (get_input_format()) {
         case E_TXT:
             tile = read_TILE(fp, ncycle);
             break;
@@ -735,7 +733,7 @@ static WORKPTR open_processed(int blk) {
     WORKPTR work = calloc(1, sizeof(*work));
     work->fp = open_output_blk("pif", blk);
 
-    switch (InputFormat) {
+    switch (get_input_format()) {
         case E_TXT:
             /* nothing to do */
             break;
@@ -755,7 +753,7 @@ static void write_processed(WORKPTR work, CLUSTER cluster, const uint32_t cl, MA
 
     const uint32_t ncycle = Ayb->ncycle;
 
-    switch (InputFormat) {
+    switch (get_input_format()) {
         case E_TXT:
             if (!xfisnull(work->fp)) {
                 write_lane_tile (work->fp, Ayb->tile);
@@ -779,7 +777,7 @@ static void write_processed(WORKPTR work, CLUSTER cluster, const uint32_t cl, MA
 /** Finish and close a processed intensities file. */
 static WORKPTR close_processed(WORKPTR work) {
 
-    switch (InputFormat) {
+    switch (get_input_format()) {
         case E_TXT:
             /* nothing to do */
             break;
@@ -1052,7 +1050,7 @@ static bool output_results (int blk) {
 
     XFILE *fpout = NULL;
     /* different rules for varying input formats */
-    switch (InputFormat) {
+    switch (get_input_format()) {
         case E_TXT:
             fpout = open_output_blk("seq", blk);
             break;
@@ -1503,6 +1501,7 @@ bool set_solver(const char *solver_str) {
     /* match to options */
     int matchidx = match_string(solver_str, SOLVER_TEXT, E_SOLVER_NUM);
     if (matchidx>=0) {
+        SolverIndex = matchidx;
         SolverRoutine = SOLVERS[matchidx];
         return true;
     }
@@ -1518,9 +1517,7 @@ bool set_solver(const char *solver_str) {
  */
 bool startup_model(void){
 
-    InputFormat = get_input_format();
-    message(E_INPUT_FORM_S, MSG_INFO, INFORM_TEXT[InputFormat]);
-    message(E_OUTPUT_FORM_S, MSG_INFO, OUTFORM_TEXT[OutputFormat]);
+    message(E_OPT_SELECT_SS, MSG_INFO, "Output format" ,OUTFORM_TEXT[OutputFormat]);
 
     /* check number of cycles and data blocks supplied */
     const unsigned int totalcycle = get_totalcycle();
@@ -1547,6 +1544,7 @@ bool startup_model(void){
             ZeroLambda = calloc(NIter, sizeof(int));
 
             message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
+            message(E_OPT_SELECT_SS, MSG_INFO, "P solver", SOLVER_TEXT[SolverIndex]);
 
             /* read any M, N, P */
             return read_matrices();

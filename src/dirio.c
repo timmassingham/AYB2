@@ -56,6 +56,8 @@ static const char BLOCKCHAR = 'a';              ///< Start for additional block 
  * - cif files match name template <prefix>*.cif
  */
 static const char *INFORM_TEXT[] = {"TXT", "CIF"};
+/** Text for input format messages. Match to INFORM enum. */
+static const char *INFORM_MESS_TEXT[] = {"standard illumina txt", "cif"};
 static const char *INTEN_TAG[] = {"int", ""};       ///< Fixed Intensities file tags.
 static const char *INTEN_SUF[] = {"txt", "cif"};    ///< Fixed Intensities file suffixes.
 
@@ -68,7 +70,7 @@ static const mode_t DIR_MODE = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
 /* members */
 
 /* the I/O settings for this run */
-static INFORM Input_Format = E_TXT;             ///< Selected input format.
+static INFORM Input_Format = E_CIF;             ///< Selected input format.
 static CSTRING Input_Path = NULL;               ///< Input path, default or program argument.
 static CSTRING Output_Path = NULL;              ///< Output path, default or program argument.
 static CSTRING Pattern = NULL;                  ///< File pattern match, currently a prefix, program argument.
@@ -615,6 +617,8 @@ bool startup_dirio() {
         return false;
     }
 
+    message(E_INPUT_DIR_S, MSG_INFO, Input_Path);
+    message(E_OPT_SELECT_SS, MSG_INFO, "Input format" ,INFORM_MESS_TEXT[Input_Format]);
     if (Dir_Num == 0) {
         message (E_NOINPUT_SS, MSG_FATAL, Input_Path, Pattern);
         return false;
@@ -622,7 +626,6 @@ bool startup_dirio() {
     else {
         /* at least one input file */
         message(E_PATTERN_MATCH_SD, MSG_INFO, Pattern, Dir_Num);
-        message(E_INPUT_DIR_S, MSG_INFO, Input_Path);
         message(E_OUTPUT_DIR_S, MSG_INFO, Output_Path);
         return true;
     }

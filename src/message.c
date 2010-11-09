@@ -58,8 +58,6 @@ static const char *MSG_TEXT[] = {
         "Log message output level: %s\n",                                       // E_MSG_LEVEL_S
         "Input from directory: %s\n",                                           // E_INPUT_DIR_S
         "Output to directory: %s\n",                                            // E_OUTPUT_DIR_S
-        "Input Format selected: %s\n",                                          // E_INPUT_FORM_S
-        "Output Format selected: %s\n",                                         // E_OUTPUT_FORM_S
         "Input file found: %s\n",                                               // E_INPUT_FOUND_S
         "Failed to read input file: %s\n",                                      // E_BAD_INPUT_S
         "Failed to create data blocks for input file: %s\n",                    // E_DATABLOCK_FAIL_S
@@ -70,6 +68,7 @@ static const char *MSG_TEXT[] = {
         "Created new %s directory: %s\n",                                       // E_CREATED_DIR_SS
         "No input files in directory \'%s\' matching pattern: \'%s\'\n",        // E_NOINPUT_SS
         "%s file failed to open: %s\n",                                         // E_OPEN_FAIL_SS
+        "%s selected: %s\n",                                                    // E_OPT_SELECT_SS
         "Input file pattern match: \'%s...\'; %d files found\n",                // E_PATTERN_MATCH_SD
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
