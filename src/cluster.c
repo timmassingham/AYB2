@@ -40,12 +40,12 @@
 
 /** 
  * Read the coordinate and intensities part of a cluster line.
- * Number of cycles wanted is supplied and returned value 
- * from matrix line passed back as reference parameter.
- * Extra data check request is passed on to matrix line.
+ * Number of cycles wanted is supplied, or zero with first means read all.
+ * If first line then count available columns.
+ * Returned value from matrix line is passed back as reference parameter.
  * Returns null if any problem.
  */
-static CLUSTER read_CLUSTER_line(unsigned int *ncycle, char *ptr, const bool moredata) {
+static CLUSTER read_CLUSTER_line(unsigned int *ncycle, char *ptr, const bool first) {
     CLUSTER cluster = NULL;
     MAT signals = NULL;
 
@@ -55,9 +55,20 @@ static CLUSTER read_CLUSTER_line(unsigned int *ncycle, char *ptr, const bool mor
     if ('\t' != ptr[0]) {goto cleanup;}
     y = strtoul(ptr, &ptr, 0);
 
+    int ncfound = 0;
+    if (first) {
+        /* count number of cycles available, preserve original line pointer */
+        char *ptr1 = ptr;
+        ncfound = count_line_columns(NBASE, ptr1);
+        /* set to read all available if not specified */
+        if (*ncycle == 0) {
+            *ncycle = ncfound;
+        }
+    }
+
     /* read cycle data */
     int nc = *ncycle;
-    signals = new_MAT_from_line(NBASE, &nc, ptr, moredata);
+    signals = new_MAT_from_line(NBASE, &nc, ptr);
     if ((NULL == signals) || (nc == 0)) {goto cleanup;}
 
     /* store all the data in the cluster */
@@ -67,7 +78,12 @@ static CLUSTER read_CLUSTER_line(unsigned int *ncycle, char *ptr, const bool mor
     cluster->y = y;
     cluster->signals = signals;
 
-    *ncycle = nc;
+    if (first) {
+        *ncycle = ncfound;
+    }
+    else {
+        *ncycle = nc;
+    }
     return cluster;
 
 cleanup:
@@ -203,8 +219,8 @@ cleanup:
 /** 
  * Read a cluster line from file pointer, including lane and tile. 
  * Format should be that of Illumina's _int.txt.
- * Number of cycles wanted is supplied and actual number available returned.
- * Extra data check is requested.
+ * Number of cycles wanted is supplied, or zero means read all,
+ * and actual number available returned.
  * A little validation of the file format is performed.
  * Returns null if any problem.
  */
@@ -225,7 +241,7 @@ CLUSTER read_first_CLUSTER( XFILE * fp, unsigned int *ncycle,
     *tile = (unsigned int)strtoul(ptr, &ptr, 0);
     if ('\t' != ptr[0]) {goto cleanup;}
 
-    /* read cluster information */
+    /* read cluster information including available cycle count */
     cluster = read_CLUSTER_line(ncycle, ptr, true);
 
 cleanup:

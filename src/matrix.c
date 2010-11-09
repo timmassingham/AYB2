@@ -261,12 +261,44 @@ MAT set_MAT( MAT mat, const real_t x){
     return mat;
 }
 
+/** Count the number of sets of columns in a tab separated line of char (standard illumina format). */
+int count_line_columns(const int nrow, char *ptr) {
+
+    if (ptr == NULL) {return 0;}
+    if (nrow <= 0) {return 0;}
+
+    int nc = 0;
+    bool found = true;
+    /* read until run out */
+    while (found) {
+        if(ptr[0] != '\t'){
+            found = false;
+        }
+        else {
+            int cnt = 0;
+            for (int nr = 0; nr < nrow; nr++) {
+                if (ptr[0] == 0) {
+                    found = false;
+                    break;
+                }
+                else {
+                    strtor(ptr, &ptr);
+                    cnt++;
+                }
+            }
+            /* only count complete columns */
+            if (cnt == nrow) {++nc;}
+        }
+    }
+
+    return nc;
+}
+
 /**
  * Create a new matrix from tab separated sets of columns in a line of char.
- * Check for extra columns if requested.
- * Return actual number of columns found as reference parameter if not enough or extra check requested.
+ * Return actual number of columns found as reference parameter if not enough.
  */
-MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr, bool moredata){
+MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr){
 
     if (ptr == NULL) {return NULL;}
     MAT mat = new_MAT(nrow, *ncol);
@@ -294,34 +326,7 @@ MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr, bool moredata){
         }
     }
 
-    if (found) {
-        if (moredata) {
-            /* check if any more data */
-            while (found) {
-                if(ptr[0] != '\t'){
-                    found = false;
-                }
-                else {
-                    int cnt = 0;
-                    real_t temp;
-                    for (int nr = 0; nr < nrow; nr++) {
-                        if (ptr[0] == 0) {
-                            found = false;
-                            break;
-                        }
-                        else {
-                            temp = strtor(ptr, &ptr);
-                            cnt++;
-                        }
-                    }
-                    /* only count complete columns */
-                    if (cnt == nrow) {++nc;}
-                }
-            }
-            *ncol = nc;
-        }
-    }
-    else {
+    if (!found) {
         /* resize the matrix to match number of columns found */
         mat = trim_MAT(mat, nrow, nc, true);
         *ncol = nc;

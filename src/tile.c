@@ -179,6 +179,7 @@ TILE copy_append_TILE(TILE tileout, const TILE tilein, int colstart, int colend)
 
 /**
  * Read a tile from a cif file.
+ * Number of cycles required is specified, or zero means read all.
  * Returns a new TILE containing a list of clusters, in the same order as file.
  */
 TILE read_cif_TILE (XFILE * fp, unsigned int ncycle) {
@@ -199,6 +200,10 @@ TILE read_cif_TILE (XFILE * fp, unsigned int ncycle) {
     unsigned int cifcluster = cif_get_ncluster(cif);
     xfprintf(xstderr, "Read cif tile: %u cycles from %u clusters.\n", cifcycle, cifcluster);
 
+    if (ncycle == 0) {
+        /* get all available */
+        ncycle = cifcycle;
+    }
     if (cifcycle < ncycle) {
         /* not enough cycles, just return the number without bothering to store the data */
         tile->ncycle = cifcycle;
@@ -259,10 +264,11 @@ TILE read_known_TILE( XFILE * fp, unsigned int ncycle){
 /**
  * Read a tile from an Illumina int.txt file.
  * Returns a new TILE containing a list of clusters, in the same order as file.
- * Number of cycles required is specified.
+ * Number of cycles required is specified, or zero means read all.
  * Number read stored in tile structure.
  */
 TILE read_TILE( XFILE * fp, unsigned int ncycle){
+
     if(NULL==fp){return NULL;}
     TILE tile = new_TILE();
     if (NULL==tile) { return NULL;}
@@ -271,28 +277,36 @@ TILE read_TILE( XFILE * fp, unsigned int ncycle){
     unsigned int nc = ncycle;
     CLUSTER cl = read_first_CLUSTER(fp, &nc, &(tile->lane), &(tile->tile));
     if ( NULL==cl){ goto cleanup;}
-    if (nc > ncycle) {
-        /* extra data */
-        warnx("Intensity file contains more data than requested: additional %d cycles.", nc - ncycle);
-        /* ignore extra for rest of read */
-        nc = ncycle;
-    }
-    else {
-        /* set to read what is available */
+
+    if (ncycle == 0) {
+        /* get all available */
         ncycle = nc;
     }
-    tile->clusterlist = cons_LIST(CLUSTER)(cl,tile->clusterlist);
-    tile->ncluster++;
-
-    /* Read in remaining clusters, appending to tail of cluster list */
-    LIST(CLUSTER) listtail = tile->clusterlist;
-    while(  cl = read_known_CLUSTER(fp, &nc), NULL!=cl ){
-        /* check later data */
-        if (nc < ncycle) { goto cleanup;}
-        listtail = rcons_LIST(CLUSTER)(cl,listtail);
-        tile->ncluster++;
+    if (nc < ncycle) {
+        /* not enough cycles, just return the number without bothering to store the data */
+        tile->ncycle = nc;
+        free_CLUSTER(cl);
     }
-    tile->ncycle = ncycle;
+    else {
+        tile->ncycle = ncycle;
+        if (nc > ncycle) {
+            /* extra data */
+            warnx("Intensity file contains more data than requested: additional %d cycles.", nc - ncycle);
+            nc = ncycle;
+        }
+
+        tile->clusterlist = cons_LIST(CLUSTER)(cl,tile->clusterlist);
+        tile->ncluster++;
+
+        /* Read in remaining clusters, appending to tail of cluster list */
+        LIST(CLUSTER) listtail = tile->clusterlist;
+        while(  cl = read_known_CLUSTER(fp, &nc), NULL!=cl ){
+            /* check later data */
+            if (nc < ncycle) { goto cleanup;}
+            listtail = rcons_LIST(CLUSTER)(cl,listtail);
+            tile->ncluster++;
+        }
+    }
     return tile;
 
 cleanup:

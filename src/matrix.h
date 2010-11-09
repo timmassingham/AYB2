@@ -61,7 +61,8 @@ MAT append_columns(MAT matout, const MAT matin, int colstart, int colend);
 MAT set_MAT( MAT mat, const real_t x);
 
 // stream i/o
-MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr, bool moredata);
+int count_line_columns(const int nrow, char *ptr);
+MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr);
 void write_MAT_to_line (XFILE * fp, const MAT mat);
 MAT read_MAT_from_column_file(XFILE * fp);
 
