@@ -73,6 +73,7 @@ static const char *MSG_TEXT[] = {
         "Input file pattern match: \'%s\'; %d files found\n",                   // E_PATTERN_MATCH_SD
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
+        "%s selected: %0.2E\n",                                                 // E_OPT_SELECT_SE
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
         "Processing failed at iteration %d; calls set to null\n",               // E_PROCESS_FAIL_D
         "Intensity file contains less data than requested; %d instead of %d\n", // E_CYCLESIZE_DD

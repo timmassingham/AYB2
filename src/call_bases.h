@@ -49,6 +49,7 @@ static inline real_t adjust_last_quality(const real_t qual, const NUC prior, con
     return adjust_quality(qual, prior, base, NUC_AMBIG);
 }
 
+real_t get_mu(void);
 bool set_mu(const char *mu_str);
 
 #endif /* CALL_BASES_H_ */

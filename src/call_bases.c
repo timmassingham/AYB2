@@ -153,6 +153,11 @@ real_t adjust_quality(const real_t qual, const NUC prior, const NUC base, const 
    return new_qual;
 }
 
+/** Return value of Mu */
+real_t get_mu(void) {
+    return Mu;
+}
+
 /** Set value for Mu. */
 bool set_mu(const char *mu_str) {
 

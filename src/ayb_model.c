@@ -1562,6 +1562,10 @@ bool startup_model(void){
 
     message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
     message(E_OPT_SELECT_SS, MSG_INFO, "P solver", SOLVER_TEXT[SolverIndex]);
+    message(E_OPT_SELECT_SE, MSG_INFO, "Mu value", get_mu());
+    if (BasePenalty[0] != 0.0) {
+        message(E_OPT_SELECT_SE, MSG_INFO, "Genome GC Composition", exp(log(0.5) - BasePenalty[NUC_C] / 2.0));
+    }
 
     /* read any M, N, P */
     return read_matrices();
