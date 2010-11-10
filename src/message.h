@@ -27,6 +27,7 @@
 #define MESSAGE_H_
 
 #include <stdbool.h>
+#include "utility.h"            // for CSTRING
 
 /** Quick debug output of string and float. For temporary use. */
 #define DEBUGF(S,F) message(E_GENERIC_SF, MSG_DEBUG, S, F)
@@ -46,6 +47,7 @@ typedef enum MsgTypeT {E_DEFAULTBLOCK,
                        E_INPUT_DIR_S,
                        E_OUTPUT_DIR_S,
                        E_INPUT_FOUND_S,
+                       E_NOPATTERN_FILE_S,
                        E_BAD_INPUT_S,
                        E_DATABLOCK_FAIL_S,
                        E_MATRIX_FAIL_S,
@@ -86,10 +88,10 @@ typedef enum MsgSeverityT {MSG_NONE, MSG_FATAL, MSG_ERR, MSG_INFO, MSG_WARN, MSG
 
 int message(MSGTYPE type, MSGSEV sev, ...);
 bool set_message_level(const char *levelstr);
-void set_message_path(const char *path);
+void set_message_path(const CSTRING path);
 
 bool startup_message(const char *prefix);
-void tidyup_message();
-void tidy_message();
+void tidyup_message(void);
+void tidy_message(void);
 
 #endif /* MESSAGE_H_ */

@@ -4,7 +4,7 @@
  * This provides a central messaging system for the output of program information at various levels up to debugging.
  * The level of message output is selected using a program option (default Warning).
  * \n\n Program messages are output to stderr which can be redirected in a run script.
- * Alternatively a location can be specified as a program option and a message file with a generated unique name will be created.
+ * Alternatively a file path can be specified as a program option and a message file will be created.
  * \n\n A program message is implemented by calling the message() function with a type and severity parameter,
  * followed by a variable number of additional parameters of varying type corresponding to the selected message type.
  * The type enumerations include a suffix to indicate the parameters required.
@@ -59,6 +59,7 @@ static const char *MSG_TEXT[] = {
         "Input from directory: %s\n",                                           // E_INPUT_DIR_S
         "Output to directory: %s\n",                                            // E_OUTPUT_DIR_S
         "Input file found: %s\n",                                               // E_INPUT_FOUND_S
+        "No filename supplied in pattern: \'%s\'\n",                            // E_NOPATTERN_FILE_S
         "Failed to read input file: %s\n",                                      // E_BAD_INPUT_S
         "Failed to create data blocks for input file: %s\n",                    // E_DATABLOCK_FAIL_S
         "Failed to initialise %s matrix\n",                                     // E_MATRIX_FAIL_S
@@ -69,7 +70,7 @@ static const char *MSG_TEXT[] = {
         "No input files in directory \'%s\' matching pattern: \'%s\'\n",        // E_NOINPUT_SS
         "%s file failed to open: %s\n",                                         // E_OPEN_FAIL_SS
         "%s selected: %s\n",                                                    // E_OPT_SELECT_SS
-        "Input file pattern match: \'%s...\'; %d files found\n",                // E_PATTERN_MATCH_SD
+        "Input file pattern match: \'%s\'; %d files found\n",                   // E_PATTERN_MATCH_SD
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
@@ -104,59 +105,44 @@ static const char *MSG_SEV_TEXT[] = {
         ""};
 
 /* location and name of message file */
-//static const char *DEFAULT_PATH = "./";            ///< Use current directory if none supplied.
 static const char PATH_DELIM = '/';                 ///< Path delimiter. For linux, other OS?
-static const char *NAME_EXT = ".log";               ///< Extension for log file.
-static const char *TIME_SUFFIX = "_%y%m%d_%H%M";    ///< Log file suffix; gives _yymmdd_hhmm.
-static const size_t TIME_SUFFIX_LEN = 13;           ///< Length of log file suffix, including null terminator.
 static const char *DATE_TIME = "%d %B %Y %H:%M";    ///< Log header date; gives 'dd mmmm yyyy hh:mm'.
 static const size_t DATE_TIME_LEN = 24;             ///< Maximum length of log header date, including null terminator.
-#define FILENAME_LEN 80
 
 /* members */
 
 /** Selected level of messages, default Warning. */
 static int Msg_Level = MSG_WARN;
-/** Selected location for message file. 
+/**
+ * Selected pathname for message file.
  * Output is to stderr unless redirected by a program option, 
- * which defaults to the current directory if the supplied path does not exist.
  */
-static char Msg_Path[FILENAME_LEN] = "";
+static CSTRING Msg_Path = NULL;
 
 
 /* private functions */
 
-/** 
- * Generate a unique message file name including date and time and add to path.
- * Filename is <prefix>_<yymmdd>_<hhmm>.log.
- * Returns true unless problem with log directory.
- */
-static bool create_filename(const char *prefix, char *timestring, char *name) {
+/** Check path part of file path. */
+static bool check_path(const CSTRING filepath) {
 
-    /* check specified path exists */
-    if (!check_outdir(Msg_Path, "message")) {
-        return false;
+    if (filepath == NULL) {return false;}
+    bool ret = true;
+
+    /* find the end of any path */
+    char *pdlm = strrchr(filepath, PATH_DELIM);
+    if (pdlm != NULL) {
+        /* path included */
+        size_t len = pdlm - filepath;
+        CSTRING path = new_CSTRING(len);
+        strncpy(path, filepath, len);
+
+        /* check specified path exists or can be created */
+        if (!check_outdir(path, "message")) {
+            ret = false;
+        }
+        free_CSTRING(path);
     }
-
-    strcpy(name, Msg_Path);
-    size_t len = strlen(name);
-
-    /* add path delimiter if not supplied */
-    if (*(name + len - 1) != PATH_DELIM) {
-        *(name + len) = PATH_DELIM;
-        *(name + len + 1) = '\0';
-    }
-
-    /* add the default filename prefix */
-    strcat(name, prefix);
-
-    /* add the date and time to make it unique given it will take some time to run */
-    strcat(name, timestring);
-
-    /* add the extension */
-    strcat(name, NAME_EXT);
-    printf("name: %s\n", name);
-    return true;
+    return ret;
 }
 
 
@@ -177,6 +163,9 @@ int message(MSGTYPE type, MSGSEV sev, ...) {
         ret += vfprintf(stderr, MSG_TEXT[type], args);
         va_end(args);
     }
+    /* write immediately */
+    fflush(stderr);
+
     /* returns number of characters printed */
     return ret;
 }
@@ -199,10 +188,11 @@ bool set_message_level(const char *levelstr) {
 }
 
 /** Set the message file location. */
-void set_message_path(const char *path) {
+void set_message_path(const CSTRING path) {
 
     /* validate later */
-    strcpy(Msg_Path, path);
+    Msg_Path = copy_CSTRING(path);
+
 }
 
 /**
@@ -217,24 +207,23 @@ bool startup_message(const char *prefix) {
     struct tm *p_tm = localtime(&lt);
     char timestring[DATE_TIME_LEN];
 
-    if (strlen(Msg_Path) > 0) {
+    if (Msg_Path != NULL) {
         /* error file specified, redirect stderr from within program */
-        char filename[FILENAME_LEN];
-        /* create a unique name including current date/time and add path */
-        strftime(timestring, TIME_SUFFIX_LEN, TIME_SUFFIX, p_tm);
-        if (!create_filename(prefix, timestring, (char*)&filename)) {
+        /* validate any path supplied */
+        if (!check_path(Msg_Path)) {
             return false;
         }
 
         /* check file can be created */
         FILE *fp;
-        if ((fp = fopen(filename, "w")) == NULL) {
-            message(E_OPEN_FAIL_SS, MSG_FATAL, "Message", filename);
+        if ((fp = fopen(Msg_Path, "w")) == NULL) {
+            message(E_OPEN_FAIL_SS, MSG_FATAL, "Message", Msg_Path);
             return false;
         }
 
         fclose(fp);
-        freopen(filename, "w", stderr);
+        freopen(Msg_Path, "w", stderr);
+        fprintf(stdout, "AYB message log is %s\n", Msg_Path);
     }
 
     /* create a time string for the log file header */
@@ -247,13 +236,16 @@ bool startup_message(const char *prefix) {
 }
 
 /** Tidy up; call at program shutdown. */
-void tidyup_message () {
+void tidyup_message (void) {
 
     /* close the message file */
     fclose(stderr);
+
+    /* free string memory */
+    free_CSTRING(Msg_Path);
 }
 
 /* delete all message files; run on supplied parameter */
-void tidy_message() {
+void tidy_message(void) {
     //needed??
 }
