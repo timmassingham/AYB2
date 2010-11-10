@@ -76,6 +76,9 @@ static inline void xfree( void * ptr){ if(NULL!=ptr){ free(ptr);} }
     #define HUGE_VALR HUGE_VAL
 #endif
 
+/** General 3-way return option. */
+typedef enum RetOptT {E_CONTINUE, E_FAIL, E_STOP} RETOPT;
+
 /** Simple string type. */
 typedef char * CSTRING;
 CSTRING new_CSTRING(const size_t len);

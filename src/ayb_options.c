@@ -32,8 +32,8 @@
 #include "ayb_version.h"
 #include "call_bases.h"
 #include "datablock.h"
-#include "dirio.h"          // I/O for this run hm??
-#include "message.h"        // message file location and level
+#include "dirio.h"
+#include "message.h"
 
 
 /* constants */
@@ -77,16 +77,15 @@ enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
 static struct option Longopts[] = {
     {"blockstring", required_argument,  NULL, 'b'},
     {"composition", required_argument,  NULL, 'c'},
-    {"prefix",      required_argument,  NULL, 'x'},
     {"dataformat",  required_argument,  NULL, 'd'},
-    {"format",      required_argument,  NULL, 'f'},
-    {"niter",       required_argument,  NULL, 'n'},
-    {"mu"   ,       required_argument,  NULL, 'm'},
-    {"input",       required_argument,  NULL, 'i'},
-    {"output",      required_argument,  NULL, 'o'},
     {"logfile",     required_argument,  NULL, 'e'},
+    {"format",      required_argument,  NULL, 'f'},
+    {"input",       required_argument,  NULL, 'i'},
     {"loglevel",    required_argument,  NULL, 'l'},
-    {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 11 in header file
+    {"mu"   ,       required_argument,  NULL, 'm'},
+    {"niter",       required_argument,  NULL, 'n'},
+    {"output",      required_argument,  NULL, 'o'},
+    {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 10 in header file
     {"working",     no_argument,        NULL, 'w'},
     {"M",           required_argument,  NULL, 'M'},
     {"N",           required_argument,  NULL, 'N'},
@@ -109,9 +108,13 @@ static void init_options() {
 
 /* public functions */
 
-/** Read options from command line arguments. Uses getopt_long to allow long and short forms. */
-OPTRET read_options(const int argc, char ** const argv) {
-    OPTRET carryon = E_CONTINUE;
+/**
+ * Read options from command line arguments. Uses getopt_long to allow long and short forms.
+ * Returns index to first non-option argument as reference parameter.
+ * Returns whether to continue, stop and indicate error or just stop.
+ */
+RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
+    RETOPT status = E_CONTINUE;
 
     /* set default values */
     init_options();
@@ -119,13 +122,13 @@ OPTRET read_options(const int argc, char ** const argv) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:c:x:d:f:n:m:i:o:e:l:s:wM:N:P:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:d:e:f:i:l:m:n:o:s:wM:N:P:S:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'b':
                 /* pattern of data blocks */
                 if (!parse_blockopt(optarg)) {
-                    carryon = E_FAIL;
+                    status = E_FAIL;
                 }
                 break;
 
@@ -133,41 +136,28 @@ OPTRET read_options(const int argc, char ** const argv) {
                 /* Genome composition of reference sequence */
                 if(!set_composition(optarg)) {
                     fprintf(stderr, "Fatal: Invalid genome composition: \'%s\'\n\n", optarg);
-                    carryon = E_FAIL;
+                    status = E_FAIL;
                 }
-                break;
-
-            case 'x':
-                /* file pattern match */
-                set_pattern(optarg);
                 break;
 
             case 'd':
                 /* input format */
                 if (!set_input_format(optarg)) {
                     fprintf(stderr, "Fatal: Unrecognised input format option: \'%s\'\n\n", optarg);
-                    carryon = E_FAIL;
+                    status = E_FAIL;
                 }
+                break;
+
+            case 'e':
+                /* message file location */
+                set_message_path(optarg);
                 break;
 
             case 'f':
                 /* output format */
                 if (!set_output_format(optarg)) {
                     fprintf(stderr, "Fatal: Unrecognised output format option: \'%s\'\n\n", optarg);
-                    carryon = E_FAIL;
-                }
-                break;
-
-            case 'n':
-                /* number of cycles */
-                set_niter(optarg);
-                break;
-
-            case 'm':
-                /* phredchar calculation */
-                if (!set_mu(optarg)) {
-                    fprintf(stderr, "Fatal: Mu must be a positive value; \'%s\' supplied\n\n", optarg);
-                    carryon = E_FAIL;
+                    status = E_FAIL;
                 }
                 break;
 
@@ -176,22 +166,30 @@ OPTRET read_options(const int argc, char ** const argv) {
                 set_location(optarg, E_INPUT);
                 break;
 
-            case 'o':
-                /* output file location */
-                set_location(optarg, E_OUTPUT);
-                break;
-
-            case 'e':
-                /* message file location */
-                set_message_path(optarg);
-                break;
-
             case 'l':
                 /* message output level */
                 if (!set_message_level(optarg)) {
                     fprintf(stderr, "Fatal: Unrecognised error level option: \'%s\'\n\n", optarg);
-                    carryon = E_FAIL;
+                    status = E_FAIL;
                 }
+                break;
+
+            case 'm':
+                /* phredchar calculation */
+                if (!set_mu(optarg)) {
+                    fprintf(stderr, "Fatal: Mu must be a positive value; \'%s\' supplied\n\n", optarg);
+                    status = E_FAIL;
+                }
+                break;
+
+            case 'n':
+                /* number of cycles */
+                set_niter(optarg);
+                break;
+
+            case 'o':
+                /* output file location */
+                set_location(optarg, E_OUTPUT);
                 break;
 
             case 's':
@@ -223,35 +221,37 @@ OPTRET read_options(const int argc, char ** const argv) {
                 /* Which solver to use for P estimation */
                 if(!set_solver(optarg)){
                     fprintf(stderr,"Fatal: Unrecognised solver option: \'%s\'\n\n",optarg);
-                    carryon = E_FAIL;
+                    status = E_FAIL;
                 }
                 break;
 
             case OPT_HELP:
                 print_usage(stderr);
                 print_help(stderr);
-            	carryon = E_STOP;
+            	status = E_STOP;
                 break;
 
             case OPT_LICENCE:
                 print_licence(stderr);
-                carryon = E_STOP;
+                status = E_STOP;
                 break;
 
             case OPT_VERSION:
                 fprintf(stderr, "\n" PROGNAME " Version %0.2f  %u\n\n", get_version(), get_version_date());
 
-                carryon = E_STOP;
+                status = E_STOP;
                 break;
 
             default:
             	// getopt_long outputs an error message
                 print_usage(stderr);
-            	carryon = E_FAIL;
+            	status = E_FAIL;
         }
     }
 
-    return carryon;
+    /* return index to non-option arguments */
+    *nextarg = optind;
+    return status;
 }
 
 /**

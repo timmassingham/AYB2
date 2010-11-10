@@ -1,7 +1,8 @@
 /**
  * \file ayb_main.c
  * Main AYB module.
- * Sets up environment before passing control to ayb_model for each intensity file.
+ * Sets up environment before looping through each supplied pattern,
+ * passing control to ayb_model for each intensity file found.
  * Tidy up to finish.
  *//*
  *  Created : 23 Feb 2010
@@ -65,14 +66,15 @@ static void tidyup() {
 int main(int argc, char **argv) {
 
     int ret = EXIT_SUCCESS;
+    int nextarg = 0;
 
     /* install signal handler   */
     signal(SIGINT, INThandler);
     signal(SIGFPE, FPEhandler);
 
     /* read program options */
-    OPTRET optret = read_options(argc, argv);
-    switch (optret) {
+    RETOPT status = read_options(argc, argv, &nextarg);
+    switch (status) {
         case E_FAIL:
             fprintf(stderr, "AYB failed during option read\n");
             ret = EXIT_FAILURE;
@@ -84,46 +86,63 @@ int main(int argc, char **argv) {
             goto cleanup;
             break;
 
-        /* nothing to do otherwise */
-        case E_CONTINUE:;
+        case E_CONTINUE:
+            /* check if any non-option pattern match arguments supplied */
+            if (nextarg >= argc) {
+                message(E_NOPATTERN, MSG_ERR);
+                ret = EXIT_FAILURE;
+                goto cleanup;
+                break;
+            }
+
         default:;
     }
 
-    /* create a message log, name includes the prefix argument */
+    /* create a message log, stderr or name as argument */
     if (!startup_message(get_pattern())) {
         fprintf(stderr, "AYB failed during message startup\n");
         ret = EXIT_FAILURE;
         goto cleanup;
     }
 
-    /* scan the input directory */
+    /* check the specified i/o locations */
     if (!startup_dirio()) {
-        fprintf(stderr, "AYB failed during file search\n");
+        fprintf(stderr, "AYB failed during i/o check\n");
         ret = EXIT_FAILURE;
         goto cleanup;
     }
 
+    /* model related startup */
     if (!startup_model()) {
         fprintf(stderr, "AYB failed during model initialisation\n");
         ret = EXIT_FAILURE;
         goto cleanup;
     }
 
-    /* process each intensity file until no more or a no continue error */
-    XFILE *fp = NULL;
-    bool more = true;
+    /* process each prefix supplied as non-option argument */
+    for (int i = nextarg; i < argc; i++) {
+        if (set_pattern(argv[i])) {
+            /* process each intensity file until no more or a no continue error */
+            XFILE *fp = NULL;
+            status = E_CONTINUE;
 
-    while (more) {
-        fp = open_next(fp);
+            while (status == E_CONTINUE) {
+                fp = open_next(fp);
 
-        if (xfisnull(fp)) {
-            more = false;
-        }
-        else {
-            /* analyse this input file */
-            more = analyse_tile(argc, argv, fp);
+                if (xfisnull(fp)) {
+                    /* next prefix */
+                    status = E_FAIL;
+                }
+                else {
+                    /* analyse this input file */
+                    status = analyse_tile(argc, argv, fp);
+                }
+            }
+            /* analysis return may indicate stop program */
+            if (status == E_STOP) {break;}
         }
     }
+
     fprintf(stdout, "End of AYB\n");
 
 cleanup:

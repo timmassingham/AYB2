@@ -42,7 +42,7 @@ AYB free_AYB(AYB ayb);
 AYB copy_AYB(const AYB ayb);
 void show_AYB(XFILE * fp, const AYB ayb, bool showall);
 
-bool analyse_tile (const int argc, char ** const argv, XFILE *fp);
+RETOPT analyse_tile (const int argc, char ** const argv, XFILE *fp);
 bool set_composition(const char *comp_str);
 void set_niter(const char *niter_str);
 bool set_output_format(const char *outform_str);

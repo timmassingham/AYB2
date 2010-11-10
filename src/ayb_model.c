@@ -164,7 +164,7 @@ static bool read_matrices(void) {
  * Read and store an intensities input file.
  * Return flag indicating not to continue if not sufficient cycles in file.
  */
-static TILE read_intensities(XFILE *fp, unsigned int ncycle, bool *goon) {
+static TILE read_intensities(XFILE *fp, unsigned int ncycle, RETOPT *status) {
 
     TILE tile = NULL;
     switch (get_input_format()) {
@@ -182,9 +182,9 @@ static TILE read_intensities(XFILE *fp, unsigned int ncycle, bool *goon) {
     if (tile != NULL) {
         if (tile->ncycle < ncycle) {
             /* not enough data */
-            message(E_CYCLESIZE_DD, MSG_FATAL, tile->ncycle, ncycle);
+            message(E_CYCLESIZE_DD, MSG_ERR, tile->ncycle, ncycle);
             tile = free_TILE(tile);
-            *goon = false;
+            *status = E_FAIL;
         }
         else {
             message(E_TILESIZE_DD, MSG_INFO, tile->ncluster, tile->ncycle);
@@ -287,9 +287,10 @@ static MAT init_matrix(MAT mat, const IOTYPE idx) {
 
     else {
         /* use read in matrix */
+        unsigned int ncol = mat->ncol;
         mat = copyinto_MAT(mat, Matrix[idx]);
         if (mat == NULL) {
-            message (E_MATRIXINIT_SDD, MSG_ERR, MATRIX_TEXT[idx], mat->ncol, Matrix[idx]->ncol);
+            message (E_MATRIXINIT_SDD, MSG_ERR, MATRIX_TEXT[idx], ncol, Matrix[idx]->ncol);
         }
     }
     return mat;
@@ -1054,9 +1055,9 @@ static const char *BIG_NUM = "BigNum";      // Use if number too big for buffer
  * Output the results of the base calling.
  * Returns true if output file opened ok.
  */
-static bool output_results (int blk) {
+static RETOPT output_results (int blk) {
 
-    if (Ayb == NULL) {return false;}
+    if (Ayb == NULL) {return E_FAIL;}
 
     XFILE *fpout = NULL;
     /* different rules for varying input formats */
@@ -1072,7 +1073,7 @@ static bool output_results (int blk) {
         default: ;
     }
 
-    if (xfisnull(fpout)) {return false;}
+    if (xfisnull(fpout)) {return E_STOP;}
 
     const uint32_t ncluster = Ayb->ncluster;
     const uint32_t ncycle = Ayb->ncycle;
@@ -1093,7 +1094,7 @@ static bool output_results (int blk) {
         xfputc('\n', fpout);
     }
     fpout = xfclose(fpout);
-    return true;
+    return E_CONTINUE;
 }
 
 /** Return true if the string contains any spaces. */
@@ -1332,20 +1333,22 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
 
 /**
  * Analyse a single input file. File is already opened.
- * Returns true if analysis should continue to next file.
+ * Returns continue if analysis should continue to next file,
+ * else fail if to continue to next prefix, else stop.
  */
-bool analyse_tile (const int argc, char ** const argv, XFILE *fp) {
+RETOPT analyse_tile (const int argc, char ** const argv, XFILE *fp) {
 
-    if (xfisnull(fp)) {return true;}
-    bool goon = true;
+    if (xfisnull(fp)) {return E_CONTINUE;}
+    RETOPT status = E_CONTINUE;
 
     /* read intensity data from supplied file */
-    TILE maintile = read_intensities(fp, get_totalcycle(), &goon);
+    TILE maintile = read_intensities(fp, get_totalcycle(), &status);
     if (maintile == NULL) {
-        if (goon) {
+        if (status == E_CONTINUE) {
+            /* problem caused by bad input file */
             message(E_BAD_INPUT_S, MSG_ERR, get_current_file());
         }
-        return goon;
+        return status;
     }
     const unsigned int ncluster = maintile->ncluster;
     const unsigned int numblock =  get_defaultblock() ? 1 : get_numblock();
@@ -1358,7 +1361,7 @@ bool analyse_tile (const int argc, char ** const argv, XFILE *fp) {
 
     if (tileblock == NULL) {
         message(E_DATABLOCK_FAIL_S, MSG_FATAL, get_current_file());
-        return false;
+        return E_FAIL;
     }
 
     /* analyse each tile block separately */
@@ -1368,7 +1371,7 @@ bool analyse_tile (const int argc, char ** const argv, XFILE *fp) {
         if (Ayb == NULL) {
             message(E_NOMEM_S, MSG_FATAL, "model structure creation");
             message(E_INIT_FAIL_DD, MSG_ERR, blk + 1, tileblock[blk]->ncycle);
-            goon = false;
+            status = E_FAIL;
             goto cleanup;
         }
 
@@ -1417,7 +1420,7 @@ bool analyse_tile (const int argc, char ** const argv, XFILE *fp) {
             output_zero_lambdas();
 
             /* output the results */
-            goon = output_results((numblock > 1) ? blk : BLK_SINGLE);
+            status = output_results((numblock > 1) ? blk : BLK_SINGLE);
             
             /* output simulation data if requested */
             if (SimData) {
@@ -1432,7 +1435,7 @@ bool analyse_tile (const int argc, char ** const argv, XFILE *fp) {
 
         /* free the structure ready for next */
         Ayb = free_AYB(Ayb);
-        if (!goon) {break;}
+        if (status != E_CONTINUE) {break;}
     }
 
 cleanup:
@@ -1442,7 +1445,7 @@ cleanup:
         }
         xfree(tileblock);
     }
-    return goon;
+    return status;
 }
 
 /**
