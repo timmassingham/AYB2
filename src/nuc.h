@@ -72,6 +72,7 @@ char char_from_nuc(const NUC nuc) __attribute__((const));
 ARRAY(NUC) nucs_from_string( const char * nucstr );
 NUC complement(const NUC nuc) __attribute__((const));
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
+inline bool has_ambiguous_base(const NUC * restrict nucs, const uint_fast32_t n);
 
 PHREDCHAR phredchar_from_char( const char c)  __attribute__((const)); 
 PHREDCHAR phredchar_from_prob( const real_t p)  __attribute__((const));

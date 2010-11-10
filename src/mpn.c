@@ -141,11 +141,11 @@ real_t calculateWbar( const MAT we){
 }
 
 
-MAT calculateJ( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint32_t ncycle, MAT J){
+MAT calculateJ( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint_fast32_t ncycle, MAT J){
     validate(NULL!=lambda,NULL);
     validate(NULL!=we,NULL);
     validate(NULL!=bases.elt,NULL);
-    const uint32_t ncluster = lambda->nrow;
+    const uint_fast32_t ncluster = lambda->nrow;
 
     if(NULL==J){
         J = new_MAT(NBASE*NBASE,ncycle*ncycle);
@@ -153,15 +153,15 @@ MAT calculateJ( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const ui
     }
     memset(J->x, 0, J->nrow*J->ncol*sizeof(real_t));
 
-    const uint32_t lda = NBASE*NBASE;
-    for ( uint32_t cl=0 ; cl<ncluster ; cl++){
+    const uint_fast32_t lda = NBASE*NBASE;
+    for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
         const real_t welam = we->x[cl] * lambda->x[cl] * lambda->x[cl];
-        for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-            const int base = bases.elt[cl*ncycle+cy];
+        for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+            const uint_fast32_t base = bases.elt[cl*ncycle+cy];
             if(!isambig(base)){
-                const int offset = cy*ncycle*NBASE*NBASE + base*NBASE;
-                for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
-                    const int base2 = bases.elt[cl*ncycle+cy2];
+                const uint_fast32_t offset = cy*ncycle*NBASE*NBASE + base*NBASE;
+                for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
+                    const uint_fast32_t base2 = bases.elt[cl*ncycle+cy2];
                     if(!isambig(base2)){
                         J->x[offset+cy2*lda+base2] += welam;
                     }
@@ -199,42 +199,69 @@ real_t calculateDeltaLSE(const MAT Mt, const MAT P, const MAT N, const MAT J, co
     return delta;
 }
 
-MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TILE tile, const uint32_t ncycle, MAT K){
+MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TILE tile, const uint_fast32_t ncycle, MAT K){
+    real_t * tmp = NULL;
     validate(NULL!=lambda,NULL);
     validate(NULL!=we,NULL);
     validate(NULL!=tile,NULL);
-    const uint32_t ncluster = tile->ncluster;
+    const uint_fast32_t ncluster = tile->ncluster;
 
     if(NULL==K){
         K = new_MAT(NBASE*NBASE,ncycle*ncycle);
-        validate(NULL!=K,NULL);
+        if(NULL==K){ goto cleanup; }
     }
     memset(K->x, 0, K->nrow*K->ncol*sizeof(real_t));
 
-    const uint32_t lda = NBASE*NBASE;
-    unsigned int cl = 0;
+    tmp = calloc(NBASE*ncycle,sizeof(real_t));
+    if(NULL==tmp){ goto cleanup; }
+
+    const uint_fast32_t lda = NBASE*NBASE;
+    uint_fast32_t cl = 0;
     LIST(CLUSTER) node = tile->clusterlist;
     while (NULL != node && cl < ncluster){
+        const bool has_ambig = has_ambiguous_base(bases.elt+cl*ncycle, ncycle);
         const real_t welam = we->x[cl] * lambda->x[cl];
-        for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-            const uint32_t ioffset = cy*NBASE;
-            for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
-                const int base = bases.elt[cl*ncycle+cy2];
-                if(!isambig(base)){
-                    const uint32_t koffset = cy*lda*ncycle + cy2*lda + base;
-                    for ( uint32_t ch=0 ; ch<NBASE ; ch++){
-                        K->x[ koffset + ch*NBASE] += welam * node->elt->signals->x[ioffset + ch];
-                    }
+	for ( uint_fast32_t i=0 ; i<(NBASE*ncycle) ; i++){
+	   tmp[i] = welam * node->elt->signals->x[i];
+	}
+	if(has_ambig){
+           for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+               const uint_fast32_t ioffset = cy*NBASE;
+               for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
+                   const uint_fast32_t base = bases.elt[cl*ncycle+cy2];
+                   if(!isambig(base)){
+                       const uint_fast32_t koffset = cy*lda*ncycle + cy2*lda + base;
+                       for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
+                           K->x[ koffset + ch*NBASE] += tmp[ioffset + ch];
+                       }
+		   }
                 }
             }
-        }
+        } else {
+	   for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+               const uint_fast32_t ioffset = cy*NBASE;
+               for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
+                   const uint_fast32_t base = bases.elt[cl*ncycle+cy2];
+                   const uint_fast32_t koffset = cy*lda*ncycle + cy2*lda + base;
+                   for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
+                       K->x[ koffset + ch*NBASE] += tmp[ioffset + ch];
+                   }
+                }
+            }
+       }
 
         /* next cluster */
         node = node->nxt;
         cl++;
     }
+    free(tmp);
 
     return K;
+
+cleanup:
+    free(tmp);
+    free_MAT(K);
+    return NULL;
 }
 
 

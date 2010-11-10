@@ -57,21 +57,21 @@ MAT process_intensities(const MAT intensities,
     validate(NULL != Pinv_t, NULL);
     validate(NULL != N, NULL);
 
-    const uint32_t ncycle = Pinv_t->nrow;
+    const uint_fast32_t ncycle = Pinv_t->nrow;
     if (NULL==ip){
         ip = new_MAT(NBASE, ncycle);
         validate(NULL != ip, NULL);
     }
     memset(ip->x, 0, ip->nrow * ip->ncol * sizeof(real_t));
 
-    for (uint32_t icol = 0; icol < ncycle; icol++) {    // Columns of Intensity
-        for (uint32_t base = 0; base < NBASE; base++) { // Bases (rows of Minv, cols of Minv_t)
+    for (uint_fast32_t icol = 0; icol < ncycle; icol++) {    // Columns of Intensity
+        for (uint_fast32_t base = 0; base < NBASE; base++) { // Bases (rows of Minv, cols of Minv_t)
             real_t dp = 0;
-            for (uint32_t chan = 0; chan < NBASE; chan++) {  // Channels
+            for (uint_fast32_t chan = 0; chan < NBASE; chan++) {  // Channels
                 dp += Minv_t->x[base * NBASE + chan] *
                         (intensities->x[icol * NBASE + chan] - N->x[icol * NBASE + chan]);
             }
-            for (uint32_t pcol = 0; pcol < ncycle; pcol++) { // Columns of ip
+            for (uint_fast32_t pcol = 0; pcol < ncycle; pcol++) { // Columns of ip
                 ip->x[pcol * NBASE + base] += Pinv_t->x[icol * ncycle + pcol] * dp;
             }
         }
@@ -87,17 +87,29 @@ MAT expected_intensities(const real_t lambda, const NUC * bases,
     validate(NULL!=M,NULL);
     validate(NULL!=P,NULL);
     validate(NULL!=N,NULL);
-    const uint32_t ncycle = P->nrow;
+    const uint_fast32_t ncycle = P->nrow;
     if(NULL==e){
         e = new_MAT(NBASE,ncycle);
         validate(NULL!=e,NULL);
     }
     memset(e->x, 0, NBASE*ncycle*sizeof(real_t));
-    for(uint32_t cy2=0 ; cy2<ncycle ; cy2++){
-        for(uint32_t cy=0 ; cy<ncycle ; cy++){
-            const NUC base = bases[cy];
-            if(!isambig(base)){
-                for ( uint32_t ch=0 ; ch<NBASE ; ch++){
+
+    if(has_ambiguous_base(bases,ncycle)){
+        for(uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
+            for(uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+                const uint_fast32_t base = bases[cy];
+                if(!isambig(base)){
+                    for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
+                        e->x[cy2*NBASE+ch] += M->x[base*NBASE+ch] * P->x[cy2*ncycle+cy];
+		    }
+                }
+            }
+        }
+    } else {
+       for(uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
+            for(uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+                const uint_fast32_t base = bases[cy];
+                for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
                     e->x[cy2*NBASE+ch] += M->x[base*NBASE+ch] * P->x[cy2*ncycle+cy];
                 }
             }
@@ -107,7 +119,7 @@ MAT expected_intensities(const real_t lambda, const NUC * bases,
     // Multiply by brightness;
     scale_MAT(e,lambda);
     // Add noise
-    for ( uint32_t i=0 ; i<(NBASE*ncycle) ; i++){
+    for ( uint_fast32_t i=0 ; i<(NBASE*ncycle) ; i++){
         e->x[i] += N->x[i];
     }
     return e;
