@@ -51,9 +51,9 @@ enum {BLK_APPEND = -2, BLK_SINGLE = -1};
 /* function prototypes */
 
 bool check_outdir(const CSTRING dirname, const char * typestr);
-CSTRING get_current_file();
-INFORM get_input_format();
-CSTRING get_pattern();
+CSTRING get_current_file(void);
+INFORM get_input_format(void);
+CSTRING get_pattern(void);
 bool matrix_from_file(IOTYPE idx);
 
 XFILE * open_matrix(IOTYPE mode);
@@ -63,9 +63,9 @@ XFILE * open_output_blk(CSTRING tag, int blk);
 
 bool set_input_format(const char *inform_str);
 void set_location(const CSTRING path, IOTYPE mode);
-void set_pattern(const CSTRING pattern);
+bool set_pattern(const CSTRING pattern);
 
-bool startup_dirio();
-void tidyup_dirio();
+bool startup_dirio(void);
+void tidyup_dirio(void);
 
 #endif /* DIRIO_H_ */

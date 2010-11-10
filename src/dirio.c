@@ -3,7 +3,7 @@
  * I/O Environment.
  *   - Input and output file locations (parameters).
  *   - Input file pattern match by input type (parameter), 
- *     prefix (parameter),substring (fixed) and suffix (fixed).
+ *     prefix (parameter), substring (fixed) and suffix (fixed).
  *   - Search input directory for pattern match files.
  *   - Generate output file name.
  *   - File open and close.
@@ -45,7 +45,9 @@
 /* constants */
 
 static const char *DEFAULT_PATH = "./";         ///< Use current directory if none supplied.
-static const char *PATH_DELIMSTR = "/";         ///< Path delimiter. For linux, other OS?
+static const char *PATH_DELIMSTR = "/";         ///< Path delimiter as string. For linux, other OS?
+static const char PATH_DELIM = '/';             ///< Path delimiter as char. For linux, other OS?
+static const char PREFIXCHAR = '+';             ///< Indicates pattern to be treated as a prefix.
 static const char DOT = '.';                    ///< Before file extension, used for tag location.
 static const char DELIM = '_';                  ///< Before tag, used for tag location.
 static const char BLOCKCHAR = 'a';              ///< Start for additional block suffix.
@@ -73,9 +75,14 @@ static const mode_t DIR_MODE = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
 static INFORM Input_Format = E_CIF;             ///< Selected input format.
 static CSTRING Input_Path = NULL;               ///< Input path, default or program argument.
 static CSTRING Output_Path = NULL;              ///< Output path, default or program argument.
-static CSTRING Pattern = NULL;                  ///< File pattern match, currently a prefix, program argument.
-static size_t Pattern_Len = 0;                  ///< Length of pattern match, program exits if not > 0.
 static CSTRING IntenSubstr = NULL;              ///< Substring an intensities file must contain.
+/**
+ * File pattern match. Currently a prefix or the whole part of the filename before the substring.
+ * Supplied as non-option program argument. Any partial path moved to pattern path.
+ */
+static CSTRING Pattern = NULL;
+static CSTRING Pattern_Path = NULL;             ///< Input path and any pattern partial path.
+static size_t Pattern_Len = 0;                  ///< Length of pattern match, program exits if not > 0.
 static CSTRING Matrix[E_NMATRIX];               ///< Predetermined matrix input file locations.
 
 static struct dirent **Dir_List = NULL;         ///< The pattern matched directory list.
@@ -87,10 +94,28 @@ static CSTRING Current = NULL;                  ///< Current input file, used to
 
 /* private functions */
 
+/** Clear structures and values associated with a pattern. */
+static void clear_pattern(void) {
+
+    Pattern = free_CSTRING(Pattern);
+    Pattern_Path = free_CSTRING(Pattern_Path);
+    Pattern_Len = 0;
+    Index = -1;
+
+    if ((Dir_Num > 0) && (Dir_List != NULL)) {
+        for (int i = 0; i < Dir_Num; i++) {
+            free(Dir_List[i]);
+        }
+        free(Dir_List);
+        Dir_List = NULL;
+        Dir_Num = 0;
+    }
+}
+
 /**
  * Create a full path name from a directory and filename. Places a path delimiter between them;
  * delimiter may change according to target system.
- * Return false if cannot allocate memory for name string.
+ * Return false if supplied filename is null or cannot allocate memory for name string.
  */
 static bool full_path(const CSTRING dir, const CSTRING filename, CSTRING *filepath) {
 /*  Parameters: dir - the directory, may be null
@@ -98,6 +123,8 @@ static bool full_path(const CSTRING dir, const CSTRING filename, CSTRING *filepa
                 filepath - full pathname (returned)
     Returns:    whether succeeded
 */
+    if (filename == NULL) {return false;}
+
     /* determine length required, allow for delimiter */
     size_t len = strlen(filename);
     if (dir != NULL) {
@@ -121,7 +148,7 @@ static bool full_path(const CSTRING dir, const CSTRING filename, CSTRING *filepa
 }
 
 /** Create the fixed tag and suffix string that an intensities file must contain. */
-static void make_substring() {
+static void make_substring(void) {
 
     /* check if anything to match */
     size_t taglen = strlen(INTEN_TAG[Input_Format]);
@@ -188,7 +215,8 @@ char *strcasestr(const char *s1, const char *s2) {
 
 
 /**
- * Selector function for scandir. Matches to a prefix and inclusion of a fixed tag and suffix.
+ * Selector function for scandir. Matches to a prefix and fixed tag and suffix.
+ * If pattern ends with prefix indicator then allows inclusion of additional characters between.
  * Assumes match substring already set up.
  * Returns non-zero value if match found as required by scandir.
  */
@@ -196,24 +224,75 @@ static int match_pattern(const struct dirent *list) {
 
     int ret = 0;
 
-    /* check if prefix matches */
-    int diff = strncasecmp(list->d_name, Pattern, Pattern_Len);
-    if (diff == 0) {
-
-        /* check if contains _input tag and suffix  */
-        if (IntenSubstr != NULL) {
-            char *it = strcasestr(list->d_name, IntenSubstr);
-            if(it != NULL) {
+    if (Pattern[Pattern_Len - 1] == PREFIXCHAR) {
+        /* check if prefix matches beginning */
+        if (strncasecmp(list->d_name, Pattern, Pattern_Len - 1) == 0) {
+            /* check if contains _input tag and suffix  */
+            if (IntenSubstr != NULL) {
+                if (strcasestr(list->d_name, IntenSubstr) != NULL) {
+                    ret = 1;
+                }
+            }
+            else {
+                /* nothing to match */
                 ret = 1;
             }
         }
-        else {
-            /* nothing to match */
+    }
+
+    else {
+        /* create whole filename */
+        size_t len = Pattern_Len;
+        if (IntenSubstr != NULL) {
+            len += strlen(IntenSubstr);
+        }
+        CSTRING filename = new_CSTRING(len);
+        strcpy(filename, Pattern);
+        if (IntenSubstr != NULL) {
+            strcat(filename, IntenSubstr);
+        }
+        /* check for whole filename match, still allows for compression suffix */
+        if (strncasecmp(list->d_name, filename, len) == 0) {
             ret = 1;
         }
+        free_CSTRING(filename);
     }
 
     return ret;
+}
+
+/** Make a new input path by adding any partial path from filename, and remove from filename. */
+static CSTRING move_partial_path(const CSTRING filepath, CSTRING *filename) {
+
+    if (filepath == NULL) {return NULL;}
+    if (*filename == NULL) {return NULL;}
+
+    CSTRING newpath = NULL;
+    size_t oldlen = strlen(filepath);
+
+    /* find the beginning of the name */
+    char *pdlm = strrchr(*filename, PATH_DELIM);
+    if (pdlm == NULL) {
+        /* no partial path, return filepath unchanged */
+        newpath = copy_CSTRING(filepath);
+    }
+    else {
+        /* add the partial path to a new path */
+        size_t sublen = pdlm - *filename;
+        newpath = new_CSTRING(oldlen + sublen + strlen(PATH_DELIMSTR));
+        strcpy(newpath, filepath);
+        if (newpath[oldlen - 1] != PATH_DELIM) {
+            strcat(newpath, PATH_DELIMSTR);
+        }
+        strncat(newpath, *filename, sublen);
+
+        /* remove the partial path from the filename */
+        CSTRING old = *filename;
+        *filename = copy_CSTRING(old + sublen + 1);
+        free_CSTRING(old);
+    }
+
+    return newpath;
 }
 
 /**
@@ -329,16 +408,16 @@ static CSTRING output_name_cif(const CSTRING oldname, const CSTRING tag, int blk
  * Scan the input directory for any files that match the specified pattern.
  * Result placed in Dir_List. Return the number found.
  */
-static int scan_inputs() {
+static int scan_inputs(void) {
 
     /* hmhm new message func to return a message string */
-    static const char *ERRMESS = "Fatal: Couldn't open the directory: \'%s\'";
+    static const char *ERRMESS = "Error: Couldn't open the directory: \'%s\'";
 
-    int num = scandir (Input_Path, &Dir_List, match_pattern, alphasort);
+    int num = scandir (Pattern_Path, &Dir_List, match_pattern, alphasort);
 
     if (num < 0) {
-        CSTRING msg = new_CSTRING(strlen(ERRMESS) + strlen(Input_Path));
-        sprintf(msg, ERRMESS, Input_Path);
+        CSTRING msg = new_CSTRING(strlen(ERRMESS) + strlen(Pattern_Path));
+        sprintf(msg, ERRMESS, Pattern_Path);
         perror (msg);
         free_CSTRING(msg);
     }
@@ -379,7 +458,7 @@ bool check_outdir(const CSTRING dirname, const char * typestr) {
 }
 
 /** Return the name of the current input file. */
-CSTRING get_current_file() {
+CSTRING get_current_file(void) {
 
     if (Current == NULL) {
         return "";
@@ -390,13 +469,13 @@ CSTRING get_current_file() {
 }
 
 /** Return the selected input format. */
-INFORM get_input_format() {
+INFORM get_input_format(void) {
 
     return Input_Format;
 }
 
 /** Return the file pattern match argument. */
-CSTRING get_pattern() {
+CSTRING get_pattern(void) {
 
     if (Pattern == NULL) {
         return "";
@@ -463,7 +542,7 @@ XFILE * open_next(XFILE *fplast) {
         message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, Current);
 
         /* make a full path name */
-        if (full_path(Input_Path, Current, &filepath)) {
+        if (full_path(Pattern_Path, Current, &filepath)) {
            fp =  xfopen(filepath, XFILE_UNKNOWN, "r" );
 
            if (xfisnull(fp)) {
@@ -477,6 +556,9 @@ XFILE * open_next(XFILE *fplast) {
         free_CSTRING(filepath);
     }
 
+    if ((fp == NULL) && (Current != NULL)) {
+        Current = free_CSTRING(Current);
+    }
     return fp;
 }
 
@@ -573,28 +655,52 @@ void set_location(const CSTRING path, IOTYPE idx){
     }
 }
 
-/** Set the input filename pattern to match to. */
-void set_pattern(const CSTRING pattern) {
-
-    Pattern = copy_CSTRING(pattern);
-}
-
 /**
- * Start up; call at program start after options.
- * Checks pattern argument supplied, output directory exists and at least one input file found.
- * Return true if no errors.
+ * Set the input filename pattern to match to. Moves any partial path to pattern path.
+ * Checks pattern argument supplied, and at least one input file found.
  */
-bool startup_dirio() {
+bool set_pattern(const CSTRING pattern) {
+
+    clear_pattern();
+    Pattern = copy_CSTRING(pattern);
+
+    /* move any partial path from pattern to path */
+    Pattern_Path = move_partial_path(Input_Path, &Pattern);
 
     /* check pattern match supplied */
     if (Pattern != NULL) {
         Pattern_Len = strlen(Pattern);
     }
 
-    if (Pattern_Len == 0) {
-        message(E_NOPATTERN, MSG_FATAL);
+    if ((Pattern_Len == 0) || (Pattern_Path == NULL)) {
+        message(E_NOPATTERN_FILE_S, MSG_ERR, pattern);
         return false;
     }
+
+    /* scan for matching input files */
+    Dir_Num = scan_inputs();
+    if (Dir_Num < 0) {
+        /* failed to access directory */
+        return false;
+    }
+
+    if (Dir_Num == 0) {
+        message (E_NOINPUT_SS, MSG_ERR, Pattern_Path, Pattern);
+        return false;
+    }
+    else {
+        /* at least one input file */
+        message(E_PATTERN_MATCH_SD, MSG_INFO, pattern, Dir_Num);
+        return true;
+    }
+}
+
+/**
+ * Start up; call at program start after options.
+ * Checks output directory exists and creates the match substring.
+ * Return true if no errors.
+ */
+bool startup_dirio(void) {
 
     /* set default i/o paths if not supplied */
     if (Input_Path == NULL) {
@@ -608,36 +714,24 @@ bool startup_dirio() {
     if (!check_outdir(Output_Path, "output")) {
          return false;
     }
-
-    /* scan for matching input files; first create the match substring */
+    /* create the input filename match substring */
     make_substring();
-    Dir_Num = scan_inputs();
-    if (Dir_Num < 0) {
-        /* failed to access directory */
-        return false;
-    }
 
     message(E_INPUT_DIR_S, MSG_INFO, Input_Path);
     message(E_OPT_SELECT_SS, MSG_INFO, "Input format" ,INFORM_MESS_TEXT[Input_Format]);
-    if (Dir_Num == 0) {
-        message (E_NOINPUT_SS, MSG_FATAL, Input_Path, Pattern);
-        return false;
-    }
-    else {
-        /* at least one input file */
-        message(E_PATTERN_MATCH_SD, MSG_INFO, Pattern, Dir_Num);
-        message(E_OUTPUT_DIR_S, MSG_INFO, Output_Path);
-        return true;
-    }
+    message(E_OUTPUT_DIR_S, MSG_INFO, Output_Path);
+    return true;
 }
 
 /** Tidy up; call at program shutdown. */
-void tidyup_dirio() {
+void tidyup_dirio(void) {
+
+    /* clear any pattern info */
+    clear_pattern();
 
     /* free string memory */
     Input_Path = free_CSTRING(Input_Path);
     Output_Path = free_CSTRING(Output_Path);
-    Pattern = free_CSTRING(Pattern);
     IntenSubstr = free_CSTRING(IntenSubstr);
     for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
         Matrix[idx] = free_CSTRING(Matrix[idx]);
