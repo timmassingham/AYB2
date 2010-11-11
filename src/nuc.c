@@ -110,14 +110,6 @@ ARRAY(NUC) nucs_from_string( const char * nucstr ){
     return nucs;
 }
 
-bool has_ambiguous_base(const NUC * restrict nucs, const uint_fast32_t n){
-   for ( uint_fast32_t i=0 ; i<n ; i++){
-      if(isambig(nucs[i])){ return true; }
-   }
-   return false;
-}
-
-
 NUC complement(const NUC nuc){
     switch(nuc){
     case NUC_A: return NUC_T;

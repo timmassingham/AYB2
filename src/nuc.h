@@ -57,6 +57,15 @@ PHREDCHAR read_PHREDCHAR(XFILE * fp);
 /** Returns true if NUC set to ambiguous. */
 static inline bool isambig(const NUC nuc) { return ((nuc - NUC_AMBIG) == 0); }
 
+/** Returns true if any NUC in the array is set to ambiguous. */
+static inline bool has_ambiguous_base(const NUC * restrict nucs, const uint_fast32_t n) {
+    for (uint_fast32_t i = 0; i < n; i++) {
+        if (isambig(nucs[i])) { return true; }
+    }
+    return false;
+}
+
+
 /* use type safe ARRAY construct to define arrays of NUC and PHREDCHAR */
 #define X(A) A ## NUC
 #include "array.def"
@@ -72,7 +81,6 @@ char char_from_nuc(const NUC nuc) __attribute__((const));
 ARRAY(NUC) nucs_from_string( const char * nucstr );
 NUC complement(const NUC nuc) __attribute__((const));
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
-inline bool has_ambiguous_base(const NUC * restrict nucs, const uint_fast32_t n);
 
 PHREDCHAR phredchar_from_char( const char c)  __attribute__((const)); 
 PHREDCHAR phredchar_from_prob( const real_t p)  __attribute__((const));
