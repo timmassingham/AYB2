@@ -125,7 +125,7 @@ static bool read_matrices(void) {
     XFILE *fpmat = NULL;
     bool found = true;
 
-    for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
+    for (IOTYPE idx = (IOTYPE)0; idx < E_NMATRIX; idx++) {
         if (matrix_from_file(idx)) {
             fpmat = open_matrix(idx);
             if (fpmat == NULL) {
@@ -1067,7 +1067,7 @@ static RETOPT output_results (int blk) {
             break;
 
         case E_CIF:
-            fpout = open_output_blk((const CSTRING)OUTFORM_TEXT[OutputFormat], blk);
+            fpout = open_output_blk((CSTRING)OUTFORM_TEXT[OutputFormat], blk);
             break;
 
         default: ;
@@ -1484,7 +1484,7 @@ bool set_output_format(const char *outform_str) {
     /* match to one of the possible options */
     int matchidx = match_string(outform_str, OUTFORM_TEXT, E_OUTFORM_NUM);
     if (matchidx >= 0) {
-        OutputFormat = matchidx;
+        OutputFormat = (OUTFORM)matchidx;
         return true;
     }
     else {
@@ -1576,7 +1576,7 @@ void tidyup_model(void){
 
     /* free memory */
     SimText = free_CSTRING(SimText);
-    for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
+    for (IOTYPE idx = (IOTYPE)0; idx < E_NMATRIX; idx++) {
         Matrix[idx] = free_MAT(Matrix[idx]);
     }
     xfree(ZeroLambda);

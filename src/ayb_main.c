@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
 
     int ret = EXIT_SUCCESS;
     int nextarg = 0;
+    XFILE *fp = NULL;
 
     /* install signal handler   */
     signal(SIGINT, INThandler);
@@ -123,7 +124,6 @@ int main(int argc, char **argv) {
     for (int i = nextarg; i < argc; i++) {
         if (set_pattern(argv[i])) {
             /* process each intensity file until no more or a no continue error */
-            XFILE *fp = NULL;
             status = E_CONTINUE;
 
             while (status == E_CONTINUE) {

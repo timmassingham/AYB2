@@ -48,6 +48,7 @@
 static CLUSTER read_CLUSTER_line(unsigned int *ncycle, char *ptr, const bool first) {
     CLUSTER cluster = NULL;
     MAT signals = NULL;
+    int nc = 0, ncfound = 0;
 
     /* Read coordinate information */
     unsigned long int x, y;
@@ -55,7 +56,6 @@ static CLUSTER read_CLUSTER_line(unsigned int *ncycle, char *ptr, const bool fir
     if ('\t' != ptr[0]) {goto cleanup;}
     y = strtoul(ptr, &ptr, 0);
 
-    int ncfound = 0;
     if (first) {
         /* count number of cycles available, preserve original line pointer */
         char *ptr1 = ptr;
@@ -67,7 +67,7 @@ static CLUSTER read_CLUSTER_line(unsigned int *ncycle, char *ptr, const bool fir
     }
 
     /* read cycle data */
-    int nc = *ncycle;
+    nc = *ncycle;
     signals = new_MAT_from_line(NBASE, &nc, ptr);
     if ((NULL == signals) || (nc == 0)) {goto cleanup;}
 

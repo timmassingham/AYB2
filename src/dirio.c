@@ -35,8 +35,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <ctype.h>          // for toupper
 #include <dirent.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include "dirio.h"
 #include "message.h"
@@ -628,7 +630,7 @@ bool set_input_format(const char *inform_str) {
     /* match to one of the possible options */
     int matchidx = match_string(inform_str, INFORM_TEXT, E_INFORM_NUM);
     if (matchidx >= 0) {
-        Input_Format = matchidx;
+        Input_Format = (INFORM)matchidx;
         return true;
     }
     else {
@@ -733,7 +735,7 @@ void tidyup_dirio(void) {
     Input_Path = free_CSTRING(Input_Path);
     Output_Path = free_CSTRING(Output_Path);
     IntenSubstr = free_CSTRING(IntenSubstr);
-    for (IOTYPE idx = 0; idx < E_NMATRIX; idx++) {
+    for (IOTYPE idx = (IOTYPE)0; idx < E_NMATRIX; idx++) {
         Matrix[idx] = free_CSTRING(Matrix[idx]);
     }
 }

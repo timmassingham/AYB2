@@ -155,10 +155,10 @@ void free_cif ( CIFDATA cif ){
 
 bool __attribute__((const)) isCifAllowedDatasize ( const uint8_t datasize );
 CIFDATA readCifHeader (XFILE * ayb_fp);
-encInt readCifIntensities ( XFILE * ayb_fp , const CIFDATA const header, encInt intensties );
+encInt readCifIntensities ( XFILE * ayb_fp , const CIFDATA header, encInt intensties );
 encInt readEncodedFloats ( XFILE  * ayb_fp, const uint32_t nfloat, const uint8_t nbyte, encInt  tmp_mem );
-bool writeCifHeader ( XFILE * ayb_fp, const CIFDATA const header);
-bool writeCifIntensities ( XFILE * ayb_fp , const CIFDATA const header,
+bool writeCifHeader ( XFILE * ayb_fp, const CIFDATA header);
+bool writeCifIntensities ( XFILE * ayb_fp , const CIFDATA header,
                            const encInt intensities );
 bool writeEncodedFloats ( XFILE * ayb_fp , const uint32_t nfloat , const uint8_t nbyte,
                           const encInt floats );
@@ -246,7 +246,7 @@ encInt readEncodedFloats ( XFILE  * ayb_fp, const uint32_t nfloat, const uint8_t
 
 
 /* Write header for CIF file */
-bool writeCifHeader ( XFILE * ayb_fp, const CIFDATA const header){
+bool writeCifHeader ( XFILE * ayb_fp, const CIFDATA header){
     assert( isCifAllowedDatasize(header->datasize) );
     assert( 1==header->version );
 
@@ -376,7 +376,7 @@ bool write2CIFfile ( const char * fn, const XFILE_MODE mode, const encInt  inten
     return ret;
 }
 
-bool writeCIFtoFile ( const CIFDATA const cif, const char * fn, const XFILE_MODE mode){
+bool writeCIFtoFile ( const CIFDATA cif, const char * fn, const XFILE_MODE mode){
     if(NULL==cif){ return false;}
     if(NULL==fn){ return false;}
     return write2CIFfile(fn,mode,cif->intensity,cif->firstcycle,cif->ncycle,cif->ncluster,cif->datasize);
@@ -413,11 +413,15 @@ bool consistent_cif_headers( const CIFDATA cif1, const CIFDATA cif2 ){
 }
 
 CIFDATA cif_add_file( const char * fn, const XFILE_MODE mode, CIFDATA cif ){
+   XFILE * ayb_fp = NULL;
+   CIFDATA newheader = NULL;
+   encInt mem = {.i32=NULL};
+
    if ( NULL==fn){ goto cif_add_error;}
-   XFILE * ayb_fp = xfopen(fn,mode,"rb");
+   ayb_fp = xfopen(fn,mode,"rb");
    if ( NULL==ayb_fp){ goto cif_add_error;}
 
-   CIFDATA newheader = readCifHeader(ayb_fp);
+   newheader = readCifHeader(ayb_fp);
    if ( NULL==newheader ){ goto cif_add_error;}
    if ( NULL==cif->intensity.i8 ){
       cif->ncluster = newheader->ncluster;
@@ -427,7 +431,6 @@ CIFDATA cif_add_file( const char * fn, const XFILE_MODE mode, CIFDATA cif ){
    }
    if ( ! consistent_cif_headers(cif,newheader) ){ goto cif_add_error;}
    const uint32_t offset = (newheader->firstcycle - 1) * cif->ncluster * NCHANNEL;
-   encInt mem = {.i8=NULL};
    switch(cif->datasize){
        case 1: mem.i8 = cif->intensity.i8 + offset; break;
        case 2: mem.i16 = cif->intensity.i16 + offset; break;
@@ -540,7 +543,7 @@ readCIF_error:
 
 
 /*  Print routine for CIF structure */
-void showCIF ( XFILE * ayb_fp, const CIFDATA const cif, bool showall){
+void showCIF ( XFILE * ayb_fp, const CIFDATA cif, bool showall){
     static const char * basechar = "ACGT";
     if ( NULL==ayb_fp) return;
     if ( NULL==cif) return;
