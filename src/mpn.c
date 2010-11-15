@@ -200,11 +200,15 @@ real_t calculateDeltaLSE(const MAT Mt, const MAT P, const MAT N, const MAT J, co
 }
 
 MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TILE tile, const uint_fast32_t ncycle, MAT K){
+    LIST(CLUSTER) node = NULL;
+    uint_fast32_t cl = 0;
     real_t * tmp = NULL;
+
     validate(NULL!=lambda,NULL);
     validate(NULL!=we,NULL);
     validate(NULL!=tile,NULL);
     const uint_fast32_t ncluster = tile->ncluster;
+    const uint_fast32_t lda = NBASE*NBASE;
 
     if(NULL==K){
         K = new_MAT(NBASE*NBASE,ncycle*ncycle);
@@ -215,40 +219,39 @@ MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TI
     tmp = calloc(NBASE*ncycle,sizeof(real_t));
     if(NULL==tmp){ goto cleanup; }
 
-    const uint_fast32_t lda = NBASE*NBASE;
-    uint_fast32_t cl = 0;
-    LIST(CLUSTER) node = tile->clusterlist;
+    node = tile->clusterlist;
     while (NULL != node && cl < ncluster){
         const bool has_ambig = has_ambiguous_base(bases.elt+cl*ncycle, ncycle);
         const real_t welam = we->x[cl] * lambda->x[cl];
-	for ( uint_fast32_t i=0 ; i<(NBASE*ncycle) ; i++){
-	   tmp[i] = welam * node->elt->signals->x[i];
-	}
-	if(has_ambig){
-           for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
-               const uint_fast32_t ioffset = cy*NBASE;
-               for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
-                   const uint_fast32_t base = bases.elt[cl*ncycle+cy2];
-                   if(!isambig(base)){
-                       const uint_fast32_t koffset = cy*lda*ncycle + cy2*lda + base;
-                       for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
+        for ( uint_fast32_t i=0 ; i<(NBASE*ncycle) ; i++){
+           tmp[i] = welam * node->elt->signals->x[i];
+        }
+        if (has_ambig) {
+            for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+                const uint_fast32_t ioffset = cy*NBASE;
+                for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
+                    const uint_fast32_t base = bases.elt[cl*ncycle+cy2];
+                    if(!isambig(base)){
+                        const uint_fast32_t koffset = cy*lda*ncycle + cy2*lda + base;
+                        for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
                            K->x[ koffset + ch*NBASE] += tmp[ioffset + ch];
-                       }
-		   }
+                        }
+                    }
                 }
             }
-        } else {
-	   for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
-               const uint_fast32_t ioffset = cy*NBASE;
-               for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
-                   const uint_fast32_t base = bases.elt[cl*ncycle+cy2];
-                   const uint_fast32_t koffset = cy*lda*ncycle + cy2*lda + base;
-                   for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
-                       K->x[ koffset + ch*NBASE] += tmp[ioffset + ch];
-                   }
+        }
+        else {
+            for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+                const uint_fast32_t ioffset = cy*NBASE;
+                for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
+                    const uint_fast32_t base = bases.elt[cl*ncycle+cy2];
+                    const uint_fast32_t koffset = cy*lda*ncycle + cy2*lda + base;
+                    for ( uint_fast32_t ch=0 ; ch<NBASE ; ch++){
+                        K->x[ koffset + ch*NBASE] += tmp[ioffset + ch];
+                    }
                 }
             }
-       }
+        }
 
         /* next cluster */
         node = node->nxt;

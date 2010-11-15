@@ -1514,7 +1514,7 @@ bool set_solver(const char *solver_str) {
     /* match to options */
     int matchidx = match_string(solver_str, SOLVER_TEXT, E_SOLVER_NUM);
     if (matchidx>=0) {
-        SolverIndex = matchidx;
+        SolverIndex = (SOLVID)matchidx;
         SolverRoutine = SOLVERS[matchidx];
         return true;
     }
