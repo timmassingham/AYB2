@@ -30,11 +30,13 @@
 /* constants */
 
 /** Program Version. */
-static const float VERSION = 1.06;      // Final working values, mu arg, bad data handling
-/** Release date. */
-static const unsigned int VERSION_DATE = 20100922;
+static const float VERSION = 1.07;      // Quality score calibration, missing data handling,
+                                        // GC content, sim output, argument defaults, optimisation
+/** Version release date. */
+static const unsigned int VERSION_DATE = 20101115;
 
 /* keep a history */
+// Version 1.06;    20100922    Final working values, mu arg, bad data handling
 // Version 1.05;    20100730    P Solver, MPN unit test, CIF format
 // Version 1.04;    20100617    MPN, Quality output and Datablocks
 // Version 1.03;    20100520    AYB Base Call Loop
@@ -51,12 +53,12 @@ static const unsigned int VERSION_DATE = 20100922;
 
 /* public functions */
 
-/** Return the program version. Uses ayb_version.h */
+/** Return the program version. */
 float get_version(void) {
     return VERSION;
 }
 
-/** Return the program version date as an integer representing yyyymmdd. Uses ayb_version.h */
+/** Return the program version date as an integer representing yyyymmdd. */
 unsigned int get_version_date(void) {
     return VERSION_DATE;
 }
