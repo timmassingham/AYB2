@@ -807,6 +807,37 @@ static WORKPTR close_processed(WORKPTR work) {
     return work;
 }
 
+/** Output final model values. */
+static void output_final(int blk) {
+    XFILE *fpfin = NULL;
+
+    /* final model values */
+    fpfin = open_output_blk("final", blk);
+    if (!xfisnull(fpfin)) {
+        show_AYB(fpfin, Ayb, false);
+    }
+    xfclose(fpfin);
+
+    /* final M, N, P in input format */
+    fpfin = open_output_blk("M", blk);
+    if (!xfisnull(fpfin)) {
+        write_MAT_to_column_file (fpfin, Ayb->M);
+    }
+    xfclose(fpfin);
+
+    fpfin = open_output_blk("N", blk);
+    if (!xfisnull(fpfin)) {
+        write_MAT_to_column_file (fpfin, Ayb->N);
+    }
+    xfclose(fpfin);
+
+    fpfin = open_output_blk("P", blk);
+    if (!xfisnull(fpfin)) {
+        write_MAT_to_column_file (fpfin, Ayb->P);
+    }
+    xfclose(fpfin);
+}
+
 /**
  * Call bases. Includes calculate covariance and estimate lambda.
  * Last iteration parameter for final working.
@@ -988,15 +1019,9 @@ static int estimate_bases(int blk, const bool lastiter) {
     if (show_processed) {
         work = close_processed(work);
         xfree(work);
-    }
 
-    if (show_processed) {
-        XFILE *fpfin = NULL;
-        fpfin = open_output_blk("final", blk);
-        if (!xfisnull(fpfin)) {
-            show_AYB(fpfin, Ayb, false);
-        }
-        fpfin = xfclose(fpfin);
+        /* final model values */
+        output_final(blk);
     }
 
     free_MAT(pcl_int);
@@ -1492,16 +1517,16 @@ bool set_output_format(const char *outform_str) {
     }
 }
 
-/** Set simdata flag and text for file. */
-void set_simdata(const CSTRING simdata_str) {
-    SimData = true;
-    SimText = copy_CSTRING(simdata_str);
-}
-
 /** Set show working flag. */
 void set_show_working(void) {
 
     ShowWorking = true;
+}
+
+/** Set simdata flag and text for file. */
+void set_simdata(const CSTRING simdata_str) {
+    SimData = true;
+    SimText = copy_CSTRING(simdata_str);
 }
 
 /**

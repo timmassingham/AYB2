@@ -414,6 +414,29 @@ MAT read_MAT_from_column_file(XFILE * fp) {
     return mat;
 }
 
+/**
+ * Write a matrix to a file as a list of columns, one column per row.
+ * First row contains number of rows and columns.
+ */
+void write_MAT_to_column_file (XFILE * fp, const MAT mat) {
+    if (NULL == fp) {return;}
+    if (NULL == mat) {return;}
+
+    const int nrow = mat->nrow;
+    const int ncol = mat->ncol;
+
+    /* first line is number of rows and columns */
+    xfprintf(fp, "%d %d\n", nrow, ncol);
+
+    for (int col = 0; col < ncol; col++) {
+        for (int row = 0; row < nrow; row++) {
+            xfprintf(fp, " %8.2f", mat->x[col * nrow + row]);
+        }
+        /* next column line */
+        xfprintf(fp, "\n");
+    }
+}
+
 bool is_square(const MAT mat){
     validate(NULL!=mat,false);
     if(mat->nrow!=mat->ncol){ return false;}
