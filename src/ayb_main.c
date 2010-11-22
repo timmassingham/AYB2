@@ -49,7 +49,7 @@
 /* private functions */
 
 /** Tidy up before exit. Include all module tidyup routines here. */
-static void tidyup() {
+static void tidyup(void) {
     tidyup_model();
     tidyup_dirio();
     tidyup_datablock();
@@ -69,8 +69,8 @@ int main(int argc, char **argv) {
     int nextarg = 0;
     XFILE *fp = NULL;
 
-    /* install signal handler   */
-    signal(SIGINT, INThandler);
+    /* install signal handler - interrupt does not work as written, do not enable */
+//    signal(SIGINT, INThandler);
     signal(SIGFPE, FPEhandler);
 
     /* read program options */
