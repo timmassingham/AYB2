@@ -34,8 +34,12 @@
 #include "xio.h"                // for XFILE
 
 
+/** Path delimiter character. For linux, other OS? */
+static const char PATH_DELIM = '/';
+
 /** Possible input formats. */
 typedef enum InFormT {E_TXT, E_CIF, E_INFORM_NUM} INFORM;
+
 /**
  * Types of file location information. Also used as index into predetermined input matrices.
  * E_NMATRIX indicates number of such matrices.

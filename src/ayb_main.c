@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <string.h>
 #include "ayb_model.h"
 #include "ayb_options.h"
 #include "datablock.h"
@@ -143,7 +144,15 @@ int main(int argc, char **argv) {
         }
     }
 
-    fprintf(stdout, "End of AYB\n");
+    /* get program executable name */
+    char *pname = strrchr(argv[0], PATH_DELIM);
+    if (pname == NULL) {
+        pname = argv[0];
+    }
+    else {
+        pname++;
+    }
+    fprintf(stdout, "End of %s\n", pname);
 
 cleanup:
     /* tidy up before exit */

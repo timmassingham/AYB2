@@ -106,7 +106,6 @@ static const char *MSG_SEV_TEXT[] = {
         ""};
 
 /* location and name of message file */
-static const char PATH_DELIM = '/';                 ///< Path delimiter. For linux, other OS?
 static const char *DATE_TIME = "%d %B %Y %H:%M";    ///< Log header date; gives 'dd mmmm yyyy hh:mm'.
 static const size_t DATE_TIME_LEN = 24;             ///< Maximum length of log header date, including null terminator.
 

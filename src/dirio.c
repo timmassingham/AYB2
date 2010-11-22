@@ -48,7 +48,6 @@
 
 static const char *DEFAULT_PATH = "./";         ///< Use current directory if none supplied.
 static const char *PATH_DELIMSTR = "/";         ///< Path delimiter as string. For linux, other OS?
-static const char PATH_DELIM = '/';             ///< Path delimiter as char. For linux, other OS?
 static const char PREFIXCHAR = '+';             ///< Indicates pattern to be treated as a prefix.
 static const char DOT = '.';                    ///< Before file extension, used for tag location.
 static const char DELIM = '_';                  ///< Before tag, used for tag location.
