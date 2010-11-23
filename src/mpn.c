@@ -416,17 +416,21 @@ MAT calculatePlhs( const real_t wbar, const MAT Sbar, const MAT Mt, const MAT J,
 }
 
 
-// tmp should be ncycle*ncycle long
-MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT K, real_t * tmp, MAT rhs){
+// tmp should be ncycle*ncycle+NBASE*ncycle long
+MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT Sbar, const MAT N, const MAT K, real_t * tmp, MAT rhs){
     validate(NULL!=Ibar,NULL);
     validate(NULL!=Mt,NULL);
+    validate(NULL!=Sbar,NULL);
+    validate(NULL!=N,NULL);
     validate(NULL!=K,NULL);
     validate(NULL!=tmp,NULL);
     const real_t alpha = 1.0;
+    const real_t negalpha = -1.0;
     const real_t  beta = 0.0;
 
-    const uint32_t ncycle = Ibar->ncol;
+    const int ncycle = Ibar->ncol;
     const int lda = ncycle;
+    const int nbase = Mt->nrow;
     if(NULL==rhs){
         rhs = new_MAT(lda,ncycle);
         validate(NULL!=rhs,NULL);
@@ -435,6 +439,10 @@ MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT K, real_t * tmp, MAT 
 
     // Reshape KtVec(M)
     gemv(LAPACK_TRANS,&K->nrow,&K->ncol,&alpha,K->x,&K->nrow,Mt->x,LAPACK_UNIT,&beta,tmp,LAPACK_UNIT);
+    //  - Sbar^t M^t N
+    gemm(LAPACK_NOTRANS,LAPACK_NOTRANS,&nbase,&ncycle,&nbase,&alpha,Mt->x,&nbase,N->x,&nbase,&beta,tmp+ncycle*ncycle,&nbase);
+    gemm(LAPACK_TRANS,LAPACK_NOTRANS,&ncycle,&ncycle,&nbase,&negalpha,Sbar->x,&nbase,tmp+ncycle*ncycle,&nbase,&alpha,tmp,&ncycle);
+
     for ( uint32_t cy1=0 ; cy1<ncycle ; cy1++){
         for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
             rhs->x[cy1*lda+cy2] = tmp[cy1*ncycle+cy2];
@@ -717,6 +725,9 @@ int main ( void){
     MAT matP = coerce_MAT_from_array(ncycle,ncycle,P);
     fputs("Initial P matrix:\n",stdout);
     show_MAT(xstdout,matP,0,0);
+    MAT N = new_MAT(NBASE,ncycle);
+    fputs("Initial N matrix:\n",stdout);
+    show_MAT(xstdout,N,0,0);
 
     /* pre-calculation terms */
     fputs("\nResults:\n", stdout);
@@ -764,7 +775,7 @@ int main ( void){
     MAT Plhs = calculatePlhs(Wbar,matSbar,matMt,J,tmp,NULL);
     fputs("P lhs matrix:\n",stdout);
     show_MAT(xstdout,Plhs,0,0);
-    MAT Prhs = calculatePrhs(matIbar,matMt,K,tmp,NULL);
+    MAT Prhs = calculatePrhs(matIbar,matMt,matSbar,N,K,tmp,NULL);
     fputs("P rhs matrix:\n",stdout);
     show_MAT(xstdout,Prhs,0,0);
 

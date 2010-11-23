@@ -476,7 +476,7 @@ static real_t estimate_MPN(void){
          *  Solution for phasing
          */
         plhs = calculatePlhs(Wbar,Sbar,matMt,J,tmp,plhs);
-        prhs = calculatePrhs(Ibar,matMt,K,tmp,prhs);
+        prhs = calculatePrhs(Ibar,matMt,Sbar,matN,K,tmp,prhs);
         SolverRoutine(plhs,prhs,tmp, DELTA_DIAG);
         for ( uint32_t i=0 ; i<ncycle ; i++){
             for(uint32_t j=0 ; j<ncycle ; j++){

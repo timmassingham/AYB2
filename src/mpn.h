@@ -44,7 +44,7 @@ MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TI
 MAT calculateMlhs( const MAT var, const real_t wbar, const MAT SbarT, const MAT P, const MAT Jt, real_t * tmp, MAT lhs);
 MAT calculateMrhs( const MAT var, const MAT IbarT, const MAT P, const MAT Kt, real_t * tmp, MAT rhs);
 MAT calculatePlhs( const real_t wbar, const MAT Sbar, const MAT Mt, const MAT J, real_t * tmp, MAT lhs);
-MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT K, real_t * tmp, MAT rhs);
+MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT Sbar, const MAT N, const MAT K, real_t * tmp, MAT rhs);
 real_t calculateDeltaLSE(const MAT Mt, const MAT P, const MAT N, const MAT J, const MAT K, real_t * tmp);
 int solverChol( MAT lhs, MAT rhs, real_t * tmp);
 int solverSVD(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag);
