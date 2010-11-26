@@ -307,7 +307,7 @@ static inline bool nodata(const real_t * sig, const int num) {
 
 /**
  * Set initial values for the model.
- * Returns false if one of the initial matrices is wrong dimension.
+ * Returns false if one of the initial matrices is wrong dimension or process intensities fails.
  */
 static bool initialise_model(void) {
 
@@ -336,6 +336,7 @@ static bool initialise_model(void) {
     MAT pcl_int = NULL;                     // Shell for processed intensities
     MAT Minv_t = transpose_inplace(invert(Ayb->M));
     MAT Pinv_t = transpose_inplace(invert(Ayb->P));
+    bool ret = true;
 
 #ifndef NDEBUG
     XFILE *fpout = NULL;
@@ -348,6 +349,10 @@ static bool initialise_model(void) {
     LIST(CLUSTER) node = Ayb->tile->clusterlist;
     while (NULL != node && cl < Ayb->ncluster){
         pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
+        if (NULL == pcl_int) {
+            ret = false;
+            goto cleanup;
+        }
 
 #ifndef NDEBUG
     if (ShowDebug) {
@@ -384,10 +389,11 @@ static bool initialise_model(void) {
     }
 #endif
 
+cleanup:
     free_MAT(pcl_int);
     free_MAT(Pinv_t);
     free_MAT(Minv_t);
-    return true;
+    return ret;
 }
 
 /** Calculate new weights. */
@@ -689,9 +695,9 @@ static MAT * calculate_covariance(bool all){
     MAT Minv_t = NULL, Pinv_t = NULL;   // Temporary matrices to speed calculation
     /* Create t(inverse(M)) and t(inverse(P)) */
     Minv_t = transpose_inplace(invert(Ayb->M));
-    if(NULL == Minv_t){ goto cleanup;}
+    if (NULL == Minv_t) { goto cleanup; }
     Pinv_t = transpose_inplace(invert(Ayb->P));
-    if(NULL == Pinv_t){ goto cleanup;}
+    if (NULL == Pinv_t) { goto cleanup; }
 
     real_t wesum = 0.;
 
@@ -700,7 +706,7 @@ static MAT * calculate_covariance(bool all){
     while (NULL != node && cl < ncluster){
         const NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
         pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
-        if(NULL == pcl_int){ goto cleanup;}
+        if (NULL == pcl_int) { goto cleanup; }
 
         /* add this cluster values */
         if (all) {
@@ -709,7 +715,7 @@ static MAT * calculate_covariance(bool all){
         else {
             V = accumulate_covariance(Ayb->we->x[cl], pcl_int, Ayb->lambda->x[cl], cl_bases, V);
         }
-        if(NULL == V){ goto cleanup;}
+        if (NULL == V) { goto cleanup; }
 
         /* sum denominator */
         wesum += Ayb->we->x[cl];
@@ -725,12 +731,12 @@ static MAT * calculate_covariance(bool all){
 
     /* scale sum of squares to make covariance */
     if (all) {
-        if(NULL==V || NULL == V[0]){ goto cleanup;}
+        if (NULL == V || NULL == V[0]) { goto cleanup; }
         scale_MAT(V[0], 1.0/wesum);
     }
     else {
         for ( uint32_t cy = 0; cy < ncycle; cy++){
-            if(NULL==V || NULL == V[cy]){ goto cleanup;}
+            if (NULL == V || NULL == V[cy]) { goto cleanup; }
             /* add a diagonal offset to help with bad data */
             for ( uint32_t i = 0; i < NBASE; i++){
                 V[cy]->x[i * NBASE + i] += 1.0;
@@ -741,12 +747,12 @@ static MAT * calculate_covariance(bool all){
     return V;
 
 cleanup:
-    if(NULL!=V){
+    if (NULL != V) {
         const uint32_t nc =  all ? 1 : ncycle;
-        for( uint32_t cy = 0; cy < nc; cy++){
+        for (uint32_t cy = 0; cy < nc; cy++) {
             free_MAT(V[cy]);
         }
-        free(V);
+        xfree(V);
     }
     free_MAT(pcl_int);
     free_MAT(Pinv_t);
@@ -805,28 +811,6 @@ static void write_processed(WORKPTR work, CLUSTER cluster, const uint32_t cl, MA
     }
 }
 
-/** Finish and close a processed intensities file. */
-static WORKPTR close_processed(WORKPTR work) {
-
-    switch (get_input_format()) {
-        case E_TXT:
-            /* nothing to do */
-            break;
-
-        case E_CIF:
-            if (!xfisnull(work->fp)) {
-                writeCIFtoStream(work->cif, work->fp);
-            }
-            break;
-
-        default: ;
-    }
-
-    free_cif(work->cif);
-    work->fp = xfclose(work->fp);
-    return work;
-}
-
 /** Output final model values. */
 static void output_final(int blk) {
     XFILE *fpfin = NULL;
@@ -859,6 +843,37 @@ static void output_final(int blk) {
 }
 
 /**
+ * Finish off and close up final processed intensities output.
+ * Output is done here for cif and final model.
+ * If status is error then just free resources.
+ */
+static WORKPTR close_processed(WORKPTR work, int blk, const int status) {
+
+    if (status != DATA_ERR) {
+        switch (get_input_format()) {
+            case E_TXT:
+                /* nothing to do */
+                break;
+
+            case E_CIF:
+                if (!xfisnull(work->fp)) {
+                    writeCIFtoStream(work->cif, work->fp);
+                }
+                break;
+
+            default: ;
+        }
+
+        /* final model values */
+        output_final(blk);
+    }
+
+    free_cif(work->cif);
+    work->fp = xfclose(work->fp);
+    return work;
+}
+
+/**
  * Call bases. Includes calculate covariance and estimate lambda.
  * Last iteration parameter for final working.
  * Returns number of zero lambdas or data error indication.
@@ -868,8 +883,16 @@ static int estimate_bases(int blk, const bool lastiter) {
     validate(NULL != Ayb, 0);
     const uint32_t ncluster = Ayb->ncluster;
     const uint32_t ncycle = Ayb->ncycle;
+    MAT pcl_int = NULL;                 // Shell for processed intensities
+    MAT Pinv_t=NULL, Minv_t=NULL;       // Temporary matrices to speed computation
+    MAT * V = NULL;                     // Array of covariance matrices
+    real_t * qual = NULL;
+    int ret_count = 0;
+    bool show_processed = (ShowWorking && lastiter);
+    WORKPTR work = NULL;
 
 #ifndef NDEBUG
+    XFILE *fpi2 = NULL;
     XFILE *fpout = NULL;
     if (ShowDebug) {
         fpout = open_output("ayb2");
@@ -881,7 +904,7 @@ static int estimate_bases(int blk, const bool lastiter) {
 #endif
 
     /* calculate covariance */
-    MAT * V = calculate_covariance(false);
+    V = calculate_covariance(false);
 
     if (V == NULL) {
         /* set calls to null and terminate processing */
@@ -904,7 +927,8 @@ static int estimate_bases(int blk, const bool lastiter) {
             cl++;
         }
 
-        return DATA_ERR;
+        ret_count = DATA_ERR;
+        goto cleanup;
     }
 
 #ifndef NDEBUG
@@ -938,12 +962,10 @@ static int estimate_bases(int blk, const bool lastiter) {
     }
 
     /* process intensities then estimate lambda and call bases for each cluster */
-    MAT pcl_int = NULL;                 // Shell for processed intensities
-    MAT Minv_t = transpose_inplace(invert(Ayb->M));
-    MAT Pinv_t = transpose_inplace(invert(Ayb->P));
+    Minv_t = transpose_inplace(invert(Ayb->M));
+    Pinv_t = transpose_inplace(invert(Ayb->P));
 
 #ifndef NDEBUG
-    XFILE *fpi2 = NULL;
     if (ShowDebug) {
         fpi2 = open_output("pi2");
         fpout = open_output("lam2");
@@ -954,20 +976,28 @@ static int estimate_bases(int blk, const bool lastiter) {
 #endif
 
     /* output processed intensities if requested and final iteration */
-    bool show_processed = (ShowWorking && lastiter);
-    WORKPTR work = NULL;
     if (show_processed) {
         work = open_processed(blk);
     }
 
     unsigned int cl = 0;
-    int zerolambda = 0;
+
+    /* Temporary storage for (real_t) quality values */
+    qual = calloc(ncycle, sizeof(real_t));
+    if (NULL == qual) {
+        ret_count = DATA_ERR;
+        goto cleanup;
+    }
 
     LIST(CLUSTER) node = Ayb->tile->clusterlist;
     while (NULL != node && cl < ncluster){
         NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
         PHREDCHAR * cl_quals = Ayb->quals.elt + cl * ncycle;
         pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
+        if (NULL == pcl_int) {
+            ret_count = DATA_ERR;
+            goto cleanup;
+        }
 
         if (show_processed) {
             write_processed(work, node->elt, cl, pcl_int);
@@ -977,7 +1007,7 @@ static int estimate_bases(int blk, const bool lastiter) {
 //        Ayb->lambda->x[cl] = estimate_lambdaGWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x, V);
         Ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x);
         if (Ayb->lambda->x[cl] == 0.0) {
-            zerolambda++;
+            ret_count++;
         }
 
 #ifndef NDEBUG
@@ -992,7 +1022,6 @@ static int estimate_bases(int blk, const bool lastiter) {
 #endif
 
         /* call bases for each cycle */
-        real_t qual[ncycle]; // Tempory storage for (real_t) quality values
         for (uint32_t cy = 0; cy < ncycle; cy++){
             /* deal differently with missing data */
             if (nodata(node->elt->signals->x + cy * NBASE, NBASE)) {
@@ -1036,22 +1065,24 @@ static int estimate_bases(int blk, const bool lastiter) {
     }
 #endif
 
+/* cleanup for success and error states */
+cleanup:
     if (show_processed) {
-        work = close_processed(work);
+        work = close_processed(work, blk, ret_count);
         xfree(work);
-
-        /* final model values */
-        output_final(blk);
     }
 
+    xfree(qual);
     free_MAT(pcl_int);
     free_MAT(Pinv_t);
     free_MAT(Minv_t);
-    for(uint32_t cy = 0; cy < ncycle; cy++){
-        free_MAT(V[cy]);
+    if (NULL != V) {
+        for (uint32_t cy = 0; cy < ncycle; cy++) {
+            free_MAT(V[cy]);
+        }
+        xfree(V);
     }
-    xfree(V);
-    return zerolambda;
+    return ret_count;
 }
 
 /** Output message with counts if any zero lambdas. */
