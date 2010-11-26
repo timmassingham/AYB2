@@ -138,7 +138,7 @@ static bool read_matrices(void) {
                     found = false;
                 }
             }
-            fpmat = xfclose(fpmat);
+            xfclose(fpmat);
         }
         else {
             /* no input file specified, initialise using internal method later */
@@ -265,7 +265,7 @@ static MAT init_matrix(MAT mat, const IOTYPE idx) {
             case E_CROSSTALK:
                 /* shouldn't reach this as crosstalk always set up in read_matrices */
                 /* initial crosstalk from default array */
-                mat = free_MAT(mat);
+                free_MAT(mat);
                 mat = new_MAT_from_array(NBASE, NBASE, INITIAL_CROSSTALK);
                 break;
 
@@ -277,7 +277,7 @@ static MAT init_matrix(MAT mat, const IOTYPE idx) {
             case E_PHASING:
                 /* initial phasing */
                 #warning "Phasing not properly initialised yet"
-                mat = free_MAT(mat);
+                free_MAT(mat);
                 mat = identity_MAT(nrow);
                 break;
 
@@ -380,7 +380,7 @@ static bool initialise_model(void) {
 
 #ifndef NDEBUG
     if (ShowDebug) {
-        fpout = xfclose(fpout);
+        xfclose(fpout);
     }
 #endif
 
@@ -520,6 +520,8 @@ static real_t estimate_MPN(void){
 
     // Transpose Mt back to normal form
     matMt = transpose_inplace(matMt);
+    if (NULL==matMt) { message(E_MATRIX_FAIL_S, MSG_ERR, "transposed"); }
+
     // Scale lambdas by factor
     scale_MAT(Ayb->lambda,lambdaf);
 
@@ -1011,8 +1013,8 @@ static int estimate_bases(int blk, const bool lastiter) {
 
 #ifndef NDEBUG
     if (ShowDebug) {
-        fpi2 = xfclose(fpi2);
-        fpout = xfclose(fpout);
+        xfclose(fpi2);
+        xfclose(fpout);
     }
 #endif
 
@@ -1118,7 +1120,7 @@ static RETOPT output_results (int blk) {
 //        xfputs("\n", fpout);
         xfputc('\n', fpout);
     }
-    fpout = xfclose(fpout);
+    xfclose(fpout);
     return E_CONTINUE;
 }
 
@@ -1165,7 +1167,7 @@ static CSTRING format_header (CSTRING simtext) {
             token = strtok(NULL, "\n");
         }
 
-        simtext = free_CSTRING(simtext);
+        free_CSTRING(simtext);
         simtext = new;
     }
     return simtext;
@@ -1240,7 +1242,7 @@ static void output_simdata(const int argc, char ** const argv, int blk) {
         xfree(V);
     }
 
-    fpsim = xfclose(fpsim);
+    xfclose(fpsim);
 }
 
 
@@ -1382,7 +1384,7 @@ RETOPT analyse_tile (const int argc, char ** const argv, XFILE *fp) {
     TILE * tileblock = NULL;
     tileblock = create_datablocks(maintile, numblock);
     /* no longer need the raw data as read in */
-    maintile = free_TILE(maintile);
+    free_TILE(maintile);
 
     if (tileblock == NULL) {
         message(E_DATABLOCK_FAIL_S, MSG_FATAL, get_current_file());
@@ -1416,7 +1418,7 @@ RETOPT analyse_tile (const int argc, char ** const argv, XFILE *fp) {
         if (!xfisnull(fpout)) {
             show_AYB(fpout, Ayb, true);
         }
-        fpout = xfclose(fpout);
+        xfclose(fpout);
     }
 #endif
 
