@@ -686,9 +686,12 @@ static MAT * calculate_covariance(bool all){
 
     MAT * V = NULL;                     // memory allocated in accumulate
     MAT pcl_int = NULL;                 // Shell for processed intensities
+    MAT Minv_t = NULL, Pinv_t = NULL;   // Temporary matrices to speed calculation
     /* Create t(inverse(M)) and t(inverse(P)) */
-    MAT Minv_t = transpose_inplace(invert(Ayb->M));
-    MAT Pinv_t = transpose_inplace(invert(Ayb->P));
+    Minv_t = transpose_inplace(invert(Ayb->M));
+    if(NULL == Minv_t){ goto cleanup;}
+    Pinv_t = transpose_inplace(invert(Ayb->P));
+    if(NULL == Pinv_t){ goto cleanup;}
 
     real_t wesum = 0.;
 
@@ -697,7 +700,7 @@ static MAT * calculate_covariance(bool all){
     while (NULL != node && cl < ncluster){
         const NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
         pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
-        validate(NULL != pcl_int, NULL);
+        if(NULL == pcl_int){ goto cleanup;}
 
         /* add this cluster values */
         if (all) {
@@ -706,7 +709,7 @@ static MAT * calculate_covariance(bool all){
         else {
             V = accumulate_covariance(Ayb->we->x[cl], pcl_int, Ayb->lambda->x[cl], cl_bases, V);
         }
-        validate(NULL != V, NULL);
+        if(NULL == V){ goto cleanup;}
 
         /* sum denominator */
         wesum += Ayb->we->x[cl];
@@ -716,16 +719,18 @@ static MAT * calculate_covariance(bool all){
         cl++;
     }
 
-    free_MAT(pcl_int);
-    free_MAT(Pinv_t);
-    free_MAT(Minv_t);
+    pcl_int = free_MAT(pcl_int);
+    Pinv_t = free_MAT(Pinv_t);
+    Minv_t = free_MAT(Minv_t);
 
     /* scale sum of squares to make covariance */
     if (all) {
+        if(NULL==V || NULL == V[0]){ goto cleanup;}
         scale_MAT(V[0], 1.0/wesum);
     }
     else {
         for ( uint32_t cy = 0; cy < ncycle; cy++){
+            if(NULL==V || NULL == V[cy]){ goto cleanup;}
             /* add a diagonal offset to help with bad data */
             for ( uint32_t i = 0; i < NBASE; i++){
                 V[cy]->x[i * NBASE + i] += 1.0;
@@ -734,6 +739,19 @@ static MAT * calculate_covariance(bool all){
         }
     }
     return V;
+
+cleanup:
+    if(NULL!=V){
+        const uint32_t nc =  all ? 1 : ncycle;
+        for( uint32_t cy = 0; cy < nc; cy++){
+            free_MAT(V[cy]);
+        }
+        free(V);
+    }
+    free_MAT(pcl_int);
+    free_MAT(Pinv_t);
+    free_MAT(Minv_t);
+    return NULL;
 }
 
 /**
@@ -1236,7 +1254,10 @@ static void output_simdata(const int argc, char ** const argv, int blk) {
     /* calculate and output all covariance */
     MAT * V = calculate_covariance(true);
     
-    if (V != NULL) {
+    if (V == NULL) {
+        message(E_NOCREATE_S, MSG_ERR, "full covariance");
+    }
+    else {
         show_MAT_rownum(fpsim, V[0], 0, 0, false);
         free_MAT(V[0]);
         xfree(V);

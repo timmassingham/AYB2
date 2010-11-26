@@ -63,6 +63,7 @@ static const char *MSG_TEXT[] = {
         "Failed to read input file: %s\n",                                      // E_BAD_INPUT_S
         "Failed to create data blocks for input file: %s\n",                    // E_DATABLOCK_FAIL_S
         "Failed to initialise %s matrix\n",                                     // E_MATRIX_FAIL_S
+        "Failed to create %s\n",                                                // E_NOCREATE_S
         "Zero lambdas per iteration: %s\n",                                     // E_ZERO_LAMBDA_S
         "Supplied %s location parameter \'%s\' is not a directory\n",           // E_BAD_DIR_SS
         "Failed to create new %s directory \'%s\'\n",                           // E_NOCREATE_DIR_SS
