@@ -534,7 +534,7 @@ XFILE * open_next(XFILE *fplast) {
     XFILE *fp = NULL;
 
     if (fplast != NULL) {
-        fplast = xfclose(fplast);
+        xfclose(fplast);
         Current = free_CSTRING(Current);
     }
 
