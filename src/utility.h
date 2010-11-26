@@ -84,7 +84,7 @@ typedef char * CSTRING;
 CSTRING new_CSTRING(const size_t len);
 CSTRING free_CSTRING(CSTRING cstr);
 CSTRING copy_CSTRING(const CSTRING cstr);
-void extend_CSTRING(const CSTRING c, const size_t len);
+CSTRING renew_CSTRING(const CSTRING c, const size_t len);
 void show_CSTRING(FILE *fp, const CSTRING cstr);
 //CSTRING read_CSTRING(FILE *fp);
 

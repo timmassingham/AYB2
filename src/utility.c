@@ -65,33 +65,24 @@ CSTRING copy_CSTRING(const CSTRING c) {
     return n;
 }
 
-/** Increase the length of a string. No action if already at least specified length. Untested */
-void extend_CSTRING(CSTRING c, const size_t len) {
-    if (NULL==c) {
-        /* nothing to copy */
-        c = new_CSTRING(len);
+/**
+ * Change the length of a string.
+ * The location of the storage is moved so it is important to use the same CSTRING parameter
+ * for input and return else the input parameter will be left invalid.
+ * If zero length is specified then the original is returned unchanged.
+ * If new length is shorter then the original string is truncated.
+ * Any additional new string length is initialised to null.
+ * If allocation fails then the original string is freed and NULL returned.
+ */
+CSTRING renew_CSTRING(CSTRING c, const size_t len) {
+    if (0==len) {return c;}
+    
+    CSTRING n = new_CSTRING(len);
+    if ((NULL!=c) && (NULL!=n)) {
+        strncpy(n, c, len);
     }
-    else {
-        size_t oldlen = sizeof(c);
-        if (oldlen < len + 1) {
-            /* make longer */
-            CSTRING n = realloc(c, len + 1);
-            if (n != NULL) {
-                memset(n + oldlen, len + 1 - oldlen , 0);
-                c = n;
-            }
-/*
-            CSTRING n = new_CSTRING(len);
-            validate(NULL!=n,);
-            strcpy(n, c);
-            free_CSTRING(c);
-            c = n;
-*/
-        }
-        else {
-            /* long enough already, do nothing */
-        }
-    }
+    free_CSTRING(c);
+    return n;
 }
 
 /** Output contents of string to specified file. */
