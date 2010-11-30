@@ -1,6 +1,7 @@
 /**
  * \file ayb_help.h
  * Help text for AYB.
+ * Include as bulk text in options print_help.
  */
 
 //"12345678901234567890123456789012345678901234567890123456789012345678901234567890\n"

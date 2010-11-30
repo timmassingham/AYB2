@@ -1,6 +1,7 @@
 /**
  * \file ayb_usage.h
  * Usage text for AYB.
+ * Include as bulk text in options print_usage.
  */
  
 //"12345678901234567890123456789012345678901234567890123456789012345678901234567890\n"

@@ -94,6 +94,5 @@ void set_message_path(const CSTRING path);
 
 bool startup_message(const char *prefix);
 void tidyup_message(void);
-void tidy_message(void);
 
 #endif /* MESSAGE_H_ */

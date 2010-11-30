@@ -1,7 +1,18 @@
 /** 
  * \file datablock.c
  * Data Block Class.
- * Used to decode and store how the data in an intensity file should be grouped for analysis.
+ * Decodes and stores how the cycle data in an intensity file should be grouped for analysis.
+ 
+ * The blockstring (b) program option has the form RnInCn, decoded as:
+ * - R => read
+ * - I => ignore
+ * - C => concatenate to previous block (first R must precede first C)
+ * 
+ * The default is all cycles in one block.
+ *
+ * The parsing function checks the blockstring for syntax and decodes it, 
+ * storing the results in a list of datablocks. 
+ * Get next block then returns each datablock in turn until no more.
  *//* 
  *  Created : 28 May 2010
  *  Author  : Hazel Marsden
@@ -37,11 +48,21 @@
 static bool DefaultBlock = true;                    ///< Default to all available cycles in one block if no argument.
 static unsigned int TotalCycle = 0;                 ///< Total number of cycles to analyse.
 static unsigned int NumBlock = 0;                   ///< Number of distinct blocks to analyse.
-static LIST(DATABLOCK) BlockList = NULL;            ///< List of data blocks.
-static LIST(DATABLOCK) Current = NULL;              ///< Current data block.
+
+/* doxygen confused by LIST */
+/** BlockList = NULL; List of data blocks.
+ * Also static LIST(DATABLOCK) Current = NULL; 
+ *
+ * Current data block.
+ */
+static LIST(DATABLOCK) BlockList = NULL;
+static LIST(DATABLOCK) Current = NULL;
 
 
 /* private functions */
+
+/* helps doxygen confused by LIST */
+static void __attribute__((__used__)) null1(void){}
 
 /** Return the type of block string token. */
 static BLOCKTYPE decode_token(const char ch) {

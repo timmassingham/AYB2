@@ -3,13 +3,16 @@
  * General Messaging Utility.
  * This provides a central messaging system for the output of program information at various levels up to debugging.
  * The level of message output is selected using a program option (default Warning).
- * \n\n Program messages are output to stderr which can be redirected in a run script.
+ * 
+ * Program messages are output to stderr which can be redirected in a run script.
  * Alternatively a file path can be specified as a program option and a message file will be created.
- * \n\n A program message is implemented by calling the message() function with a type and severity parameter,
+ * 
+ * A program message is implemented by calling the message() function with a type and severity parameter,
  * followed by a variable number of additional parameters of varying type corresponding to the selected message type.
  * The type enumerations include a suffix to indicate the parameters required.
  * The varying parameters are handled using vfprintf which takes a va_list argument. 
- * \n\n New message types can be added as needed by extending the MsgTypeT enumeration (#MSGTYPE) and adding the appropriate message text. 
+ * 
+ * New message types can be added as needed by extending the MsgTypeT enumeration (#MSGTYPE) and adding the appropriate message text. 
  * Message text is stored in the #MSG_TEXT char array which is formatted for printf output.
  * The text is matched to the correct message type enumeration by the order. 
  *//*
@@ -116,14 +119,14 @@ static const size_t DATE_TIME_LEN = 24;             ///< Maximum length of log h
 static int Msg_Level = MSG_WARN;
 /**
  * Selected pathname for message file.
- * Output is to stderr unless redirected by a program option, 
+ * Output is to stderr unless redirected by a program option.
  */
 static CSTRING Msg_Path = NULL;
 
 
 /* private functions */
 
-/** Check path part of file path. */
+/** Check path part of file path. Try to create if does not exist. */
 static bool check_path(const CSTRING filepath) {
 
     if (filepath == NULL) {return false;}
@@ -149,7 +152,12 @@ static bool check_path(const CSTRING filepath) {
 
 /* public functions */
 
-/** Output a log message. */
+/** 
+ * Output a log message. 
+ * Message type and severity parameters are required, followed by variable number of 
+ * additional parameters of varying type according to the selected message type.
+ * The parameters required are indicated by the type enumeration suffix.
+ */
 int message(MSGTYPE type, MSGSEV sev, ...) {
     va_list args;
     int ret = 0;
@@ -163,9 +171,10 @@ int message(MSGTYPE type, MSGSEV sev, ...) {
         va_start(args, sev);
         ret += vfprintf(stderr, MSG_TEXT[type], args);
         va_end(args);
+
+        /* write immediately */
+        fflush(stderr);
     }
-    /* write immediately */
-    fflush(stderr);
 
     /* returns number of characters printed */
     return ret;
@@ -188,7 +197,7 @@ bool set_message_level(const char *levelstr) {
     }
 }
 
-/** Set the message file location. */
+/** Set the message file name and location. */
 void set_message_path(const CSTRING path) {
 
     /* validate later */
@@ -244,9 +253,4 @@ void tidyup_message (void) {
 
     /* free string memory */
     free_CSTRING(Msg_Path);
-}
-
-/* delete all message files; run on supplied parameter */
-void tidy_message(void) {
-    //needed??
 }

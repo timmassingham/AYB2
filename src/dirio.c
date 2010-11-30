@@ -1,13 +1,19 @@
 /**
  * \file dirio.c
  * I/O Environment.
- *   - Input and output file locations (parameters).
- *   - Input file pattern match by input type (parameter), 
- *     prefix (parameter), substring (fixed) and suffix (fixed).
- *   - Search input directory for pattern match files.
- *   - Generate output file name.
- *   - File open and close.
- *
+ * Handles directory search and file open and close and file errors.
+ * 
+ * The input and output file locations are specified as program options (default current directory).
+ * Currently allows (by program option) for input files of type cif or txt (standard illumina format).
+ * Input intensity files are selected by matching with a prefix (non-option program argument) and substring (fixed).
+ * Standard function scandir is used to search the input directory for files matching the required pattern.
+ * Predetermined input matrix files are also opened here.
+ * 
+ * Output file names are generated from the input file name by replacing the 'tag' with a new one.
+ * The tag is the file suffix for cif files or between the last delimiter and the first dot for txt files. 
+ * Any txt compression suffix is also removed as output is always uncompressed.
+ * An attempt is made to create output directories if they do not exist.
+ * 
  * Used as a singleton class with local functions accessing global member data.
  *//*
  *  Created : 16 Mar 2010
@@ -55,8 +61,8 @@ static const char BLOCKCHAR = 'a';              ///< Start for additional block 
 
 /**
  * Possible input format text. Match to INFORM enum. Used to match program argument.
- * - Illumina files match name template <prefix>*_int.txt*[.<zip ext>]
- * - cif files match name template <prefix>*.cif
+ * - Illumina files match name template {prefix}[*]_int.txt*[.{zip ext}]
+ * - cif files match name template {prefix}[*].cif
  */
 static const char *INFORM_TEXT[] = {"TXT", "CIF"};
 /** Text for input format messages. Match to INFORM enum. */
@@ -297,8 +303,9 @@ static CSTRING move_partial_path(const CSTRING filepath, CSTRING *filename) {
 }
 
 /**
- * Return a new file name created from an original.
+ * Return a new file name created from an original txt.
  * Replaces the part between the last delimiter and the first dot with a new tag.
+ * Add a block suffix to the name if non-negative blk supplied.
  * Removes any compression suffix.
  */
 static CSTRING output_name(const CSTRING oldname, const CSTRING tag, int blk) {
@@ -334,7 +341,7 @@ static CSTRING output_name(const CSTRING oldname, const CSTRING tag, int blk) {
         for (pnext = oldname; pnext < pdlm; pnext++) {
             newname[pos++] = *pnext;
         }
-        /* add block suffix before delimeter */
+        /* add block suffix before delimiter */
         if (blk >= 0) {
             newname[pos++] = BLOCKCHAR + blk;
         }
@@ -362,6 +369,7 @@ static CSTRING output_name(const CSTRING oldname, const CSTRING tag, int blk) {
 /**
  * Return a new file name created from an original cif.
  * Replaces the suffix with a new tag.
+ * Add a block suffix to the name if non-negative blk supplied.
  */
 static CSTRING output_name_cif(const CSTRING oldname, const CSTRING tag, int blk) {
 
@@ -486,7 +494,7 @@ CSTRING get_pattern(void) {
     }
 }
 
-/** Return if a predetermined matrix input file is specified */
+/** Return if a predetermined matrix input file is specified. */
 bool matrix_from_file(IOTYPE idx) {
     return (Matrix[idx] != NULL);
 }
@@ -657,7 +665,7 @@ void set_location(const CSTRING path, IOTYPE idx){
 }
 
 /**
- * Set the input filename pattern to match to. Moves any partial path to pattern path.
+ * Set the input filename pattern to match. Moves any partial path to pattern path.
  * Checks pattern argument supplied, and at least one input file found.
  */
 bool set_pattern(const CSTRING pattern) {
