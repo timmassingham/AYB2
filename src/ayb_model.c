@@ -1510,6 +1510,7 @@ RETOPT analyse_tile (const int argc, char ** const argv, XFILE *fp) {
 
         else {
             message(E_INIT_FAIL_DD, MSG_ERR, blk + 1, Ayb->ncycle);
+            status = E_FAIL;
         }
 
         /* free the structure ready for next */
