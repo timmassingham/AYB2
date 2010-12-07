@@ -9,11 +9,11 @@ Illumina sequencing platform.
 
 SYNOPSIS
 --------
-*AYB*	-b blockstring -x prefix
-	[-c composition] [-d informat] [-f outformat] [-n iterations] [-m mu]
-	[-i input path] [-o output path] [-e log path] [-l log level]
-	[-w] [-M Crosstalk] [-P Phasing] [-N Noise] [-S Solver]
-
+*AYB* [-b blockstring] [-c composition] [-d input format] [-e log file]
+    [-f output format] [-i input path] [-l log level] [-m mu]
+    [-n iterations] [-o output path] [-s header] [-w]
+    [-M Crosstalk] [-N Noise] [-P Phasing] [-S Solver]
+    'prefix'[\+] ['prefix'[+] ...]
 
 *AYB* --help
 
@@ -23,75 +23,143 @@ SYNOPSIS
 
 *AYB* --version
 
+EXAMPLE
+-------
+*AYB* 'intensities'
+
+will process 'cif' file 'intensities' in one block using 5 iterations and
+output a 'fastq' file, both in the current directory with log messages to stderr.
+
 DESCRIPTION
 -----------
-Wibble
+AYB is an advanced basecaller for the Illumina sequencing platform,
+producing basecalls and associated quality measures from raw intensity
+information.
+
+AYB selects intensity files using the 'input' option location (if any) and
+command line 'prefix' arguments supplied. A 'prefix' may also contain a partial path.
+If a 'prefix' is followed by a `+' then it is treated as a prefix, 
+else the file match is exact.
+
+Raw intensities can be either cif or standard illumina (txt) format. 
+AYB looks for files matching one of the following templates:
+
+[horizontal]
+cif:: `{prefix}[*].cif` 
+
+txt:: `{prefix}[*]_int.txt*[.{zipext}]`
+
+The name of an intensities file without the extension (cif) or the part of the name up to the `_int' (txt) 
+will be referred to elsewhere as the `filename'.
+
+AYB can process an intensities file as a single block or be instructed to group the data 
+by cycle into multiple blocks and process separately. This allows for paired-end reads, 
+tags and filtering of poor quality data. See the 'blockstring' option for details.
+
+The normal output from AYB is a sequence file written to the 'output' option location (if any).
+The file format may be either fasta or fastq (option 'dataformat') and is named:
+
+[horizontal]
+cif:: `{filename}[x].fasta/q`
+
+txt:: `{filename}[x]_seq.txt`
+
+The `x' represents a, b, c ... and is used only if multiple blocks are specified.
+
+Program information messages, including errors, are written to stderr which can be 
+redirected to a file in the standard way or through the 'logfile' option.
+
 
 OPTIONS
 -------
-*-b,  --blockstring* <Rn[InCn...]>::
-	How to group cycle data in intensity files for analysis
-	(R=Read, I=Ignore, C=Concatenate onto previous block)
-	(First R must precede first C).
-
+*-b,  --blockstring* <Rn[InCn...]> [default: all in a single block]::
+	How to group cycle data in intensity files for analysis, decoded as:
+	
+	- R => Read
+	- I => Ignore 
+	- C => Concatenate onto previous block (first R must precede first C)
+	
 *-c, --composition* <proportion GC> [default: 0.5]::
-        The GC content of the material being sequenced, for use as a
+    The GC content of the material being sequenced, for use as a
 	prior when calling bases. The default setting is equivalent
 	to an equal prior on all bases.
 	The composition should be a proportion strictly between zero
 	and one.
 
-*-d,  --dataformat* <format> [default: txt]::
-	Input format (txt/cif).
+*-d,  --dataformat* <format> [default: cif]::
+	Input format (cif/txt).
 
-*-e,  --logfile* <path> [default: none]::
-	Location of message output. (Alternative to script redirect of
-error output).
+*-e,  --logfile* <filepath> [default: none]::
+	File path of message output (alternative to script redirect of error output).
+    Program messages include information messages (selected options, 
+    input file processing, zero lambda count), errors and warnings.
 
-*-f,  --format* <format> [default: fasta]::
+*-f,  --format* <format> [default: fastq]::
 	Output format (fasta/fastq).
 
 *-i,  --input* <path> [default: ""]::
-	Location of input files.
+	Location of input files. A 'prefix' may also contain a partial path.
 
 *-l,  --loglevel* <level> [default: warning]::
-	Level of message output.
-
-*-M,  --M* <filepath>::
-	Predetermined Crosstalk matrix file path.
+	Level of message output (none/fatal/error/warning/information/debug).
 
 *-m,  --mu* <num> [default: 1.0E-5]::
-	Adjust range of quality scores (Smaller value for higher 
-maximum quality score).
+	Adjust range of quality scores (smaller value for higher maximum quality score).
 
-*-N,  --N* <filepath>::
-	Predetermined Noise matrix file path.
+*-M,  --M* <filepath>::
+	Predetermined Crosstalk matrix file path. 
+	Format is a list of columns, one column per row with the first row 
+	containing the number of rows and columns (size 4 x 4).
+	If not supplied then a standard set of initial values are used.
 
 *-n,  --niter* <num> [default: 5]::
 	Number of model iterations.
 
+*-N,  --N* <filepath>::
+	Predetermined Noise matrix file path. 
+	Format is a list of columns, one column per row with the first row 
+	containing the number of rows and columns (size 4 x ncycle).	
+	If not supplied then initially set to zero.
+
 *-o,  --output* <path> [default: ""]::
-	Location to create output files
+	Location to create output files. Will be created if does not exist.
 
 *-P,  --P* <filepath>::
-	Predetermined Phasing matrix file path.
+	Predetermined Phasing matrix file path. 
+	Format is a list of columns, one column per row with the first row 
+	containing the number of rows and columns (size ncycle x ncycle).
+	If not supplied then initially set to identity.
 
-*-S,  --solver* <solver>::
-	Linear equation solver to use for P matrix.
+*-s  --simdata* <header>::
+    Output simulation data as used by simNGS program (lambda fit and full covariance matrix).
+    The header argument text is included in the file with limited interpretation.
+    Spaces can be used if the whole thing is enclosed in double quotes ("). 
+    This also allows the newline escape sequence (\n) to be interpreted. 
+    If quotes are required within the header then use either the double quote 
+    escape sequence (\") or single quotes (').    
+    The output file name is `{filename}.runfile` (cif) or `{filename}_runfile.txt` (txt).
 
-Options
-
-  ls      least squares, allow negatives [default].
-
-  zero    least squares then set negatives to zero.
-
-  nnls    non-negative least squares.
+*-S,  --solver* <solver> [default zero]::
+	Linear equation solver to use for P matrix. Options are:
+	
+    - 'ls'	least squares, allow negatives.
+    - 'zero'	least squares then set negatives to zero.
+    - 'nnls'	non-negative least squares.
 
 *-w,  --working*::
-	Output final working values.
-
-*-x,  --prefix* <path>::
-	Filter input files by match to prefix
+	Output final working values. Files created are:
+	
+	Final processed intensities:::
+	Format as intensities input, cif or txt.
+	Filenames `{filename}[x].pif` (cif) or `{filename}[x]_pif.txt` (txt).
+		
+	Final model values:::
+	Format as a collection of matrices.
+	Filenames `{filename}[x].final` (cif) or `{filename}[x]_final.txt` (txt).
+	
+	Crosstalk, Noise and Phasing matrices:::
+	Format as predetermined matrix input.
+	Filenames `{filename}[x].M/N/P` (cif) or `{filename}[x]_M/N/P.txt` (txt).	
 
 *--help*::
 	Display this help.
@@ -102,6 +170,43 @@ Options
 
 *--version*::
 	Display AYB version information.
+
+DIAGNOSTICS
+-----------
+
+Program Behaviour
+~~~~~~~~~~~~~~~~~
+AYB will issue an error message and stop if:
+
+- No prefix argument is supplied.
+- There is an error in the program options.
+- A predetermined input matrix cannot be read.
+- A sequence or message file cannot be written to.
+
+AYB will issue an error message and go on to the next prefix if:
+
+- There are no intensities files matching a prefix.
+- An intensities file does not contain enough cycles for the specified blockstring.
+- A predetermined input matrix is the wrong size.
+- The program runs out of memory to process.
+
+AYB will issue an error message and go on to the next intensities file if:
+
+- An intensities file cannot be read.
+
+FAQ
+~~~
+What is an `N' base call?::
+    `N' indicates that all the raw intensities for that cycle had value zero.
+    
+What causes a sequence to be all A's with quality `!'?::
+    Lambda has evaluated to zero for that cluster meaning base calls cannot be made.
+    Zero lambda counts (if any) are shown in the message log.
+
+TO DO
+-----
+Quality scores are calibrated to be in line with empirical observations using a table. 
+A default table is supplied and a description of how to adjust the table for local observations is to follow.
 
 AUTHOR
 ------
