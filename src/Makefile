@@ -1,5 +1,7 @@
 # makefile for AYB
 
+BINDIR = ../bin
+MANDIR = ../man
 CC = gcc
 FC = gfortran
 CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -std=gnu99
@@ -11,31 +13,31 @@ objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o call_bases.o cif.o
            snnls.o dnnls.o
 
 AYB: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ $(LDFLAGS) $(objects)
 	
 test: test-cluster test-matrix test-mpn test-nuc test-tile
 
 test-cluster: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects))
 
 test-matrix: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST matrix.c $(filter-out matrix.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST matrix.c $(filter-out matrix.o ayb_main.o,$(objects))
 
 test-mpn: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST mpn.c $(filter-out mpn.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST mpn.c $(filter-out mpn.o ayb_main.o,$(objects))
 
 test-nuc: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST nuc.c $(filter-out nuc.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST nuc.c $(filter-out nuc.o ayb_main.o,$(objects))
 
 test-tile: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects))
 
 test-weibull: statistics.o
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o ../bin/$@ -DTEST weibull.c $< && \
-	   ln -fs ../bin/$@ ../bin/qweibull && \
-	   ln -fs ../bin/$@ ../bin/pweibull && \
-	   ln -fs ../bin/$@ ../bin/dweibull && \
-	   ln -fs ../bin/$@ ../bin/fweibull
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST weibull.c $< && \
+	   ln -fs $(BINDIR)/$@ $(BINDIR)/qweibull && \
+	   ln -fs $(BINDIR)/$@ $(BINDIR)/pweibull && \
+	   ln -fs $(BINDIR)/$@ $(BINDIR)/dweibull && \
+	   ln -fs $(BINDIR)/$@ $(BINDIR)/fweibull
 
 ayb_options.o: ayb_options.c ayb_usage.h ayb_help.h
 
@@ -46,10 +48,21 @@ ayb_options.o: ayb_options.c ayb_usage.h ayb_help.h
 	$(FC) -m64 -O3 -o $@ -c $<
 
 clean:
-	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib
+	rm -f $(BINDIR)/* *~ *.o  *.obj  *.exe *.lib ../*.lis $(MANDIR)/*.1 $(MANDIR)/*.1.html
 	find .. -name "*.log" -exec rm {} \;
 	
-archive: clean
-	cd ../.. && tar zcf AYB.tgz --exclude=archive --exclude=Debug --exclude=test --exclude=runfiles AYB \
-	--exclude=.git --exclude=.cproject --exclude=.project --exclude=RemoteSystemsTempFiles --exclude=.metadata
+%.1: %.1.txt
+	cd $(MANDIR); a2x -d manpage -f manpage $<
+
+%.1.html: %.1.txt
+	cd $(MANDIR); asciidoc -d manpage $<
+
+man: man_troff man_html
+
+man_troff: $(MANDIR)/AYB.1
+
+man_html: $(MANDIR)/AYB.1.html
+
+archive: clean man
+	cd ../.. && tar zcf AYB.tgz --exclude=archive --exclude=test --exclude=doc --exclude=.git --exclude=.gitignore AYB
 
