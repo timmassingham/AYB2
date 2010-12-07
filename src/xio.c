@@ -242,7 +242,7 @@ size_t xfwrite(const void * restrict ptr, const size_t size, const size_t nmemb,
     	case XFILE_UNKNOWN:
         case XFILE_RAW:   ret = fwrite(ptr,size,nmemb,fp->ptr.fh); break;
         case XFILE_GZIP:  ret = gzwrite(fp->ptr.zfh,ptr,size*nmemb); break;
-        case XFILE_BZIP2: ret = BZ2_bzwrite(fp->ptr.bzfh,ptr,size*nmemb); break;
+        case XFILE_BZIP2: ret = BZ2_bzwrite(fp->ptr.bzfh,(void*)ptr,size*nmemb); break;
     }       
 
     return ret;
@@ -269,7 +269,7 @@ int xfputs ( const char * restrict str, XFILE * fp){
     	case XFILE_UNKNOWN:
         case XFILE_RAW:   ret = fputs(str,fp->ptr.fh); break;
         case XFILE_GZIP:  ret = gzputs(fp->ptr.zfh,str); break;
-        case XFILE_BZIP2: ret = BZ2_bzwrite(fp->ptr.bzfh,str,strlen(str)*sizeof(char)); break;
+        case XFILE_BZIP2: ret = BZ2_bzwrite(fp->ptr.bzfh,(void*)str,strlen(str)*sizeof(char)); break;
     }
     return ret;
 }
