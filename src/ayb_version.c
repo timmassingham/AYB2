@@ -30,12 +30,13 @@
 /* constants */
 
 /** Program Version. */
-static const float VERSION = 1.07;      // Quality score calibration, missing data handling,
-                                        // GC content, sim output, argument defaults, optimisation
+static const float VERSION = 2.00;      // Additional final MPN output, documenting, tidy up
 /** Version release date. */
-static const unsigned int VERSION_DATE = 20101115;
+static const unsigned int VERSION_DATE = 20101207;
 
 /* keep a history */
+// Version 1.07;    20101115    Quality score calibration, missing data handling,
+//                              GC content, sim output, argument defaults, optimisation
 // Version 1.06;    20100922    Final working values, mu arg, bad data handling
 // Version 1.05;    20100730    P Solver, MPN unit test, CIF format
 // Version 1.04;    20100617    MPN, Quality output and Datablocks
