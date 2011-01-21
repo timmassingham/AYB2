@@ -496,7 +496,12 @@ CSTRING get_pattern(void) {
 
 /** Return if a predetermined matrix input file is specified. */
 bool matrix_from_file(IOTYPE idx) {
-    return (Matrix[idx] != NULL);
+    if (idx < E_NMATRIX) {
+        return (Matrix[idx] != NULL);
+    }
+    else {
+        return false;
+    }
 }
 
 /**
@@ -658,6 +663,7 @@ void set_location(const CSTRING path, IOTYPE idx){
         case E_CROSSTALK:
         case E_NOISE:
         case E_PHASING:
+        case E_QUALTAB:
             Matrix[idx] = copy_CSTRING(path);
             break;
         default: ;

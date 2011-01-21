@@ -42,9 +42,9 @@ typedef enum InFormT {E_TXT, E_CIF, E_INFORM_NUM} INFORM;
 
 /**
  * Types of file location information. Also used as index into predetermined input matrices.
- * E_NMATRIX indicates number of such matrices.
+ * E_NMATRIX indicates total number of such matrices, and E_MNP the modelling ones.
  */
-typedef enum IOTypeT {E_CROSSTALK, E_NOISE, E_PHASING, E_INPUT, E_OUTPUT, E_NMATRIX = 3} IOTYPE;
+typedef enum IOTypeT {E_CROSSTALK, E_NOISE, E_PHASING, E_QUALTAB, E_INPUT, E_OUTPUT, E_MNP = 3, E_NMATRIX = 4} IOTYPE;
 
 /**
  * Open output file special block options.
