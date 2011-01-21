@@ -37,7 +37,65 @@
 
 
 /* private functions */
-/* None */
+
+/**
+ * Create a tile from cif data.
+ * Number of cycles required is specified, or zero means read all.
+ */
+static TILE create_TILE_from_cif(CIFDATA cif, unsigned int ncycle) {
+    TILE tile = NULL;
+    CLUSTER cl = NULL;
+    LIST(CLUSTER) listtail = NULL;
+
+    if(NULL==cif) {return NULL;}
+
+    unsigned int cifcycle = cif_get_ncycle(cif);
+    unsigned int cifcluster = cif_get_ncluster(cif);
+    xfprintf(xstderr, "Read cif tile: %u cycles from %u clusters.\n", cifcycle, cifcluster);
+
+    tile = new_TILE();
+    if (NULL==tile) {return NULL;}
+
+    if (ncycle == 0) {
+        /* get all available */
+        ncycle = cifcycle;
+    }
+    if (cifcycle < ncycle) {
+        /* not enough cycles, just return the number without bothering to store the data */
+        tile->ncycle = cifcycle;
+    }
+    else {
+        tile->ncycle = ncycle;
+        if (cifcycle > ncycle) {
+            /* extra data */
+            warnx("Intensity file contains more data than requested: additional %d cycles.", cifcycle - ncycle);
+        }
+
+        /* treat first cluster differently */
+        cl = read_cif_CLUSTER(cif, tile->ncluster, ncycle);
+        if (NULL==cl) {goto cleanup;}
+
+        tile->clusterlist = cons_LIST(CLUSTER)(cl, tile->clusterlist);
+        tile->ncluster++;
+
+        /* store remaining clusters, appending to tail of cluster list */
+        listtail = tile->clusterlist;
+        while (tile->ncluster < cifcluster) {
+            cl = read_cif_CLUSTER(cif, tile->ncluster, ncycle);
+            if (NULL==cl) {break;}
+            listtail = rcons_LIST(CLUSTER)(cl, listtail);
+            tile->ncluster++;
+        }
+     }
+
+    return tile;
+
+cleanup:
+    free_LIST(CLUSTER)(tile->clusterlist);
+    xfree(tile);
+    return NULL;
+}
+
 
 /* public functions */
 
@@ -183,70 +241,48 @@ TILE copy_append_TILE(TILE tileout, const TILE tilein, int colstart, int colend)
 
 /**
  * Read a tile from a cif file.
- * Number of cycles required is specified, or zero means read all.
  * Returns a new TILE containing a list of clusters, in the same order as file.
  */
-TILE read_cif_TILE (XFILE * fp, unsigned int ncycle) {
+TILE read_cif_TILE(XFILE * fp, unsigned int ncycle) {
     CIFDATA cif = NULL;
-    CLUSTER cl = NULL;
-    LIST(CLUSTER) listtail = NULL;
-    unsigned int cifcycle=0, cifcluster=0;
+    TILE tile = NULL;
 
     if(NULL==fp) {return NULL;}
-    TILE tile = new_TILE();
-    if (NULL==tile) {return NULL;}
 
     /* read in all the cif data */
     cif = readCIFfromStream(fp);
+
     if(NULL==cif){
         warnx("Failed to read tile.");
-        goto cleanup;
-    }
-
-    cifcycle = cif_get_ncycle(cif);
-    cifcluster = cif_get_ncluster(cif);
-    xfprintf(xstderr, "Read cif tile: %u cycles from %u clusters.\n", cifcycle, cifcluster);
-
-    if (ncycle == 0) {
-        /* get all available */
-        ncycle = cifcycle;
-    }
-    if (cifcycle < ncycle) {
-        /* not enough cycles, just return the number without bothering to store the data */
-        tile->ncycle = cifcycle;
     }
     else {
-        tile->ncycle = ncycle;
-        if (cifcycle > ncycle) {
-            /* extra data */
-            warnx("Intensity file contains more data than requested: additional %d cycles.", cifcycle - ncycle);
-        }
-
-        /* treat first cluster differently */
-        cl = read_cif_CLUSTER(cif, tile->ncluster, ncycle);
-        if (NULL==cl) {goto cleanup;}
-
-        tile->clusterlist = cons_LIST(CLUSTER)(cl, tile->clusterlist);
-        tile->ncluster++;
-
-        /* store remaining clusters, appending to tail of cluster list */
-        listtail = tile->clusterlist;
-        while (tile->ncluster < cifcluster) {
-            cl = read_cif_CLUSTER(cif, tile->ncluster, ncycle);
-            if (NULL==cl) {break;}
-            listtail = rcons_LIST(CLUSTER)(cl, listtail);
-            tile->ncluster++;
-        }
-     }
+        tile = create_TILE_from_cif(cif, ncycle);
+    }
 
     free_cif(cif);
     return tile;
+}
 
-cleanup:
+/**
+ * Read a tile from a cif run-folder.
+ * Returns a new TILE containing a list of clusters, in the same order as files.
+ */
+TILE read_folder_TILE(const char *root, const unsigned int nlane, const unsigned int ntile, unsigned int ncycle) {
+    CIFDATA cif = NULL;
+    TILE tile = NULL;
+
+    cif = readCIFfromDir(root, nlane, ntile, XFILE_RAW);
+
+    if(NULL==cif){
+        warnx("Failed to read tile from run-folder; lane number %u tile number %u.", nlane, ntile);
+    }
+    else {
+        xfprintf(xstderr, "Information: Run-folder data found; lane number %u tile number %u\n", nlane, ntile);
+        tile = create_TILE_from_cif(cif, ncycle);
+    }
+
     free_cif(cif);
-    free_LIST(CLUSTER)(tile->clusterlist);
-    xfree(tile);
-    return NULL;
+    return tile;
 }
 
 /**
@@ -255,7 +291,7 @@ cleanup:
  * \n read_known_TILE is deprecated in favour of read_TILE, which
  * preserves the order of the clusters.
  */
-TILE read_known_TILE( XFILE * fp, unsigned int ncycle){
+TILE read_known_TILE(XFILE * fp, unsigned int ncycle){
     if(NULL==fp){return NULL;}
     warnx("%s is for demonstration and is not fully functional.",__func__);
     TILE tile = new_TILE();
@@ -274,7 +310,7 @@ TILE read_known_TILE( XFILE * fp, unsigned int ncycle){
  * Number of cycles required is specified, or zero means read all.
  * Number read stored in tile structure.
  */
-TILE read_TILE( XFILE * fp, unsigned int ncycle){
+TILE read_TILE(XFILE * fp, unsigned int ncycle){
     TILE tile = NULL;
     CLUSTER cl = NULL;
     LIST(CLUSTER) listtail = NULL;
@@ -329,7 +365,7 @@ cleanup:
  * Write the lane and tile numbers to file.
  * Separated with a tab as per Illumina int.txt format.
  */
-void write_lane_tile (XFILE * fp, const TILE tile) {
+void write_lane_tile(XFILE * fp, const TILE tile) {
     xfprintf(fp, "%u\t%u", tile->lane, tile->tile);
 }
 

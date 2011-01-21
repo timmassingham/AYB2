@@ -51,15 +51,18 @@ TILE coerce_TILE_from_array(unsigned int ncluster, unsigned int ncycle, real_t *
 TILE copy_append_TILE(TILE tileout, const TILE tilein, int colstart, int colend);
 
 // Read a tile from a cif file.
-TILE read_cif_TILE (XFILE * fp, unsigned int ncycle);
+TILE read_cif_TILE(XFILE * fp, unsigned int ncycle);
+
+// Read a tile from a cif run-folder.
+TILE read_folder_TILE(const char *root, const unsigned int nlane, const unsigned int ntile, unsigned int ncycle);
 
 // Read tile from file in Illumina int.txt format, reverse order
-TILE read_known_TILE( XFILE * fp, unsigned int ncycle) __attribute__((deprecated));
+TILE read_known_TILE(XFILE * fp, unsigned int ncycle) __attribute__((deprecated));
 
 // Read tile from file in Illumina int.txt format, forwards order
-TILE read_TILE( XFILE * fp, unsigned int ncycle);
+TILE read_TILE(XFILE * fp, unsigned int ncycle);
 
 // Output
-void write_lane_tile (XFILE * fp, const TILE tile);
+void write_lane_tile(XFILE * fp, const TILE tile);
 
 #endif /* TILE_H_ */
