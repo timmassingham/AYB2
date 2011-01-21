@@ -41,7 +41,8 @@
 typedef enum MsgTypeT {E_DEFAULTBLOCK,
                        E_NOBLOCKS,
                        E_NOPATTERN,
-                       E_BADITER,
+                       E_BAD_ITER,
+                       E_BAD_RUNOPT,
                        E_NOMEM_S,
                        E_MSG_LEVEL_S,
                        E_INPUT_DIR_S,
@@ -59,13 +60,18 @@ typedef enum MsgTypeT {E_DEFAULTBLOCK,
                        E_BAD_INPUT_SS,
                        E_NOINPUT_SS,
                        E_OPEN_FAIL_SS,
+                       E_LANETILE_SS,
                        E_OPT_SELECT_SS,
+                       E_BAD_TXT_SS,
+                       E_BAD_NUM_SS,
+                       E_BAD_CHAR_SC,
                        E_PATTERN_MATCH_SD,
                        E_OPT_SELECT_SD,
                        E_MATRIXINIT_SDD,
                        E_OPT_SELECT_SE,
                        E_BAD_NUC_C,
                        E_PROCESS_FAIL_D,
+                       E_CYCLESIZE_D,
                        E_CYCLESIZE_DD,
                        E_TILESIZE_DD,
                        E_INIT_FAIL_DD,
@@ -95,7 +101,7 @@ int message(MSGTYPE type, MSGSEV sev, ...);
 bool set_message_level(const char *levelstr);
 void set_message_path(const CSTRING path);
 
-bool startup_message(const char *prefix);
+bool startup_message(void);
 void tidyup_message(void);
 
 #endif /* MESSAGE_H_ */

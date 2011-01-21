@@ -7,6 +7,13 @@
  * Currently allows (by program option) for input files of type cif or txt (standard illumina format).
  * Input intensity files are selected by matching with a prefix (non-option program argument) and substring (fixed).
  * Standard function scandir is used to search the input directory for files matching the required pattern.
+ * On each request for the next input any previous file is closed, the next one found is opened and the file handle returned.
+ *
+ * If cif input from a run-folder is selected (by program option) then the prefix is replaced by
+ * a lane and tile range string of the form Ln[-n]Tn[-n].
+ * Each request for the next input returns the next lane and tile in the range.
+ * A virtual input filename s_L_TTTT is created.
+ *
  * Predetermined input matrix files are also opened here.
  * 
  * Output file names are generated from the input file name by replacing the 'tag' with a new one.
@@ -55,6 +62,7 @@
 static const char *DEFAULT_PATH = "./";         ///< Use current directory if none supplied.
 static const char *PATH_DELIMSTR = "/";         ///< Path delimiter as string. For linux, other OS?
 static const char PREFIXCHAR = '+';             ///< Indicates pattern to be treated as a prefix.
+static const char RANGECHAR = '-';              ///< Used to separate the min/max in a range of values.
 static const char DOT = '.';                    ///< Before file extension, used for tag location.
 static const char DELIM = '_';                  ///< Before tag, used for tag location.
 static const char BLOCKCHAR = 'a';              ///< Start for additional block suffix.
@@ -67,14 +75,19 @@ static const char BLOCKCHAR = 'a';              ///< Start for additional block 
 static const char *INFORM_TEXT[] = {"TXT", "CIF"};
 /** Text for input format messages. Match to INFORM enum. */
 static const char *INFORM_MESS_TEXT[] = {"standard illumina txt", "cif"};
-static const char *INTEN_TAG[] = {"int", ""};       ///< Fixed Intensities file tags.
-static const char *INTEN_SUF[] = {"txt", "cif"};    ///< Fixed Intensities file suffixes.
+static const char *INTEN_TAG[] = {"int", ""};           ///< Fixed Intensities file tags.
+static const char *INTEN_SUF[] = {"txt", "cif"};        ///< Fixed Intensities file suffixes.
+
+static const char *LTMESS_TEXT = "Lane tile string";    ///< Lane Tile parameter name for messages.
 
 /**
  * Permission flags for a directory; owner/group all plus other read/execute.
  * Used by output directory create but seems to be ignored in favour of parent adoption.
  */
 static const mode_t DIR_MODE = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
+
+/** Directory check possible outcomes. */
+typedef enum DirOptT {E_ISDIR, E_NODIR, E_NOEXIST} DIROPT;
 
 /* members */
 
@@ -96,10 +109,33 @@ static struct dirent **Dir_List = NULL;         ///< The pattern matched directo
 static int Dir_Num = 0;                         ///< Number of pattern matched files found.
 static int Index = -1;                          ///< Current index to pattern matched files.
 
+static bool RunFolder = false;                  ///< Set to read intensities from a run-folder.
+static LANETILE LTMin = {0, 0};                 ///< Selected minimum run-folder lane and tile.
+static LANETILE LTMax = {0, 0};                 ///< Selected maximum run-folder lane and tile.
+static LANETILE LTCurrent = {0, 0};             ///< Current run-folder lane and tile.
+
 static CSTRING Current = NULL;                  ///< Current input file, used to create output filename.
 
 
 /* private functions */
+
+/** Return whether specified directory exists. */
+static DIROPT check_dir(const CSTRING dirname) {
+
+    struct stat st;
+    if (stat(dirname, &st) == 0) {
+        /* check it is a directory; ISDIR returns non-zero for a directory */
+        if (S_ISDIR (st.st_mode) != 0) {
+            return E_ISDIR;
+        }
+        else {
+            return E_NODIR;
+        }
+    }
+    else {
+        return E_NOEXIST;
+    }
+}
 
 /** Clear structures and values associated with a pattern. */
 static void clear_pattern(void) {
@@ -117,6 +153,23 @@ static void clear_pattern(void) {
         Dir_List = NULL;
         Dir_Num = 0;
     }
+}
+
+/** Return a string containing a single value or a range. */
+static CSTRING format_range(unsigned int min, unsigned int max) {
+
+    /* sufficient for MAXINT */
+    static const size_t LEN = 21;
+    CSTRING str = new_CSTRING(LEN);
+
+    if (min == max) {
+        sprintf(str, "%u", min);
+    }
+    else {
+        sprintf(str, "%u%c%u", min, RANGECHAR, max);
+    }
+
+    return str;
 }
 
 /**
@@ -166,6 +219,86 @@ static bool full_path(const CSTRING dir, const CSTRING filename, CSTRING *filepa
 //        message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, *filepath);
         return true;
     }
+}
+
+/**
+ * Extract a number from supplied string and store as lane or tile.
+ * Returns pointer to next element in string.
+ * Returns false if an error.
+ */
+static bool get_lanetile(const char token, const char *restrict ptr, char **restrict endptr, LANETILE *lanetile) {
+
+    bool ok = true;
+
+    int num = strtol(ptr, endptr, 0);
+    if (num <= 0) {
+        message(E_BAD_NUM_SS, MSG_ERR, LTMESS_TEXT, ptr);
+        ok = false;
+    }
+    else {
+        switch (token) {
+            case 'L':
+            case 'l':
+                lanetile->lane = num;
+                break;
+
+            case 'T':
+            case 't':
+                lanetile->tile = num;
+                break;
+
+            default :
+                message(E_BAD_CHAR_SC, MSG_ERR, LTMESS_TEXT, token);
+                ok = false;
+        }
+    }
+
+    return ok;
+}
+
+/**
+ * Extract lane or tile range from lane and tile string.
+ * Expected string is Xn[-n].
+ * Returns pointer to next element in string.
+ * Returns false if an error.
+ */
+static bool get_lanetile_range(const char *restrict ptr, char **restrict endptr) {
+
+    /* note if lane or tile */
+    char token = ptr[0];
+
+    /* starts with minimum from second character onwards */
+    bool ok = get_lanetile(token, ++ptr, endptr, &LTMin);
+
+    if (ok) {
+        /* check if a range */
+        if (*endptr[0] == RANGECHAR) {
+            /* find first non-range char */
+            while (*endptr[0] == RANGECHAR) {
+                (*endptr)++;
+            }
+            /* finish with maximum */
+            ok = get_lanetile(token, *endptr, endptr, &LTMax);
+        }
+        else {
+            /* single number */
+            switch (token) {
+                case 'L':
+                case 'l':
+                    LTMax.lane = LTMin.lane;
+                    break;
+
+                case 'T':
+                case 't':
+                    LTMax.tile = LTMin.tile;
+                    break;
+
+                default : ;
+            }
+        }
+    }
+
+    return ok;
 }
 
 /** Create the fixed tag and suffix string that an intensities file must contain. */
@@ -467,28 +600,64 @@ static int scan_inputs(void) {
     return num;
 }
 
+/**
+ * Set up next lane and tile range from supplied lane and tile string.
+ * Parse and store the lane and tile string, expected format is Ln[-n]Tn[-n].
+ * Result stored in LTMin/Max.
+ * Returns false if a problem with the string.
+ */
+static bool set_lanetile(const CSTRING lanetilestr) {
+
+    char *ptr = lanetilestr;
+    bool ok = true;
+
+    /* initialise lane and tile values */
+    LTCurrent.lane = 0;
+    LTCurrent.tile = 0;
+    LTMin = LTMax = LTCurrent;
+
+    /* decode and store lane and tile */
+    while ((ptr[0] != 0) && ok) {
+        ok = get_lanetile_range(ptr, &ptr);
+    }
+
+    if (ok) {
+        if (lanetile_isnull(LTMin)) {
+            message(E_BAD_TXT_SS, MSG_ERR, LTMESS_TEXT, "need lane and tile");
+            ok = false;
+        }
+        else {
+            CSTRING lanestr = format_range(LTMin.lane, LTMax.lane);
+            CSTRING tilestr = format_range(LTMin.tile, LTMax.tile);
+            message(E_LANETILE_SS, MSG_INFO, lanestr, tilestr);
+            free_CSTRING(lanestr);
+            free_CSTRING(tilestr);
+        }
+    }
+
+    return ok;
+}
+
 
 /* public functions */
 
 /** Return whether specified output directory exists or can be created. */
-bool check_outdir(const CSTRING dirname, const char * typestr) {
+bool check_outdir(const CSTRING dirname, const char *type_str) {
 
-    struct stat st;
-    if (stat(dirname, &st) == 0) {
-        /* check it is a directory; ISDIR returns non-zero for a directory */
-        if (S_ISDIR (st.st_mode) == 0) {
-            message(E_BAD_DIR_SS, MSG_FATAL, typestr, dirname);
-            return false;
-        }
+    DIROPT ret = check_dir(dirname);
+
+    if (ret == E_NODIR) {
+        message(E_BAD_DIR_SS, MSG_FATAL, type_str, dirname);
+        return false;
     }
-    else {
+    else if (ret == E_NOEXIST) {
         /* try to create it; mkdir returns zero on success */
         if (mkdir (dirname, DIR_MODE) != 0){
-            message(E_NOCREATE_DIR_SS, MSG_FATAL, typestr, dirname);
+            message(E_NOCREATE_DIR_SS, MSG_FATAL, type_str, dirname);
             return false;
         }
         else{
-            message(E_CREATED_DIR_SS, MSG_INFO, typestr, dirname);
+            message(E_CREATED_DIR_SS, MSG_INFO, type_str, dirname);
         }
     }
     return true;
@@ -511,19 +680,63 @@ INFORM get_input_format(void) {
     return Input_Format;
 }
 
-/** Return the file pattern match argument. */
-CSTRING get_pattern(void) {
+/** Return the selected input path. */
+CSTRING get_input_path(void) {
 
-    if (Pattern == NULL) {
-        return "";
+    return Input_Path;
+}
+
+/**
+ * Return the next run-folder lane and tile.
+ * Create a current filename for use in output: s_L_TTTT.
+ */
+LANETILE get_next_lanetile(void) {
+
+    static const char *NAME = "s_%u_%04u";
+    static const size_t LEN = 8;
+
+    if (lanetile_isnull(LTCurrent)) {
+        /* first lane/tile */
+        LTCurrent = LTMin;
     }
     else {
-        return Pattern;
+        if (LTCurrent.tile < LTMax.tile) {
+            /* next tile */
+            LTCurrent.tile++;
+        }
+        else {
+            if (LTCurrent.lane < LTMax.lane) {
+                /* next lane */
+                LTCurrent.lane++;
+                LTCurrent.tile = LTMin.tile;
+            }
+            else {
+                /* run out, set to null */
+                LTCurrent.lane = 0;
+                LTCurrent.tile = 0;
+            }
+        }
     }
+
+    Current = free_CSTRING(Current);
+    if (!lanetile_isnull(LTCurrent)) {
+        /* create a virtual lane/tile filename */
+        Current = new_CSTRING(LEN);
+        sprintf(Current, NAME, LTCurrent.lane, LTCurrent.tile);
+    }
+
+    return LTCurrent;
+}
+
+/** Return true if LANETILE is null. */
+bool lanetile_isnull(const LANETILE lanetile) {
+
+    return (lanetile.lane == 0) || (lanetile.tile == 0);
 }
 
 /** Return if a predetermined matrix input file is specified. */
 bool matrix_from_file(IOTYPE idx) {
+
     if (idx < E_NMATRIX) {
         return (Matrix[idx] != NULL);
     }
@@ -661,6 +874,12 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
     return fp;
 }
 
+/** Return if run-folder selected. */
+bool run_folder(void) {
+
+    return RunFolder;
+}
+
 /**
  * Set the input format. Text must match one of the input format text list. Ignores case.
  * Returns true if match found.
@@ -701,8 +920,14 @@ void set_location(const CSTRING path, IOTYPE idx){
 /**
  * Set the input filename pattern to match. Moves any path parts to pattern path.
  * Checks pattern argument supplied, and at least one input file found.
+ * If a run-folder then set lane and tile range instead.
  */
 bool set_pattern(const CSTRING pattern) {
+
+    if (RunFolder) {
+        /* treat pattern as a supplied lane and tile string */
+        return set_lanetile(pattern);
+    }
 
     clear_pattern();
     Pattern = copy_CSTRING(pattern);
@@ -738,9 +963,15 @@ bool set_pattern(const CSTRING pattern) {
     }
 }
 
+/** Set run-folder flag. */
+void set_run_folder(void) {
+
+    RunFolder = true;
+}
+
 /**
  * Start up; call at program start after options.
- * Checks output directory exists and creates the match substring.
+ * Checks input and output directories exists and creates the match substring.
  * Return true if no errors.
  */
 bool startup_dirio(void) {
@@ -753,6 +984,12 @@ bool startup_dirio(void) {
         Output_Path = copy_CSTRING((CSTRING)DEFAULT_PATH);
     }
 
+    /* check specified input path exists */
+    if (check_dir(Input_Path) != E_ISDIR) {
+        message(E_BAD_DIR_SS, MSG_FATAL, "input", Input_Path);
+        return false;
+    }
+
     /* check specified output path exists */
     if (!check_outdir(Output_Path, "output")) {
          return false;
@@ -762,6 +999,19 @@ bool startup_dirio(void) {
 
     message(E_INPUT_DIR_S, MSG_INFO, Input_Path);
     message(E_OPT_SELECT_SS, MSG_INFO, "Input format" ,INFORM_MESS_TEXT[Input_Format]);
+
+    /* check for run-folder */
+    if (RunFolder) {
+        if (Input_Format == E_CIF) {
+            message(E_OPT_SELECT_SS, MSG_INFO, "Run-folder", "");
+        }
+        else {
+            /* invalid with txt */
+            message(E_BAD_RUNOPT, MSG_FATAL);
+            return false;
+        }
+    }
+
     message(E_OUTPUT_DIR_S, MSG_INFO, Output_Path);
     return true;
 }

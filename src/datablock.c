@@ -37,17 +37,22 @@
 
 #include <stdlib.h>
 #include "datablock.h"
+#include "message.h"
 #include "utility.h"
 
 #define X(A) A ## DATABLOCK
     #include "list.def"
 #undef X
 
+/* constants */
+
+static const char *MESS_TEXT = "Blockstring option";    ///< Blockstring option name for messages.
+
 /* members */
 
-static bool DefaultBlock = true;                    ///< Default to all available cycles in one block if no argument.
-static unsigned int TotalCycle = 0;                 ///< Total number of cycles to analyse.
-static unsigned int NumBlock = 0;                   ///< Number of distinct blocks to analyse.
+static bool DefaultBlock = true;                        ///< Default to all available cycles in one block if no argument.
+static unsigned int TotalCycle = 0;                     ///< Total number of cycles to analyse.
+static unsigned int NumBlock = 0;                       ///< Number of distinct blocks to analyse.
 
 /* doxygen confused by LIST */
 /** BlockList = NULL; List of data blocks.
@@ -173,20 +178,20 @@ bool parse_blockopt(const char *blockstr) {
         type = decode_token(ch[0]);
 
         if (type == E_ERR) {
-            xfprintf(xstderr, "Fatal: Blockstring option contains invalid character: %c\n", ch[0]);
+            message(E_BAD_CHAR_SC, MSG_FATAL, MESS_TEXT, ch[0]);
             ok = false;
         }
         else {
             /* check for concat before first read */
             if ((type == E_CONCAT) && (NumBlock == 0)) {
-                xfprintf(xstderr, "Fatal: Blockstring option contains a concatenate before first read\n");
+                message(E_BAD_TXT_SS, MSG_FATAL, MESS_TEXT, "concatenate before first read");
                 ok = false;
             }
             else {
                 /* extract cycles from second character onwards */
                 cycles = strtol(++ch, &endptr, 0);
                 if (cycles <= 0) {
-                    xfprintf(xstderr, "Fatal: Blockstring option contains invalid value: %d\n", cycles);
+                    message(E_BAD_NUM_SS, MSG_FATAL, MESS_TEXT, ch);
                     ok = false;
                 }
                 else {

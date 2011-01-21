@@ -52,12 +52,18 @@ typedef enum IOTypeT {E_CROSSTALK, E_NOISE, E_PHASING, E_QUALTAB, E_INPUT, E_OUT
  */
 enum NoBlkT {BLK_APPEND = -2, BLK_SINGLE = -1};
 
+/** Pair type allows storage and return of lane and tile. */
+typedef struct LaneTileT {unsigned int lane; unsigned int tile;} LANETILE;
+
+
 /* function prototypes */
 
-bool check_outdir(const CSTRING dirname, const char * typestr);
+bool check_outdir(const CSTRING dirname, const char * type_str);
 CSTRING get_current_file(void);
 INFORM get_input_format(void);
-CSTRING get_pattern(void);
+CSTRING get_input_path(void);
+LANETILE get_next_lanetile(void);
+bool lanetile_isnull(const LANETILE lanetile);
 bool matrix_from_file(IOTYPE idx);
 
 XFILE * open_matrix(IOTYPE mode);
@@ -65,9 +71,11 @@ XFILE * open_next(XFILE *fplast);
 XFILE * open_output(CSTRING tag);
 XFILE * open_output_blk(CSTRING tag, int blk);
 
+bool run_folder(void);
 bool set_input_format(const char *inform_str);
 void set_location(const CSTRING path, IOTYPE mode);
 bool set_pattern(const CSTRING pattern);
+void set_run_folder(void);
 
 bool startup_dirio(void);
 void tidyup_dirio(void);

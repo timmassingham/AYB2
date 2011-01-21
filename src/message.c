@@ -56,7 +56,8 @@ static const char *MSG_TEXT[] = {
         "All available cycles in one block selected\n",                         // E_DEFAULTBLOCK
         "Blockstring option contains no datablocks\n",                          // E_NOBLOCKS
         "No file pattern match supplied\n",                                     // E_NOPATTERN
-        "Number of model iterations incorrectly supplied\n",                    // E_BADITER
+        "Number of model iterations incorrectly supplied\n",                    // E_BAD_ITER
+        "Run folder option invalid with txt input format\n",                    // E_BAD_RUNOPT
         "Memory allocation failed during %s\n",                                 // E_NOMEM_S
         "Log message output level: %s\n",                                       // E_MSG_LEVEL_S
         "Input from directory: %s\n",                                           // E_INPUT_DIR_S
@@ -74,14 +75,19 @@ static const char *MSG_TEXT[] = {
         "Supplied %s has incorrect file format near item: %s\n",                // E_BAD_INPUT_SS
         "No input files in directory \'%s\' matching pattern: \'%s\'\n",        // E_NOINPUT_SS
         "%s file failed to open: %s\n",                                         // E_OPEN_FAIL_SS
+        "Lane tile range selected: lanes: %s, tiles %s\n",                      // E_LANETILE_SS
         "%s selected: %s\n",                                                    // E_OPT_SELECT_SS
+        "%s error; %s\n",                                                       // E_BAD_TXT_SS
+        "%s contains invalid numeric: \'%s\'\n",                                // E_BAD_NUM_SS
+        "%s contains invalid character: \'%c\'\n",                              // E_BAD_CHAR_SC
         "Input file pattern match: \'%s\'; %d files found\n",                   // E_PATTERN_MATCH_SD
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
         "%s selected: %0.2E\n",                                                 // E_OPT_SELECT_SE
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
         "Processing failed at iteration %d; calls set to null\n",               // E_PROCESS_FAIL_D
-        "Intensity file contains less data than requested; %d instead of %d\n", // E_CYCLESIZE_DD
+        "Insufficient cycles for model; %d selected or found\n",                // E_CYCLESIZE_D
+        "Input file contains fewer cycles than requested; %d instead of %d\n",  // E_CYCLESIZE_DD
         "Tile data size: %d clusters of %d cycles\n",                           // E_TILESIZE_DD
         "Failed to initialise model for block %d, %d cycles\n",                 // E_INIT_FAIL_DD
         "Processing block %d, %d cycles\n",                                     // E_PROCESS_DD
@@ -217,7 +223,7 @@ void set_message_path(const CSTRING path) {
  * Redirects stderr to log file if requested and outputs a log file header.
  * Returns true unless requested log file cannot be opened.
  */
-bool startup_message(const char *prefix) {
+bool startup_message(void) {
 
     /* get the current date and time */
     time_t lt = time(NULL);
