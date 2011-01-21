@@ -65,7 +65,7 @@ int count_line_columns(const int nrow, char *ptr);
 MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr);
 void write_MAT_to_line (XFILE * fp, const MAT mat);
 MAT read_MAT_from_column_file(XFILE * fp);
-void write_MAT_to_column_file (XFILE * fp, const MAT mat);
+void write_MAT_to_column_file(XFILE * fp, const MAT mat, bool freeformat);
 
 // Identities
 bool is_square(const MAT mat);

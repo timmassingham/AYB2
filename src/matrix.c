@@ -36,6 +36,7 @@
 #include <err.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>          // for isblank
 #include "matrix.h"
 #include "lapack.h"
 
@@ -355,6 +356,42 @@ void write_MAT_to_line (XFILE * fp, const MAT mat) {
 }
 
 /**
+ * Get the next non-comment line from the supplied file.
+ * Leading whitespace is ignored, but blank and empty lines are returned.
+ * Also returns length in len.
+ */
+static char * getnextline(XFILE * fp, size_t * len ){
+
+    static const char COMMENTCHAR = '#';
+    if (xfisnull(fp)) {return NULL;}
+
+    char * line = NULL;
+    bool found = false;
+
+    while (!found) {
+        line = xfgetln(fp, len);
+        if (line == NULL) {
+            found = true;
+        }
+        else {
+            /* skip whitespace */
+            int i = -1;
+            while ((++i < *len) && (isblank(line[i])))
+                ;
+            /* check for comment indicator at first non-whitespace char */
+            if (line[i] == COMMENTCHAR) {
+                xfree(line);
+            }
+            else {
+                found = true;
+            }
+        }
+    }
+
+    return line;
+}
+
+/**
  * Create a new matrix from a list of columns in a file, one column per row.
  * First row contains number of rows and columns.
  * Possible errors: number of rows and columns not properly specified
@@ -368,7 +405,11 @@ MAT read_MAT_from_column_file(XFILE * fp) {
     /* get first line from file */
     char * line = NULL;
     size_t len = 0;
-    line = xfgetln(fp, &len);
+    line = getnextline(fp, &len);
+    if (line == NULL) {
+        warnx("General matrix read error");
+        return NULL;
+    }
 
     /* first line is number of rows and columns */
     char * ptr = line;
@@ -387,22 +428,39 @@ MAT read_MAT_from_column_file(XFILE * fp) {
 
     bool found = true;
     int nc = -1;
+    real_t val;
+    char * prevptr = NULL;
     while (found && (++nc < ncol)) {
         /* get each column line */
-        line = xfgetln(fp, &len);
-        ptr = line;
-
-        /* extract values for this column and store */
-        for (int nr = 0; nr < nrow; nr++) {
-            if (ptr[0] == 0) {
-                found = false;
-                break;
-            }
-            else {
-                mat->x[nc * nrow + nr] = strtor(ptr, &ptr);
-            }
+        line = getnextline(fp, &len);
+        if (line == NULL) {
+            warnx("General matrix read error");
+            found = false;
         }
-        xfree(line);
+        else {
+            ptr = line;
+
+            /* extract values for this column and store */
+            for (int nr = 0; nr < nrow; nr++) {
+                if (ptr[0] == 0) {
+                    found = false;
+                    break;
+                }
+                else {
+                    prevptr = ptr;
+                    val = strtor(ptr, &ptr);
+                    /* check for invalid value */
+                    if ((val == 0.0) && (ptr == prevptr)) {
+                        found = false;
+                        break;
+                    }
+                    else {
+                        mat->x[nc * nrow + nr] = val;
+                    }
+                }
+            }
+            xfree(line);
+        }
     }
 
     if (!found) {
@@ -417,10 +475,16 @@ MAT read_MAT_from_column_file(XFILE * fp) {
 /**
  * Write a matrix to a file as a list of columns, one column per row.
  * First row contains number of rows and columns.
+ * Can be formatted in fixed field size to 2 dp or free format.
  */
-void write_MAT_to_column_file (XFILE * fp, const MAT mat) {
+void write_MAT_to_column_file(XFILE * fp, const MAT mat, bool freeformat) {
     if (NULL == fp) {return;}
     if (NULL == mat) {return;}
+
+    char fmt[] = " %8.2f";
+    if (freeformat) {
+        strcpy(fmt, "%f ");
+    }
 
     const int nrow = mat->nrow;
     const int ncol = mat->ncol;
@@ -430,7 +494,7 @@ void write_MAT_to_column_file (XFILE * fp, const MAT mat) {
 
     for (int col = 0; col < ncol; col++) {
         for (int row = 0; row < nrow; row++) {
-            xfprintf(fp, " %8.2f", mat->x[col * nrow + row]);
+            xfprintf(fp, fmt, mat->x[col * nrow + row]);
         }
         /* next column line */
         xfprintf(fp, "\n");
