@@ -67,7 +67,20 @@ struct cifData {
 
 
 /* private functions */
-/* undetermined */
+/* some undetermined */
+
+/** Round a value to integer and clip to supplied bounds. */
+static real_t round_and_clip(real_t x, const int32_t min, const int32_t max) {
+
+    /* round properly first */
+    x = roundr(x);
+
+    if (x < min)      {x = min;}
+    else if (x > max) {x = max;}
+
+    return x;
+}
+
 
 /* public functions */
 /* undetermined */
@@ -105,22 +118,19 @@ void cif_set_from_real (CIFDATA cif, const uint32_t cl, const uint32_t base, con
         if (NULL==cif->intensity.i8) {return;}
     }
 
-    /* round properly first */
-    x = roundr(x);
-
     switch(cif->datasize) {
         case 1:
-            if ((x >= INT8_MIN) && (x <= INT8_MAX)) {
-                cif->intensity.i8 [(cy * NCHANNEL + base) * cif->ncluster + cl] = (int8_t)x; break;
-            }
+            x = round_and_clip(x, INT8_MIN, INT8_MAX);
+            cif->intensity.i8[(cy * NCHANNEL + base) * cif->ncluster + cl] = (int8_t)x;
+            break;
         case 2:
-            if ((x >= INT16_MIN) && (x <= INT16_MAX)) {
-                cif->intensity.i16[(cy * NCHANNEL + base) * cif->ncluster + cl] = (int16_t)x; break;
-            }
+            x = round_and_clip(x, INT16_MIN, INT16_MAX);
+            cif->intensity.i16[(cy * NCHANNEL + base) * cif->ncluster + cl] = (int16_t)x;
+            break;
         case 4:
-            if ((x >= INT32_MIN) && (x <= INT32_MAX)) {
-                cif->intensity.i32[(cy * NCHANNEL + base) * cif->ncluster + cl] = (int32_t)x; break;
-            }
+            x = round_and_clip(x, INT32_MIN, INT32_MAX);
+            cif->intensity.i32[(cy * NCHANNEL + base) * cif->ncluster + cl] = (int32_t)x;
+            break;
         default: ;
     }
 }
@@ -440,11 +450,13 @@ CIFDATA cif_add_file( const char * fn, const XFILE_MODE mode, CIFDATA cif ){
    readCifIntensities(ayb_fp,newheader,mem);
 
    free_cif(newheader);
+   xfclose(ayb_fp);
    return cif;
 
 cif_add_error:
    free_cif(newheader);
    free_cif(cif);
+   xfclose(ayb_fp);
    return NULL;
 }
 
@@ -452,11 +464,11 @@ cif_add_error:
 char * cif_create_cifglob ( const char * root, const uint32_t lane, const uint32_t tile ){
    if(NULL==root){ return NULL;}
    if(lane>9){
-      warn("Assumption that lane numbering is less than 10 violated (asked for %u).\n",lane);
+      warnx("Assumption that lane numbering is less than 10 violated (asked for %u).",lane);
       return NULL;
    }
    if(tile>9999){
-      warn("Assumption that tile numbering is less than 9999 violated (asked for %u).\n",tile);
+      warnx("Assumption that tile numbering is less than 9999 violated (asked for %u).",tile);
       return NULL;
    }
 
@@ -508,11 +520,11 @@ CIFDATA readCIFfromDir ( const char * root, const uint32_t lane, const uint32_t 
 
    if(NULL==root){ return NULL;}
    if(lane>9){
-      warn("Assumption that lane numbering is less than 10 violated (asked for %u).\n",lane);
+      warnx("Assumption that lane numbering is less than 10 violated (asked for %u).",lane);
       return NULL;
    }
    if(tile>9999){
-      warn("Assumption that tile numbering is less than 9999 violated (asked for %u).\n",tile);
+      warnx("Assumption that tile numbering is less than 9999 violated (asked for %u).",tile);
       return NULL;
    }
 
@@ -543,7 +555,7 @@ readCIF_error:
 
 
 /*  Print routine for CIF structure */
-void showCIF ( XFILE * ayb_fp, const CIFDATA cif, bool showall){
+void showCIF ( XFILE * ayb_fp, const CIFDATA cif, uint32_t mcluster, uint32_t mcycle){
     static const char * basechar = "ACGT";
     if ( NULL==ayb_fp) return;
     if ( NULL==cif) return;
@@ -553,15 +565,10 @@ void showCIF ( XFILE * ayb_fp, const CIFDATA cif, bool showall){
     xfprintf( ayb_fp, "ncycles = %u, of which the first is cycle number %u\n", cif->ncycle,cif->firstcycle);
     xfprintf( ayb_fp, "nclusters = %u\n", cif->ncluster);
 
-    uint32_t mcluster, mcycle;
-    if (showall) {
-        mcluster = cif->ncluster;
-        mcycle   = cif->ncycle;
-    }
-    else {
-        mcluster = (cif->ncluster>5)?5:cif->ncluster;
-        mcycle   = (cif->ncycle>5)?5:cif->ncycle;
-    }
+    if(0==mcluster){ mcluster = cif->ncluster; }
+    if(0==mcycle){ mcycle = cif->ncycle; }
+    mcluster = (cif->ncluster>mcluster)?mcluster:cif->ncluster;
+    mcycle   = (cif->ncycle>mcycle)?mcycle:cif->ncycle;
 
     for ( int cluster=0 ; cluster<mcluster ; cluster++){
         xfprintf( ayb_fp, "Cluster %d\n", cluster+1 );
@@ -581,10 +588,10 @@ void showCIF ( XFILE * ayb_fp, const CIFDATA cif, bool showall){
         }
     }
     if( mcluster!=cif->ncluster){
-        xfprintf(ayb_fp,"%u clusters omitted. ", cif->ncluster - 5 );
+        xfprintf(ayb_fp,"%u clusters omitted. ", cif->ncluster - mcluster );
     }
     if( mcycle!=cif->ncycle ){
-        xfprintf(ayb_fp,"%u cycles omitted. ", cif->ncycle - 5 );
+        xfprintf(ayb_fp,"%u cycles omitted. ", cif->ncycle - mcycle );
     }
     xfputc('\n',ayb_fp);
 }
@@ -611,7 +618,7 @@ int main ( int argc, char * argv[] ){
 timestamp("Starting\n",stderr);
    CIFDATA cif = readCIFfromDir(argv[3],lane,tile,XFILE_RAW);
 timestamp("Read\n",stderr);
-    showCIF(xstdout,cif,false);
+    showCIF(xstdout,cif,5,5);
 timestamp("Splitting\n",stderr);
     CIFDATA newcif = spliceCIF(cif, cif->ncycle/2, 0);
 timestamp("Writing\n",stderr);
@@ -621,7 +628,7 @@ timestamp("Writing\n",stderr);
 timestamp("Reading new\n",stderr);
     cif = readCIFfromFile (argv[4],XFILE_RAW);
 timestamp("Done\n",stderr);
-    showCIF(xstdout,cif,false);
+    showCIF(xstdout,cif,5,5);
     free_cif(cif);
 
     return EXIT_SUCCESS;
