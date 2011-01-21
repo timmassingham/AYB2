@@ -106,7 +106,7 @@ static unsigned int *ZeroLambda = NULL;         ///< Count of zero lambdas befor
 static bool SimData = false;                    ///< Set to output simulation data.
 static CSTRING SimText = NULL;                  ///< Header text for simulation data file.
 static bool ShowWorking = false;                ///< Set to output final working values.
-static MAT Matrix[E_NMATRIX];                   ///< Predetermined matrices.
+static MAT Matrix[E_MNP];                       ///< Predetermined matrices.
 static AYB Ayb = NULL;                          ///< The model data.
 
 /* Additional data size constraint for debug output, set in read_intensities */
@@ -118,14 +118,14 @@ static bool ShowDebug = false;
 /* private functions */
 
 /**
- * Read in any external crosstalk (M), Phasing (P) and Noise (N) matrices.
+ * Read in any external crosstalk (M), Noise (N) and Phasing (P) matrices.
  * Returns false if failed to read a supplied matrix file.
  */
 static bool read_matrices(void) {
     XFILE *fpmat = NULL;
     bool found = true;
 
-    for (IOTYPE idx = (IOTYPE)0; idx < E_NMATRIX; idx++) {
+    for (IOTYPE idx = (IOTYPE)0; idx < E_MNP; idx++) {
         if (matrix_from_file(idx)) {
             fpmat = open_matrix(idx);
             if (fpmat == NULL) {
@@ -251,7 +251,7 @@ static TILE * create_datablocks(TILE maintile, const unsigned int numblock) {
 }
 
 /**
- * Initialise crosstalk (M), Phasing (P) and Noise (N) matrices.
+ * Initialise crosstalk (M), Noise (N) and Phasing (P) matrices.
  * May use read in values or initialise using an internal method.
  */
 static MAT init_matrix(MAT mat, const IOTYPE idx) {
@@ -825,19 +825,19 @@ static void output_final(int blk) {
     /* final M, N, P in input format */
     fpfin = open_output_blk("M", blk);
     if (!xfisnull(fpfin)) {
-        write_MAT_to_column_file (fpfin, Ayb->M);
+        write_MAT_to_column_file (fpfin, Ayb->M, false);
     }
     xfclose(fpfin);
 
     fpfin = open_output_blk("N", blk);
     if (!xfisnull(fpfin)) {
-        write_MAT_to_column_file (fpfin, Ayb->N);
+        write_MAT_to_column_file (fpfin, Ayb->N, false);
     }
     xfclose(fpfin);
 
     fpfin = open_output_blk("P", blk);
     if (!xfisnull(fpfin)) {
-        write_MAT_to_column_file (fpfin, Ayb->P);
+        write_MAT_to_column_file (fpfin, Ayb->P, false);
     }
     xfclose(fpfin);
 }
@@ -1616,8 +1616,6 @@ bool startup_model(void){
     const unsigned int totalcycle = get_totalcycle();
     const unsigned int numblock = get_numblock();
 
-    message(E_GENERIC_SD, MSG_DEBUG, "total cycles:", totalcycle);
-    message(E_GENERIC_SD, MSG_DEBUG, "distinct blocks:", numblock);
     if (get_defaultblock()) {
         message(E_DEFAULTBLOCK, MSG_INFO);
     }
@@ -1631,7 +1629,6 @@ bool startup_model(void){
     }
 
     /* check number of iterations supplied - may be left at default */
-    message(E_GENERIC_SD, MSG_DEBUG, "niter:", NIter);
     if (NIter == 0) {
         message(E_BADITER, MSG_FATAL);
         return false;
@@ -1648,7 +1645,12 @@ bool startup_model(void){
     }
 
     /* read any M, N, P */
-    return read_matrices();
+    if (!read_matrices()) {
+        return false;
+    }
+
+    /* read any quality calibration table */
+    return read_quality_table();
 }
 
 /** Tidy up; call at program shutdown. */
@@ -1656,7 +1658,7 @@ void tidyup_model(void){
 
     /* free memory */
     SimText = free_CSTRING(SimText);
-    for (IOTYPE idx = (IOTYPE)0; idx < E_NMATRIX; idx++) {
+    for (IOTYPE idx = (IOTYPE)0; idx < E_MNP; idx++) {
         Matrix[idx] = free_MAT(Matrix[idx]);
     }
     xfree(ZeroLambda);
