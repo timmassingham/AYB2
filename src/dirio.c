@@ -85,10 +85,10 @@ static CSTRING Output_Path = NULL;              ///< Output path, default or pro
 static CSTRING IntenSubstr = NULL;              ///< Substring an intensities file must contain.
 /**
  * File pattern match. Currently a prefix or the whole part of the filename before the substring.
- * Supplied as non-option program argument. Any partial path moved to pattern path.
+ * Supplied as non-option program argument. Any path parts moved to pattern path.
  */
 static CSTRING Pattern = NULL;
-static CSTRING Pattern_Path = NULL;             ///< Input path and any pattern partial path.
+static CSTRING Pattern_Path = NULL;             ///< Input path and any pattern path parts.
 static size_t Pattern_Len = 0;                  ///< Length of pattern match, program exits if not > 0.
 static CSTRING Matrix[E_NMATRIX];               ///< Predetermined matrix input file locations.
 
@@ -120,7 +120,9 @@ static void clear_pattern(void) {
 }
 
 /**
- * Create a full path name from a directory and filename. Places a path delimiter between them;
+ * Create a full path name from a directory and filename.
+ * If filename contains full path then use alone,
+ * otherwise combine, placing a path delimiter between them;
  * delimiter may change according to target system.
  * Return false if supplied filename is null or cannot allocate memory for name string.
  */
@@ -131,6 +133,18 @@ static bool full_path(const CSTRING dir, const CSTRING filename, CSTRING *filepa
     Returns:    whether succeeded
 */
     if (filename == NULL) {return false;}
+
+    if (filename[0] == PATH_DELIM) {
+        /* full path given in filename, return unchanged ignoring any dir */
+        *filepath = copy_CSTRING(filename);
+        if (*filepath == NULL) {
+            message(E_NOMEM_S, MSG_FATAL, "file path creation");
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
 
     /* determine length required, allow for delimiter */
     size_t len = strlen(filename);
@@ -268,32 +282,46 @@ static int match_pattern(const struct dirent *list) {
     return ret;
 }
 
-/** Make a new input path by adding any partial path from filename, and remove from filename. */
-static CSTRING move_partial_path(const CSTRING filepath, CSTRING *filename) {
+/**
+ * Move any path parts from filename to file path.
+ * If filename contains full path then use alone,
+ * otherwise add any partial path from filename to supplied path.
+ * In any case remove path parts from filename.
+ * Return a new file path.
+ */
+static CSTRING move_path(const CSTRING filepath, CSTRING *filename) {
 
     if (filepath == NULL) {return NULL;}
     if (*filename == NULL) {return NULL;}
 
     CSTRING newpath = NULL;
-    size_t oldlen = strlen(filepath);
 
     /* find the beginning of the name */
     char *pdlm = strrchr(*filename, PATH_DELIM);
     if (pdlm == NULL) {
-        /* no partial path, return filepath unchanged */
+        /* no path in filename, return supplied path and filename unchanged */
         newpath = copy_CSTRING(filepath);
     }
-    else {
-        /* add the partial path to a new path */
-        size_t sublen = pdlm - *filename;
-        newpath = new_CSTRING(oldlen + sublen + strlen(PATH_DELIMSTR));
-        strcpy(newpath, filepath);
-        if (newpath[oldlen - 1] != PATH_DELIM) {
-            strcat(newpath, PATH_DELIMSTR);
-        }
-        strncat(newpath, *filename, sublen);
 
-        /* remove the partial path from the filename */
+    else {
+        size_t sublen = pdlm - *filename;
+        if (*filename[0] == PATH_DELIM) {
+            /* full path given in filename, extract and use alone */
+            newpath = new_CSTRING(sublen);
+            strncpy(newpath, *filename, sublen);
+        }
+        else {
+            /* partial path given in filename, add to supplied path */
+            size_t oldlen = strlen(filepath);
+            newpath = new_CSTRING(oldlen + sublen + strlen(PATH_DELIMSTR));
+            strcpy(newpath, filepath);
+            if (newpath[oldlen - 1] != PATH_DELIM) {
+                strcat(newpath, PATH_DELIMSTR);
+            }
+            strncat(newpath, *filename, sublen);
+        }
+
+        /* remove the path parts from the filename */
         CSTRING old = *filename;
         *filename = copy_CSTRING(old + sublen + 1);
         free_CSTRING(old);
@@ -671,7 +699,7 @@ void set_location(const CSTRING path, IOTYPE idx){
 }
 
 /**
- * Set the input filename pattern to match. Moves any partial path to pattern path.
+ * Set the input filename pattern to match. Moves any path parts to pattern path.
  * Checks pattern argument supplied, and at least one input file found.
  */
 bool set_pattern(const CSTRING pattern) {
@@ -679,8 +707,8 @@ bool set_pattern(const CSTRING pattern) {
     clear_pattern();
     Pattern = copy_CSTRING(pattern);
 
-    /* move any partial path from pattern to path */
-    Pattern_Path = move_partial_path(Input_Path, &Pattern);
+    /* ensure any path parts are in the pattern path */
+    Pattern_Path = move_path(Input_Path, &Pattern);
 
     /* check pattern match supplied */
     if (Pattern != NULL) {
