@@ -30,11 +30,12 @@
 /* constants */
 
 /** Program Version. */
-static const float VERSION = 2.00;      // Additional final MPN output, documenting, tidy up
+static const float VERSION = 2.01;      // Quality calibration file and cif run-folder
 /** Version release date. */
-static const unsigned int VERSION_DATE = 20101207;
+static const unsigned int VERSION_DATE = 20110121;
 
 /* keep a history */
+// Version 2.00;    20101207    Additional final MPN output, documenting, tidy up
 // Version 1.07;    20101115    Quality score calibration, missing data handling,
 //                              GC content, sim output, argument defaults, optimisation
 // Version 1.06;    20100922    Final working values, mu arg, bad data handling
@@ -42,8 +43,8 @@ static const unsigned int VERSION_DATE = 20101207;
 // Version 1.04;    20100617    MPN, Quality output and Datablocks
 // Version 1.03;    20100520    AYB Base Call Loop
 // Version 1.02;    20100427    AYB Initialisation
-// Version 1.01     20100406    File I/O and Data Structures
-// Version 1.00     20100312    Initial with basic infrastructure
+// Version 1.01;    20100406    File I/O and Data Structures
+// Version 1.00;    20100312    Initial with basic infrastructure
 
 /* members */
 /* None    */
