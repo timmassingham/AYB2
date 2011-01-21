@@ -35,7 +35,7 @@
 #define CONTACT "hazelm@ebi.ac.uk"              ///< Contact details in generic text.
 
 /** Index into option structure for subsequent identification in command line. */
-typedef enum OptIndexT {E_SIMDATA = 10} OPTINDEX;
+typedef enum OptIndexT {E_SIMDATA = 11} OPTINDEX;
 
 /* function prototypes */
 

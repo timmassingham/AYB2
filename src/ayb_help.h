@@ -26,6 +26,8 @@
 "\t\t\t\t(Smaller value for higher maximum quality score)\n"
 "  -n  --niter <num>\t\tNumber of model iterations [default: 5]\n"
 "  -o  --output <path>\t\tLocation to create output files [default: \"\"]\n"
+"  -r  --runfolder\t\tRead cif files from a run-folder\n"
+"\tPrefix is replaced by lane tile (range) with format LnTn (Ln-nTn-n)\n"
 "  -s  --simdata <header>\tOutput simulation data\n"
 "  -w  --working\t\t\tOutput final working values\n"
 "  -M  --M <filepath>\t\tPredetermined Crosstalk matrix file path\n"

@@ -85,7 +85,8 @@ static struct option Longopts[] = {
     {"mu"   ,       required_argument,  NULL, 'm'},
     {"niter",       required_argument,  NULL, 'n'},
     {"output",      required_argument,  NULL, 'o'},
-    {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 10 in header file
+    {"runfolder",   no_argument,        NULL, 'r'},
+    {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 11 in header file
     {"working",     no_argument,        NULL, 'w'},
     {"M",           required_argument,  NULL, 'M'},
     {"N",           required_argument,  NULL, 'N'},
@@ -103,7 +104,7 @@ static struct option Longopts[] = {
 /* private functions */
 
 /** Set default values for ayb options defined in this module. */
-static void init_options() {
+static void init_options(void) {
 }
 
 
@@ -123,7 +124,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:c:d:e:f:i:l:m:n:o:s:wM:N:P:Q:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:d:e:f:i:l:m:n:o:rs:wM:N:P:Q:S:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'b':
@@ -191,6 +192,11 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
             case 'o':
                 /* output file location */
                 set_location(optarg, E_OUTPUT);
+                break;
+
+            case 'r':
+                /* input from run-folder */
+                set_run_folder();
                 break;
 
             case 's':
