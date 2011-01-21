@@ -56,6 +56,7 @@ typedef enum MsgTypeT {E_DEFAULTBLOCK,
                        E_BAD_DIR_SS,
                        E_NOCREATE_DIR_SS,
                        E_CREATED_DIR_SS,
+                       E_BAD_INPUT_SS,
                        E_NOINPUT_SS,
                        E_OPEN_FAIL_SS,
                        E_OPT_SELECT_SS,
@@ -88,7 +89,9 @@ typedef enum MsgSeverityT {MSG_NONE, MSG_FATAL, MSG_ERR, MSG_INFO, MSG_WARN, MSG
 
 /* function prototypes */
 
+MSGSEV get_message_level(void);
 int message(MSGTYPE type, MSGSEV sev, ...);
+
 bool set_message_level(const char *levelstr);
 void set_message_path(const CSTRING path);
 

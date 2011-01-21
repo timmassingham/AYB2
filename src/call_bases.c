@@ -26,12 +26,17 @@
 #include <assert.h>
 #include <math.h>
 #include "call_bases.h"
+#include "dirio.h"
+#include "message.h"
 /* Include set calibration table to be used when none given */
 #include "../tables/newcalibrationS2.tab"
 
 /* constants */
-/* None      */
 
+/** Quality calibration conversion items. */
+typedef enum QCCIdT {E_INTERCEPT, E_SLOPE, E_PRIOR_BASE, E_BASE_NEXT, E_PRIOR_BASE_NEXT} QCCID;
+/** Name text for quality calibration conversion table messages and output. */
+static const char *MESS_TEXT[] = {"Intercept", "Slope", "Prior-Base", "Base-Next", "Prior-Base-Next"};
 
 /* members */
 
@@ -49,6 +54,55 @@ static inline int max_real_t(const real_t * restrict p, const uint32_t n){
         if(p[i]>m){ m=p[i]; idx=i;}
     }
     return idx;
+}
+
+/**
+ * Read a single value from a column matrix file.
+ * Returns false if fails to read.
+ */
+static bool get_matrix_single(XFILE * fp, real_t *value) {
+
+    MAT mat = read_MAT_from_column_file(fp);
+    if (mat == NULL) {return false;}
+
+    /* matrix read returns at least one element */
+    *value = mat->x[0];
+    free_MAT(mat);
+    return true;
+}
+
+/**
+ * Read an array of values from a column matrix file, and apply as conversion.
+ * Returns false if fails to read or matrix wrong size.
+ */
+static bool get_and_convert_array(XFILE * fp, const int nrow, const int ncol, const real_t scale, real_t *values) {
+
+    MAT mat = read_MAT_from_column_file(fp);
+    if (mat == NULL) {return false;}
+    if ((mat->nrow != nrow) || (mat->ncol != ncol)) {
+        free_MAT(mat);
+        return false;
+    }
+
+    /* convert values and store back in same place */
+    const int nelt = nrow *ncol;
+    for (int idx = 0; idx < nelt; idx++) {
+        values[idx] = values[idx] * scale + mat->x[idx];
+    }
+
+    free_MAT(mat);
+    return true;
+}
+
+/** Output a set of array values as a list of columns. */
+static void show_array (XFILE * fp, real_t *values, const int nrow, const int ncol, const char *name) {
+
+    xfprintf(fp, "# %s\n", name);
+    MAT mat = coerce_MAT_from_array(nrow, ncol, values);
+    write_MAT_to_column_file (fp, mat, true);
+
+    /* only free top structure as values refer to array */
+    xfree(mat);
 }
 
 
@@ -165,4 +219,67 @@ bool set_mu(const char *mu_str) {
     Mu = strtor(mu_str, &endptr);
 
     return (Mu > 0);
+}
+
+/**
+ * Read in quality calibration conversion table if supplied and use to convert the default values.
+ * Conversion formula is generally:
+ * - value = original value * new scale + new value
+ * - exception: no addition term for new scale
+ *
+ * Output resultant values if message level at least Debug.
+ * Returns false if file supplied but failed to read.
+ */
+bool read_quality_table(void) {
+
+    if (!matrix_from_file(E_QUALTAB)) {return true;}
+
+    XFILE *fp = open_matrix(E_QUALTAB);
+    if (fp == NULL) {return false;}
+
+    real_t new_intercept, new_scale;
+    int index = 0;
+
+    /* read intercept and scale */
+    index = E_INTERCEPT;
+    if (!get_matrix_single(fp, &new_intercept)) {goto cleanup;}
+    index = E_SLOPE;
+    if (!get_matrix_single(fp, &new_scale)) {goto cleanup;}
+
+    /* convert intercept and scale */
+    calibration_intercept = calibration_intercept * new_scale + new_intercept;
+    calibration_scale = calibration_scale * new_scale;
+
+    /* read and convert adjustments */
+    index = E_PRIOR_BASE;
+    if (!get_and_convert_array(fp, NBASE, NBASE, new_scale, calibration_baseprior_adj)) {goto cleanup;}
+    index = E_BASE_NEXT;
+    if (!get_and_convert_array(fp, NBASE, NBASE, new_scale, calibration_basenext_adj)) {goto cleanup;}
+    index = E_PRIOR_BASE_NEXT;
+    if (!get_and_convert_array(fp, NBASE, NBASE * NBASE, new_scale, calibration_priorbasenext_adj)) {goto cleanup;}
+
+    /* output resultant values */
+    if (get_message_level() >= MSG_DEBUG) {
+        XFILE *fpout = open_output_blk("calibration.tab", BLK_SINGLE);
+        if (!xfisnull(fpout)) {
+            /* show_array needs an array */
+            real_t value[1];
+            value[0] = calibration_intercept;
+            show_array (fpout, value, 1, 1, MESS_TEXT[E_INTERCEPT]);
+            value[0] = calibration_scale;
+            show_array (fpout, value, 1, 1, MESS_TEXT[E_SLOPE]);
+            show_array (fpout, calibration_baseprior_adj, NBASE, NBASE, MESS_TEXT[E_PRIOR_BASE]);
+            show_array (fpout, calibration_basenext_adj, NBASE, NBASE, MESS_TEXT[E_BASE_NEXT]);
+            show_array (fpout, calibration_priorbasenext_adj, NBASE, NBASE * NBASE, MESS_TEXT[E_PRIOR_BASE_NEXT]);
+        }
+        xfclose(fpout);
+    }
+
+    xfclose(fp);
+    return true;
+
+ cleanup:
+    message(E_BAD_INPUT_SS, MSG_FATAL, "quality calibration conversion table", MESS_TEXT[index]);
+    xfclose(fp);
+    return false;
 }

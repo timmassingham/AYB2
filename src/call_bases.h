@@ -51,5 +51,6 @@ static inline real_t adjust_last_quality(const real_t qual, const NUC prior, con
 
 real_t get_mu(void);
 bool set_mu(const char *mu_str);
+bool read_quality_table(void);
 
 #endif /* CALL_BASES_H_ */

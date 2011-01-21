@@ -71,6 +71,7 @@ static const char *MSG_TEXT[] = {
         "Supplied %s location parameter \'%s\' is not a directory\n",           // E_BAD_DIR_SS
         "Failed to create new %s directory \'%s\'\n",                           // E_NOCREATE_DIR_SS
         "Created new %s directory: %s\n",                                       // E_CREATED_DIR_SS
+        "Supplied %s has incorrect file format near item: %s\n",                // E_BAD_INPUT_SS
         "No input files in directory \'%s\' matching pattern: \'%s\'\n",        // E_NOINPUT_SS
         "%s file failed to open: %s\n",                                         // E_OPEN_FAIL_SS
         "%s selected: %s\n",                                                    // E_OPT_SELECT_SS
@@ -151,6 +152,12 @@ static bool check_path(const CSTRING filepath) {
 
 
 /* public functions */
+
+/** Return the selected message level. */
+MSGSEV get_message_level(void) {
+
+    return (MSGSEV)Msg_Level;
+}
 
 /** 
  * Output a log message. 
