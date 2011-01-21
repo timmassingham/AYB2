@@ -90,6 +90,7 @@ static struct option Longopts[] = {
     {"M",           required_argument,  NULL, 'M'},
     {"N",           required_argument,  NULL, 'N'},
     {"P",           required_argument,  NULL, 'P'},
+    {"qualtab",     required_argument,  NULL, 'Q'},
     {"solver",      required_argument,  NULL, 'S'},
     {"help",        no_argument,        NULL, OPT_HELP },
     {"licence",     no_argument,        NULL, OPT_LICENCE },
@@ -122,7 +123,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:c:d:e:f:i:l:m:n:o:s:wM:N:P:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:d:e:f:i:l:m:n:o:s:wM:N:P:Q:S:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 'b':
@@ -215,6 +216,11 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
             case 'P':
                 /* crosstalk file name */
                 set_location(optarg, E_PHASING);
+                break;
+
+            case 'Q':
+                /* quality calibration conversion table file location */
+                set_location(optarg, E_QUALTAB);
                 break;
 
             case 'S':

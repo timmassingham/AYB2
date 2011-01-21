@@ -31,6 +31,7 @@
 "  -M  --M <filepath>\t\tPredetermined Crosstalk matrix file path\n"
 "  -N  --N <filepath>\t\tPredetermined Noise matrix file path\n"
 "  -P  --P <filepath>\t\tPredetermined Phasing matrix file path\n"
+"  -Q  --qualtab <filepath>\tQuality calibration conversion table\n"
 "  -S  --solver <solver>\t\tLinear equation solver to use for P matrix\n"
 "\tOptions: ls   - least squares, allow negatives\n"
 "\t\t zero - least squares then set negatives to zero [default]\n"
