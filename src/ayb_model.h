@@ -28,6 +28,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "dirio.h"
 #include "utility.h"
 #include "xio.h"
 
@@ -42,7 +43,9 @@ AYB free_AYB(AYB ayb);
 AYB copy_AYB(const AYB ayb);
 void show_AYB(XFILE * fp, const AYB ayb, bool showall);
 
-RETOPT analyse_tile (const int argc, char ** const argv, XFILE *fp);
+RETOPT analyse_tile (const int argc, char ** const argv);
+void read_intensities_file(XFILE *fp, unsigned int ncycle);
+void read_intensities_folder(const char *root, LANETILE lanetile, unsigned int ncycle);
 bool set_composition(const char *comp_str);
 void set_niter(const char *niter_str);
 bool set_output_format(const char *outform_str);

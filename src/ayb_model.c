@@ -31,7 +31,6 @@
 #include "call_bases.h"
 #include "cif.h"
 #include "datablock.h"
-#include "dirio.h"
 #include "intensities.h"
 #include "lambda.h"
 #include "matrix.h"
@@ -67,6 +66,7 @@ typedef struct WorkT * WORKPTR;
 static const unsigned int AYB_NITER = 20;       ///< Number of parameter estimation loops.
 static const int DATA_ERR = -1;                 ///< Indicates an error in the data being processed, usually an overflow.
 static const real_t DELTA_DIAG = 1.0;           ///< Delta for solver routines.
+static const unsigned int MIN_CYCLE = 2;        ///< Minimum cycles for modelling.
 
 /** Initial Crosstalk matrix if not read in, fixed values of approximately the right shape. */
 static real_t INITIAL_CROSSTALK[] = {
@@ -107,9 +107,10 @@ static bool SimData = false;                    ///< Set to output simulation da
 static CSTRING SimText = NULL;                  ///< Header text for simulation data file.
 static bool ShowWorking = false;                ///< Set to output final working values.
 static MAT Matrix[E_MNP];                       ///< Predetermined matrices.
+static TILE MainTile = NULL;                    ///< Tile data from file or run-folder.
 static AYB Ayb = NULL;                          ///< The model data.
 
-/* Additional data size constraint for debug output, set in read_intensities */
+/* Additional data size constraint for debug output, set in analyse_tile */
 #ifndef NDEBUG
 static bool ShowDebug = false;
 #endif
@@ -158,45 +159,6 @@ static bool read_matrices(void) {
     }
 
     return found;
-}
-
-/**
- * Read and store an intensities input file.
- * Return flag indicating not to continue if not sufficient cycles in file.
- */
-static TILE read_intensities(XFILE *fp, unsigned int ncycle, RETOPT *status) {
-
-    TILE tile = NULL;
-    switch (get_input_format()) {
-        case E_TXT:
-            tile = read_TILE(fp, ncycle);
-            break;
-
-        case E_CIF:
-            tile = read_cif_TILE (fp, ncycle);
-            break;
-
-        default: ;
-    }
-
-    if (tile != NULL) {
-        if (tile->ncycle < ncycle) {
-            /* not enough data */
-            message(E_CYCLESIZE_DD, MSG_ERR, tile->ncycle, ncycle);
-            tile = free_TILE(tile);
-            *status = E_FAIL;
-        }
-        else {
-            message(E_TILESIZE_DD, MSG_INFO, tile->ncluster, tile->ncycle);
-
-#ifndef NDEBUG
-    /* set additional debug output, can overload the process if too much data; vary as required */
-    ShowDebug = ((NIter == 1) && (tile->ncycle <= 20) && (tile->ncluster <= 100));
-#endif
-        }
-    }
-
-    return tile;
 }
 
 /** Create the sub-tile datablocks to be analysed. */
@@ -1411,32 +1373,49 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
 }
 
 /**
- * Analyse a single input file. File is already opened.
+ * Analyse a single tile. Intensities data already read in and stored in MainTile.
  * Returns continue if analysis should continue to next file,
  * else fail if to continue to next prefix, else stop.
  */
-RETOPT analyse_tile (const int argc, char ** const argv, XFILE *fp) {
+RETOPT analyse_tile (const int argc, char ** const argv) {
 
-    if (xfisnull(fp)) {return E_CONTINUE;}
-    RETOPT status = E_CONTINUE;
-
-    /* read intensity data from supplied file */
-    TILE maintile = read_intensities(fp, get_totalcycle(), &status);
-    if (maintile == NULL) {
-        if (status == E_CONTINUE) {
-            /* problem caused by bad input file */
+    if (MainTile == NULL) {
+        if (!run_folder()) {
+            /* if not a run-folder then problem caused by bad input file */
             message(E_BAD_INPUT_S, MSG_ERR, get_current_file());
         }
-        return status;
+        return E_CONTINUE;
     }
-    const unsigned int ncluster = maintile->ncluster;
+
+    if (MainTile->ncycle < get_totalcycle()) {
+        /* not enough data */
+        message(E_CYCLESIZE_DD, MSG_ERR, MainTile->ncycle, get_totalcycle());
+        MainTile = free_TILE(MainTile);
+        return E_FAIL;
+    }
+    else if (MainTile->ncycle < MIN_CYCLE) {
+        message(E_CYCLESIZE_D, MSG_ERR, MainTile->ncycle);
+        MainTile = free_TILE(MainTile);
+        return E_FAIL;
+    }
+    else {
+        message(E_TILESIZE_DD, MSG_INFO, MainTile->ncluster, MainTile->ncycle);
+
+#ifndef NDEBUG
+    /* set additional debug output, can overload the process if too much data; vary as required */
+    ShowDebug = ((NIter == 1) && (MainTile->ncycle <= 20) && (MainTile->ncluster <= 100));
+#endif
+    }
+
+    const unsigned int ncluster = MainTile->ncluster;
     const unsigned int numblock =  get_defaultblock() ? 1 : get_numblock();
+    RETOPT status = E_CONTINUE;
 
     /* put the data into distinct blocks */
     TILE * tileblock = NULL;
-    tileblock = create_datablocks(maintile, numblock);
+    tileblock = create_datablocks(MainTile, numblock);
     /* no longer need the raw data as read in */
-    free_TILE(maintile);
+    MainTile = free_TILE(MainTile);
 
     if (tileblock == NULL) {
         message(E_DATABLOCK_FAIL_S, MSG_FATAL, get_current_file());
@@ -1526,6 +1505,42 @@ cleanup:
         xfree(tileblock);
     }
     return status;
+}
+
+/**
+ * Read and store a single intensities input file.
+ */
+void read_intensities_file(XFILE *fp, unsigned int ncycle) {
+
+    /* should always be null on entry, but check anyway */
+    if (MainTile != NULL) {
+        MainTile = free_TILE(MainTile);
+    }
+
+    switch (get_input_format()) {
+        case E_TXT:
+            MainTile = read_TILE(fp, ncycle);
+            break;
+
+        case E_CIF:
+            MainTile = read_cif_TILE (fp, ncycle);
+            break;
+
+        default: ;
+    }
+}
+
+/**
+ * Read and store a single lane/tile of intensities from a run-folder.
+ */
+void read_intensities_folder(const char *root, LANETILE lanetile, unsigned int ncycle) {
+
+    /* should always be null on entry, but check anyway */
+    if (MainTile != NULL) {
+        MainTile = free_TILE(MainTile);
+    }
+
+    MainTile = read_folder_TILE(root, lanetile.lane, lanetile.tile, ncycle);
 }
 
 /**
@@ -1624,13 +1639,17 @@ bool startup_model(void){
             message(E_NOBLOCKS, MSG_FATAL);
             return false;
         }
+        if (totalcycle < MIN_CYCLE) {
+            message(E_CYCLESIZE_D, MSG_FATAL, totalcycle);
+            return false;
+        }
         message(E_OPT_SELECT_SD, MSG_INFO, "cycles total", totalcycle);
         message(E_OPT_SELECT_SD, MSG_INFO, "distinct data blocks", numblock);
     }
 
     /* check number of iterations supplied - may be left at default */
     if (NIter == 0) {
-        message(E_BADITER, MSG_FATAL);
+        message(E_BAD_ITER, MSG_FATAL);
         return false;
     }
 

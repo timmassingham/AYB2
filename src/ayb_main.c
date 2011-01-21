@@ -62,12 +62,13 @@ static void tidyup(void) {
 /**
  * Main AYB routine.
  * Read program options and set up environment.
- * Then process each input file before tidy up and exit.
+ * Then process each input file or run-folder lane/tile before tidy up and exit.
  */
 int main(int argc, char **argv) {
 
     int ret = EXIT_SUCCESS;
     int nextarg = 0;
+    LANETILE lanetile = {0, 0};
     XFILE *fp = NULL;
 
     /* install signal handler - interrupt does not work as written, do not enable */
@@ -101,7 +102,7 @@ int main(int argc, char **argv) {
     }
 
     /* create a message log, stderr or name as argument */
-    if (!startup_message(get_pattern())) {
+    if (!startup_message()) {
         fprintf(stderr, "AYB failed during message startup\n");
         ret = EXIT_FAILURE;
         goto cleanup;
@@ -121,22 +122,46 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
-    /* process each prefix supplied as non-option argument */
+    const CSTRING input_path = get_input_path();
+    const unsigned int totalcycle = get_totalcycle();
+
+    /* process each prefix or lane/tile range supplied as non-option argument */
     for (int i = nextarg; i < argc; i++) {
         if (set_pattern(argv[i])) {
-            /* process each intensity file until no more or a no continue error */
+            /* process each intensity file or run-folder lane/tile until no more or a no continue error */
             status = E_CONTINUE;
 
             while (status == E_CONTINUE) {
-                fp = open_next(fp);
 
-                if (xfisnull(fp)) {
-                    /* next prefix */
-                    status = E_FAIL;
+                if (run_folder()) {
+                    /* get lane/tile numbers */
+                    lanetile = get_next_lanetile();
+                    if (lanetile_isnull(lanetile)) {
+                        /* next prefix */
+                        status = E_FAIL;
+                    }
                 }
                 else {
-                    /* analyse this input file */
-                    status = analyse_tile(argc, argv, fp);
+                    /* open the intensities file */
+                    fp = open_next(fp);
+                    if (xfisnull(fp)) {
+                        /* next prefix */
+                        status = E_FAIL;
+                    }
+                }
+
+                if (status == E_CONTINUE) {
+                    if (run_folder()) {
+                        /* read intensities data from run-folder */
+                        read_intensities_folder(input_path, lanetile, totalcycle);
+                    }
+                    else {
+                        /* read intensities data from supplied file */
+                        read_intensities_file(fp, totalcycle);
+                    }
+
+                    /* analyse the stored tile */
+                    status = analyse_tile(argc, argv);
                 }
             }
             /* analysis return may indicate stop program */
