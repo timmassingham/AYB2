@@ -27,6 +27,7 @@ At least one non-option prefix argument is also required.
 Program inputs are:
 - Intensities files in cif or txt format
 - Optional initial Crosstalk (M), Noise (N), and Phasing (P) matrices in column per row format
+- Optional quality calibration conversion table
 
 All file access for input is handled in module dirio (dirio.c).
 
@@ -35,6 +36,7 @@ Program outputs are:
 - Base Call Sequence file in fasta or fastq format
 - Optional final working values
 - Optional simulation data files
+- Optional quality calibration resultant values
 
 All file access for output is handled in module dirio (dirio.c).
 
@@ -72,7 +74,7 @@ To add a new program option:
 - Adjust any values in the option index enumeration (#OPTINDEX) if required 
 - Add to short string in call to getopt_long in #read_options (with colon if argument required)
 - Add to following switch statement to handle result
-- Add to help and usage text
+- Add to help, usage and manual text
  */
  
 /**
