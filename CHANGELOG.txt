@@ -1,8 +1,30 @@
 AYB ChangeLog
 =============
 
-Version 2.0 (2010-12-07)
---------------------------
+Version 2.01 (2011-01-21)
+-------------------------
+
+.Additions and changes
+
+- New 'qualtab' option to read in a quality calibration table from a file and
+  use to convert the default. Resultant values are output if log level is debug.
+
+- New 'runfolder' option to read cif files directly from a run-folder.
+  The command line 'prefix' is then replaced by a single lane tile or range. 
+
+- A 'prefix' or input filepath may now contain a complete path.
+
+.Bug fixes
+
+- Large final processed values could cause an exception when output in cif format.
+
+- Files were not closed during cif run-folder operations.
+
+
+Version 2.00 (2010-12-07)
+-------------------------
 
 First AYB Version II public release.
+
+Rewritten to be more robust and maintainable with a more flexible user-inteface.
 
