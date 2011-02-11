@@ -104,7 +104,8 @@ static const char *MSG_TEXT[] = {
         "%s (%s:%d): %s %d\n"                                                   // E_DEBUG_SSD_SD
         };
 
-/** Message severity text. Used to match program argument and as text in log file.
+/**
+ * Message severity text. Used to match program argument and as text in log file.
  * Ensure list matches MsgSeverityT enum. 
  */
 static const char *MSG_SEV_TEXT[] = {
@@ -115,10 +116,6 @@ static const char *MSG_SEV_TEXT[] = {
         "Warning",
         "Debug",
         ""};
-
-/* location and name of message file */
-static const char *DATE_TIME = "%d %B %Y %H:%M";    ///< Log header date; gives 'dd mmmm yyyy hh:mm'.
-static const size_t DATE_TIME_LEN = 24;             ///< Maximum length of log header date, including null terminator.
 
 /* members */
 
@@ -163,6 +160,12 @@ static bool check_path(const CSTRING filepath) {
 MSGSEV get_message_level(void) {
 
     return (MSGSEV)Msg_Level;
+}
+
+/** Return the selected message path as a copy. */
+CSTRING get_message_path(void) {
+
+    return copy_CSTRING(Msg_Path);
 }
 
 /** 
@@ -221,16 +224,45 @@ void set_message_path(const CSTRING path) {
 /**
  * Start up; call at program start after options.
  * Redirects stderr to log file if requested and outputs a log file header.
- * Returns true unless requested log file cannot be opened.
+ * Log file name also used by program associated files so if none then
+ * generates a randomised virtual name of form ayb_xxxxxx_yymmdd_hhmm.
+ * Returns true unless requested log file cannot be opened or virtual name cannot be created.
  */
 bool startup_message(void) {
+
+    const char *DATE_TIME = "%d %B %Y %H:%M";           // log header date; gives 'dd mmmm yyyy hh:mm'
+    const size_t DATE_TIME_LEN = 24;                    // maximum length, including null terminator
 
     /* get the current date and time */
     time_t lt = time(NULL);
     struct tm *p_tm = localtime(&lt);
     char timestring[DATE_TIME_LEN];
 
-    if (Msg_Path != NULL) {
+    if (Msg_Path == NULL) {
+        /* create a randomised name */
+        const int DIVISOR = 1E6;                        // limit random value to six digits
+        const char *LOG_START = "ayb_%06d";             // includes random value template
+        const size_t LEN = 10;                          // for prefix and random value
+        const char *TIME_SUFFIX = "_%y%m%d_%H%M";       // gives _yymmdd_hhmm
+        const size_t TIME_SUFFIX_LEN = 13;              // maximum length, including null terminator
+
+        Msg_Path = new_CSTRING(LEN + TIME_SUFFIX_LEN);
+        if (Msg_Path == NULL) {
+            return false;
+        }
+
+        /* start with default prefix and random number string of limited digits */
+        srand(time(0));
+        int val = rand() % DIVISOR;
+        sprintf(Msg_Path, LOG_START, val);
+
+        /* add the current date and time */
+        strftime(timestring, TIME_SUFFIX_LEN, TIME_SUFFIX, p_tm);
+        strcat(Msg_Path, timestring);
+        fprintf(stdout, "AYB virtual log name is %s\n", Msg_Path);
+    }
+
+    else {
         /* error file specified, redirect stderr from within program */
         /* validate any path supplied */
         if (!check_path(Msg_Path)) {

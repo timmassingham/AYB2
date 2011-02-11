@@ -70,6 +70,7 @@ XFILE * open_matrix(IOTYPE mode);
 XFILE * open_next(XFILE *fplast);
 XFILE * open_output(CSTRING tag);
 XFILE * open_output_blk(CSTRING tag, int blk);
+XFILE * open_run_output(const CSTRING tag);
 
 bool run_folder(void);
 bool set_input_format(const char *inform_str);

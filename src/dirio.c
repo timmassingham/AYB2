@@ -343,6 +343,8 @@ static void make_substring(void) {
 /* substring search ignoring case, needed hmhm? */
 char *strcasestr(const char *s1, const char *s2) {
 
+    if ((s1 == NULL) || (s2 == NULL)) {return NULL;}
+
     CSTRING lookin = copy_CSTRING((CSTRING)s1);
     CSTRING lookfor = copy_CSTRING((CSTRING)s2);
     char *ret;
@@ -463,13 +465,34 @@ static CSTRING move_path(const CSTRING filepath, CSTRING *filename) {
     return newpath;
 }
 
+/** Return just the filename part of a path. */
+static CSTRING name_only(const CSTRING filepath) {
+
+    if (filepath == NULL) {return NULL;}
+    CSTRING filename = NULL;
+
+    /* find the beginning of the name */
+    char *pdlm = strrchr(filepath, PATH_DELIM);
+    if (pdlm == NULL) {
+        /* no path in filename, return filename unchanged */
+        filename = copy_CSTRING(filepath);
+    }
+    else {
+        filename = copy_CSTRING(pdlm + 1);
+    }
+
+    return filename;
+}
+
 /**
- * Return a new file name created from an original txt.
- * Replaces the part between the last delimiter and the first dot with a new tag.
+ * Create a new file name by replacing the part between the last delimiter and the first dot with a new tag.
  * Add a block suffix to the name if non-negative blk supplied.
- * Removes any compression suffix.
+ * Also removes any compression suffix.
+ * Used for standard illumina (txt) outputs.
  */
-static CSTRING output_name(const CSTRING oldname, const CSTRING tag, int blk) {
+static CSTRING output_name_body(const CSTRING oldname, const CSTRING tag, int blk) {
+
+    if ((oldname == NULL) || (tag == NULL)) {return NULL;}
 
     CSTRING newname = NULL;
     size_t oldlen = strlen(oldname);
@@ -528,11 +551,13 @@ static CSTRING output_name(const CSTRING oldname, const CSTRING tag, int blk) {
 }
 
 /**
- * Return a new file name created from an original cif.
- * Replaces the suffix with a new tag.
- * Add a block suffix to the name if non-negative blk supplied.
+ * Create a new file name by replacing the suffix with a new tag.
+ * Add a block suffix to the body if non-negative blk supplied.
+ * Used for cif and program outputs.
  */
-static CSTRING output_name_cif(const CSTRING oldname, const CSTRING tag, int blk) {
+static CSTRING output_name_suffix(const CSTRING oldname, const CSTRING tag, int blk) {
+
+    if ((oldname == NULL) || (tag == NULL)) {return NULL;}
 
     CSTRING newname = NULL;
     size_t oldlen = strlen(oldname);
@@ -843,11 +868,11 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
         /* create output file name from current input */
         switch (Input_Format) {
             case E_TXT:
-                filename = output_name(Current, tag, blk);
+                filename = output_name_body(Current, tag, blk);
                 break;
 
             case E_CIF:
-                filename = output_name_cif(Current, tag, blk);
+                filename = output_name_suffix(Current, tag, blk);
                 break;
 
             default: ;
@@ -870,6 +895,47 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
     }
     free_CSTRING(filename);
     free_CSTRING(filepath);
+
+    return fp;
+}
+
+/**
+ * Open an output file associated with a program run with supplied tag.
+ * Return the file handle or NULL if failed to open.
+ */
+XFILE * open_run_output(const CSTRING tag) {
+
+    CSTRING filename = NULL;
+    CSTRING filepath = NULL;
+    XFILE *fp = NULL;
+
+    /* get the log file path and extract the file name */
+    CSTRING logpath = get_message_path();
+    CSTRING logname = name_only(logpath);
+
+    if (logname != NULL) {
+        /* create new name from log name */
+        filename = output_name_suffix(logname, tag, BLK_SINGLE);
+
+        if (filename != NULL) {
+            if (full_path(Output_Path, filename, &filepath)) {
+                fp =  xfopen(filepath, XFILE_RAW, "w" );
+
+                if (xfisnull(fp)) {
+                    message(E_OPEN_FAIL_SS, MSG_ERR, "Output", filepath);
+                    fp = xfclose(fp);
+                }
+                else {
+                    message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, filename);
+                }
+            }
+        }
+    }
+
+    free_CSTRING(filename);
+    free_CSTRING(filepath);
+    free_CSTRING(logname);
+    free_CSTRING(logpath);
 
     return fp;
 }

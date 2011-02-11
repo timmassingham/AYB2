@@ -96,6 +96,7 @@ typedef enum MsgSeverityT {MSG_NONE, MSG_FATAL, MSG_ERR, MSG_INFO, MSG_WARN, MSG
 /* function prototypes */
 
 MSGSEV get_message_level(void);
+CSTRING get_message_path(void);
 int message(MSGTYPE type, MSGSEV sev, ...);
 
 bool set_message_level(const char *levelstr);
