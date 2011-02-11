@@ -34,6 +34,7 @@
 #include "datablock.h"
 #include "dirio.h"
 #include "message.h"
+#include "qual_table.h"
 
 
 /* constants */
@@ -75,6 +76,7 @@ enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
 
 /** Long option structure used by getopt_long. */
 static struct option Longopts[] = {
+    {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 0 in header file
     {"blockstring", required_argument,  NULL, 'b'},
     {"composition", required_argument,  NULL, 'c'},
     {"dataformat",  required_argument,  NULL, 'd'},
@@ -85,8 +87,8 @@ static struct option Longopts[] = {
     {"mu"   ,       required_argument,  NULL, 'm'},
     {"niter",       required_argument,  NULL, 'n'},
     {"output",      required_argument,  NULL, 'o'},
+    {"noqualout",   no_argument,        NULL, 'q'},
     {"runfolder",   no_argument,        NULL, 'r'},
-    {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 11 in header file
     {"working",     no_argument,        NULL, 'w'},
     {"M",           required_argument,  NULL, 'M'},
     {"N",           required_argument,  NULL, 'N'},
@@ -124,9 +126,14 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "b:c:d:e:f:i:l:m:n:o:rs:wM:N:P:Q:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "s:b:c:d:e:f:i:l:m:n:o:qrwM:N:P:Q:S:", Longopts, NULL)) != -1){
 
         switch(ch){
+            case 's':
+                 /* output simulation data */
+                 set_simdata(optarg);
+                 break;
+
             case 'b':
                 /* pattern of data blocks */
                 if (!parse_blockopt(optarg)) {
@@ -194,15 +201,15 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
                 set_location(optarg, E_OUTPUT);
                 break;
 
+            case 'q':
+                /* no quality calibration table output */
+                set_noqualout();
+                break;
+
             case 'r':
                 /* input from run-folder */
                 set_run_folder();
                 break;
-
-            case 's':
-                 /* output file location */
-                 set_simdata(optarg);
-                 break;
 
             case 'w':
                 /* show working flag */
