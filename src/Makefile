@@ -8,8 +8,9 @@ CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -std=gnu99
 LDFLAGS =  -lz -lbz2 -llapack -lgfortran
 INCFLAGS = 
 DEFINES = -D_BSD_SOURCE
-objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o call_bases.o cif.o cluster.o datablock.o dirio.o handler.o \
-           intensities.o lambda.o matrix.o message.o mpn.o nuc.o statistics.o tile.o utility.o weibull.o xio.o \
+objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o calibration.o call_bases.o \
+           cif.o cluster.o datablock.o dirio.o handler.o intensities.o lambda.o matrix.o \
+           message.o mpn.o nuc.o qual_table.o statistics.o tile.o utility.o weibull.o xio.o \
            snnls.o dnnls.o
 
 AYB: $(objects)
@@ -38,6 +39,9 @@ test-weibull: statistics.o
 	   ln -fs $(BINDIR)/$@ $(BINDIR)/pweibull && \
 	   ln -fs $(BINDIR)/$@ $(BINDIR)/dweibull && \
 	   ln -fs $(BINDIR)/$@ $(BINDIR)/fweibull
+
+test-xio: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST xio.c $(filter-out xio.o ayb_main.o,$(objects))
 
 ayb_options.o: ayb_options.c ayb_usage.h ayb_help.h
 
