@@ -232,6 +232,7 @@ CLUSTER read_first_CLUSTER( XFILE * fp, unsigned int *ncycle,
     char *line = NULL;
     size_t len = 0;
     line = xfgetln(fp, &len);
+    if (NULL == line) {return NULL;}
     char *ptr = line;
     CLUSTER cluster = NULL;
 
@@ -263,6 +264,7 @@ CLUSTER read_known_CLUSTER( XFILE * fp, unsigned int *ncycle){
     char *line = NULL;
     size_t len = 0;
     line = xfgetln(fp, &len);
+    if (NULL == line) {return NULL;}
     char *ptr = line;
     CLUSTER cluster = NULL;
 

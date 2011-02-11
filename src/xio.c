@@ -67,7 +67,8 @@ const char * BZ2 = "bz2";
 
 /* members */
 
-XFILE _xstdout, _xstderr;
+XFILE _xstdin, _xstdout, _xstderr;
+XFILE * xstdin  = &_xstdin;		///< Standard input as an XFILE.
 XFILE * xstdout = &_xstdout;            ///< Standard output as an XFILE.
 XFILE * xstderr = &_xstderr;            ///< Standard error as an XFILE.
 static bool _xinit = false;
@@ -77,6 +78,7 @@ static bool _xinit = false;
 
 /** Create standard output and error as an XFILE. */
 static void initialise_std ( void ){
+   _xstdin.mode = XFILE_RAW; _xstdin.ptr.fh = stdin;
    _xstdout.mode = XFILE_RAW; _xstdout.ptr.fh = stdout;
    _xstderr.mode = XFILE_RAW; _xstderr.ptr.fh = stderr;
    _xinit = true;
@@ -320,27 +322,87 @@ char * xfgets( char * restrict s, int n, XFILE * restrict fp){
  * Does not deal with MS-DOS style line-feeds gracefully.
  */
 char * xfgetln( XFILE * fp, size_t * len ){
-    char * str = NULL;
-    int size = 0;
-    int c = 0;
-    *len = 0;
-    while ( c=xfgetc(fp), (c!=EOF) && (c!='\n') && (c!='\r') ){
-    	if(size<=*len){
-    	    size += 80;
-            str = reallocf(str, size);
-            if(NULL==str){ return NULL;}
-        }
-        str[*len] = c;
-        (*len)++;
-	}
-	// Make sure there is sufficient memory for terminating '\0'
-	if(size<=*len){
-    	size += 1;
-        str = reallocf(str, size);
-        if(NULL==str){ return NULL;}
-    }
-    str[*len] = '\0';
+	return xfgettok(fp,len,"\n");
+}
 
-	
+/**
+ * Read token from a file until sep(orator) or EOF is found, allocating 
+ * necessary memory.
+ * Calling function is responsible for freeing allocated memory.
+ * Returns pointer to line, and length in len. Appends a null terminator.
+ * Returns NULL if fails to allocate memory or other error.
+ * Does not deal with MS-DOS style line-feeds gracefully.
+ */
+
+char * xfgettok( XFILE * fp, size_t * len, const char * sep){
+	if(NULL==fp){ return NULL; }
+	size_t seplen = strlen(sep);
+
+	char * str = NULL;
+	int size = 0;
+	int c = 0;
+	*len = 0;
+	int sepidx = 0;
+	while ( c=xfgetc(fp), (c!=EOF) ){
+		if(size<=*len){
+			size += 80;
+			str = reallocf(str, size);
+			if(NULL==str){ return NULL;}
+		}
+		str[*len] = c;
+		(*len)++;
+		if(c==sep[sepidx]){
+			sepidx++;
+			// Has end of token been reached?
+			if(sepidx==seplen){
+				break;
+			}
+		} else {
+			// Reset counter
+			sepidx = 0;
+		}
+	}
+	// If nothing read, return.
+	if(EOF==c && NULL==str){ return NULL;}
+	// Remove any trailing bit of separator
+	*len = *len - sepidx;
+	// Make sure there is sufficient memory for terminating '\0'
+	if(size <= *len){
+		size += 1;
+		str = reallocf(str, size);
+		if(NULL==str){ return NULL;}
+	}
+	str[*len] = '\0';
+
 	return str;
 }
+
+#ifdef TEST
+
+#include <err.h>
+
+int main ( int argc, char * argv[]){
+	if(argc!=3){
+		errx(EXIT_FAILURE,"Usage: test-xio sep file");
+	}
+
+	char * sep = argv[1];
+
+	XFILE * xfp = xfopen(argv[2],XFILE_UNKNOWN,"r");
+	if(NULL==xfp){
+		errx(EXIT_FAILURE,"Failed to open %s for input",argv[2]);
+	}
+
+	size_t len = 0;
+	int ntok = 0;
+	char * tok = NULL;
+	while( (tok = xfgettok(xfp,&len,sep)), (len!=0) ){
+		ntok++;
+		printf("Token %lu: [%s]\n",len,tok);
+	}
+	xfclose(xfp);
+
+	return EXIT_SUCCESS;
+}
+
+#endif /* TEST */

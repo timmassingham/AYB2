@@ -34,6 +34,7 @@ typedef enum { XFILE_UNKNOWN, XFILE_RAW, XFILE_GZIP, XFILE_BZIP2 } XFILE_MODE;
 /** XFILE type. */
 typedef struct _xfile_struct XFILE;
 
+extern XFILE * xstdin;
 extern XFILE * xstdout;
 extern XFILE * xstderr;
 
@@ -58,5 +59,6 @@ int xfprintf( XFILE * fp, const char * fmt, ... );
 int xfgetc (XFILE * fp);
 char * xfgets( char * restrict s, int n, XFILE * restrict fp);
 char * xfgetln( XFILE * fp, size_t * len);
+char * xfgettok( XFILE * fp, size_t * len, const char * sep);
 
 #endif /* XIO_H_ */
