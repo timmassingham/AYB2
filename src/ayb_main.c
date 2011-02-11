@@ -37,6 +37,7 @@
 #include "dirio.h"
 #include "handler.h"
 #include "message.h"
+#include "qual_table.h"
 #include "xio.h"
 
 
@@ -55,6 +56,7 @@ static void tidyup(void) {
     tidyup_dirio();
     tidyup_datablock();
     tidyup_message();
+    tidyup_qual_table();
 }
 
 /* public functions */
@@ -169,6 +171,11 @@ int main(int argc, char **argv) {
         }
     }
 
+    /* output the quality calibration table if not turned off */
+    if (status != E_STOP) {
+        output_quality_table();
+    }
+
     /* get program executable name */
     char *pname = strrchr(argv[0], PATH_DELIM);
     if (pname == NULL) {
@@ -177,6 +184,7 @@ int main(int argc, char **argv) {
     else {
         pname++;
     }
+    fprintf(stderr, "AYB completed successfully\n");
     fprintf(stdout, "End of %s\n", pname);
 
 cleanup:

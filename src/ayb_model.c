@@ -37,6 +37,7 @@
 #include "message.h"
 #include "mpn.h"
 #include "nuc.h"
+#include "qual_table.h"
 #include "statistics.h"
 #include "tile.h"
 #include "weibull.h"
