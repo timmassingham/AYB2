@@ -153,6 +153,59 @@ static bool check_path(const CSTRING filepath) {
     return ret;
 }
 
+/**
+ * Generate a randomised virtual message name of form ayb_xxxxxx_yymmdd_hhmm.
+ * Use urandom instead of rand function because typical seeding with current time
+ * is insufficient to ensure different values when many runs started simultaneously.
+ * Returns NULL if any error.
+ */
+static CSTRING generate_name(const struct tm *p_tm) {
+
+    const char *RAND_FILE = "/dev/urandom";         // random number file
+    const unsigned int DIVISOR = 1E6;               // limit random value to six digits
+    const char *LOG_START = "ayb_%06u";             // includes random value template
+    const size_t LEN = 10;                          // for prefix and random value
+    const char *TIME_SUFFIX = "_%y%m%d_%H%M";       // gives _yymmdd_hhmm
+    const size_t TIME_SUFFIX_LEN = 13;              // maximum length, including null terminator
+    char timestring[TIME_SUFFIX_LEN];
+    FILE *frand = NULL;
+
+    CSTRING name = new_CSTRING(LEN + TIME_SUFFIX_LEN);
+    if (name == NULL) {
+        message(E_NOMEM_S, MSG_FATAL, "message name creation");
+        goto cleanup;
+    }
+
+    /* start with default prefix and random number string of limited digits */
+    unsigned int number = 0;
+    frand = fopen(RAND_FILE, "r");
+    if (frand == NULL) {
+        message(E_OPEN_FAIL_SS, MSG_FATAL, "Random number generator", RAND_FILE);
+        goto cleanup;
+    }
+    else {
+        fread(&number, 1, sizeof(number), frand);
+        fclose(frand);
+        if (number == 0) {
+            message(E_BAD_INPUT_S, MSG_FATAL, RAND_FILE);
+            goto cleanup;
+        }
+    }
+
+    unsigned int val = number % DIVISOR;
+    sprintf(name, LOG_START, val);
+
+    /* add the current date and time */
+    strftime(timestring, TIME_SUFFIX_LEN, TIME_SUFFIX, p_tm);
+    strcat(name, timestring);
+
+    return name;
+
+cleanup:
+    free_CSTRING(name);
+    return NULL;
+}
+
 
 /* public functions */
 
@@ -162,10 +215,10 @@ MSGSEV get_message_level(void) {
     return (MSGSEV)Msg_Level;
 }
 
-/** Return the selected message path as a copy. */
+/** Return the selected message path. */
 CSTRING get_message_path(void) {
 
-    return copy_CSTRING(Msg_Path);
+    return Msg_Path;
 }
 
 /** 
@@ -239,27 +292,15 @@ bool startup_message(void) {
     char timestring[DATE_TIME_LEN];
 
     if (Msg_Path == NULL) {
-        /* create a randomised name */
-        const int DIVISOR = 1E6;                        // limit random value to six digits
-        const char *LOG_START = "ayb_%06d";             // includes random value template
-        const size_t LEN = 10;                          // for prefix and random value
-        const char *TIME_SUFFIX = "_%y%m%d_%H%M";       // gives _yymmdd_hhmm
-        const size_t TIME_SUFFIX_LEN = 13;              // maximum length, including null terminator
-
-        Msg_Path = new_CSTRING(LEN + TIME_SUFFIX_LEN);
+        /* create a virtual name */
+        Msg_Path = generate_name(p_tm);
         if (Msg_Path == NULL) {
+            /* error message already issued */
             return false;
         }
-
-        /* start with default prefix and random number string of limited digits */
-        srand(time(0));
-        int val = rand() % DIVISOR;
-        sprintf(Msg_Path, LOG_START, val);
-
-        /* add the current date and time */
-        strftime(timestring, TIME_SUFFIX_LEN, TIME_SUFFIX, p_tm);
-        strcat(Msg_Path, timestring);
-        fprintf(stdout, "AYB virtual log name is %s\n", Msg_Path);
+        else {
+            fprintf(stdout, "AYB virtual log name is %s\n", Msg_Path);
+        }
     }
 
     else {
@@ -299,3 +340,33 @@ void tidyup_message (void) {
     /* free string memory */
     free_CSTRING(Msg_Path);
 }
+
+
+#ifdef TEST
+
+#include <err.h>
+
+int main ( int argc, char * argv[]){
+// no parameters yet
+//    if(argc!=3){
+//        errx(EXIT_FAILURE,"Usage: test-message p1 p2");
+//    }
+
+    fputs("Generate Randomised Name:\n", stdout);
+    const int NUM = 10;
+    time_t lt = time(NULL);
+    struct tm *p_tm = localtime(&lt);
+    CSTRING names[NUM];
+
+    for (int i = 0; i < NUM; i++) {
+        names[i] = generate_name(p_tm);
+    }
+    for (int i = 0; i < NUM; i++) {
+        fprintf(stdout, "  Name %d: %s\n", i, names[i]);
+        free_CSTRING(names[i]);
+    }
+
+    return EXIT_SUCCESS;
+}
+
+#endif /* TEST */

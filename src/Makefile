@@ -16,13 +16,16 @@ objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o calibration.o call
 AYB: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ $(LDFLAGS) $(objects)
 	
-test: test-cluster test-matrix test-mpn test-nuc test-tile
+test: test-cluster test-matrix test-message test-mpn test-nuc test-tile test-xio
 
 test-cluster: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects))
 
 test-matrix: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST matrix.c $(filter-out matrix.o ayb_main.o,$(objects))
+
+test-message: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST message.c $(filter-out message.o ayb_main.o,$(objects))
 
 test-mpn: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST mpn.c $(filter-out mpn.o ayb_main.o,$(objects))

@@ -910,8 +910,7 @@ XFILE * open_run_output(const CSTRING tag) {
     XFILE *fp = NULL;
 
     /* get the log file path and extract the file name */
-    CSTRING logpath = get_message_path();
-    CSTRING logname = name_only(logpath);
+    CSTRING logname = name_only(get_message_path());
 
     if (logname != NULL) {
         /* create new name from log name */
@@ -935,7 +934,6 @@ XFILE * open_run_output(const CSTRING tag) {
     free_CSTRING(filename);
     free_CSTRING(filepath);
     free_CSTRING(logname);
-    free_CSTRING(logpath);
 
     return fp;
 }
