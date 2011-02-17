@@ -1,6 +1,22 @@
 AYB ChangeLog
 =============
 
+Version 2.02 (2011-02-17)
+-------------------------
+
+.Additions and changes
+
+- Quality calibration table now contains values to use instead of conversion for default.
+  Values used per run are output unless disabled with new 'noqualout' option.
+  
+
+Regression issues
+~~~~~~~~~~~~~~~~~
+
+This release has been coordinated with a new Recalibration tool that produces values to use. 
+Ensure ayb_recal version is 08 Feb 2011 or later.
+
+
 Version 2.01 (2011-01-21)
 -------------------------
 
