@@ -326,7 +326,7 @@ char * xfgetln( XFILE * fp, size_t * len ){
 }
 
 /**
- * Read token from a file until sep(orator) or EOF is found, allocating 
+ * Read token from a file until sep(arator) or EOF is found, allocating 
  * necessary memory.
  * Calling function is responsible for freeing allocated memory.
  * Returns pointer to line, and length in len. Appends a null terminator.
@@ -336,6 +336,7 @@ char * xfgetln( XFILE * fp, size_t * len ){
 
 char * xfgettok( XFILE * fp, size_t * len, const char * sep){
 	if(NULL==fp){ return NULL; }
+	if(NULL==sep){ return NULL; }
 	size_t seplen = strlen(sep);
 
 	char * str = NULL;
@@ -378,28 +379,100 @@ char * xfgettok( XFILE * fp, size_t * len, const char * sep){
 }
 
 #ifdef TEST
-
 #include <err.h>
 
 int main ( int argc, char * argv[]){
-	if(argc!=3){
-		errx(EXIT_FAILURE,"Usage: test-xio sep file");
+	if(argc<3){
+	    /* argumens are separator and input file */
+		errx(EXIT_FAILURE, "Usage: test-xio separator filename");
 	}
 
 	char * sep = argv[1];
 
-	XFILE * xfp = xfopen(argv[2],XFILE_UNKNOWN,"r");
+	XFILE * xfp = xfopen(argv[2], XFILE_UNKNOWN, "r");
 	if(NULL==xfp){
-		errx(EXIT_FAILURE,"Failed to open %s for input",argv[2]);
+		errx(EXIT_FAILURE, "Failed to open %s for input", argv[2]);
 	}
 
 	size_t len = 0;
 	int ntok = 0;
 	char * tok = NULL;
-	while( (tok = xfgettok(xfp,&len,sep)), (len!=0) ){
+	
+    xfputs("Read null file by token\n", xstdout);
+	tok = xfgettok(NULL, &len, sep);
+	if ((tok==NULL) && (len==0)) {
+        xfputs("Return values null and zero, ok\n", xstdout);
+    }
+    else {
+        xfputs("Return values not null and zero, not ok\n", xstdout);
+     	if (tok!=NULL) {free(tok);}
+    }
+
+    xfputs("Read file by token, null separator\n", xstdout);
+	tok = xfgettok(xfp, &len, NULL);
+	if ((tok==NULL) && (len==0)) {
+        xfputs("Return values null and zero, ok\n", xstdout);
+    }
+    else {
+        xfputs("Return values not null and zero, not ok\n", xstdout);
+     	if (tok!=NULL) {free(tok);}
+    }
+	xfclose(xfp);
+
+    xfputs("Read file by token, empty separator\n", xstdout);
+	xfp = xfopen(argv[2], XFILE_UNKNOWN, "r");
+	while ((tok = xfgettok(xfp, &len, "")), (len!=0) ) {
 		ntok++;
-		printf("Token %lu: [%s]\n",len,tok);
+		xfprintf(xstdout, "Token %d chars %lu: [%s]\n", ntok, len, tok);
+     	free(tok);
 	}
+	if (ntok==1) {
+        xfputs("Single token returned, ok\n", xstdout);
+	}
+	else {
+        xfputs("More than one token returned, not ok\n", xstdout);
+	}
+	if (tok==NULL) {
+        xfputs("Final Return value null, ok\n", xstdout);
+    }
+    else {
+        xfputs("Final return value not null, not ok\n", xstdout);
+     	free(tok);
+    }
+	xfclose(xfp);
+
+    xfprintf(xstdout, "Read file by token \'%s\'\n", sep);
+	xfp = xfopen(argv[2], XFILE_UNKNOWN, "r");
+    ntok = 0;
+	while ((tok = xfgettok(xfp, &len, sep)), (len!=0) ) {
+		ntok++;
+		xfprintf(xstdout, "Token %d chars %lu: [%s]\n", ntok, len, tok);
+     	free(tok);
+	}
+	if (tok==NULL) {
+        xfputs("Final Return value null, ok\n", xstdout);
+    }
+    else {
+        xfputs("Final return value not null, not ok\n", xstdout);
+     	free(tok);
+    }
+	xfclose(xfp);
+
+    xfputs("Read file by line\n", xstdout);
+	xfp = xfopen(argv[2], XFILE_UNKNOWN, "r");
+    ntok = 0;
+	while ((tok = xfgetln(xfp, &len)), (len!=0) ) {
+		ntok++;
+		xfprintf(xstdout, "Line %d chars %lu: [%s]\n", ntok, len, tok);
+    	free(tok);
+	}
+	if (tok==NULL) {
+        xfputs("Final Return value null, ok\n", xstdout);
+    }
+    else {
+        xfputs("Final return value not null, not ok\n", xstdout);
+     	free(tok);
+    }
 	xfclose(xfp);
 
 	return EXIT_SUCCESS;

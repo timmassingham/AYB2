@@ -39,7 +39,7 @@
 
 /* private functions */
 
-bool isprob( const real_t p){
+static bool isprob( const real_t p){
     if(p>1.0){ return false; }
     if(p<0.0){ return false; }
     return true;
@@ -162,33 +162,143 @@ PHREDCHAR phredchar_from_quality( real_t qual){
 
 
 #ifdef TEST
-#include <stdio.h>
-#include <stdlib.h>
+#include <err.h>
 #include <string.h>
+#include <limits.h>
+
+static real_t probs[] = {-0.1, 0.0, 0.5, 0.8, 0.9, 0.95, 0.99, 0.999, 0.9999, 0.99999, 0.999999, 0.9999999, 0.99999999, 1.0, 1.1};
 
 int main ( int argc, char * argv[]){
-    if(argc!=2){
-        fputs("Usage: test sequence\n",stderr);
-        return EXIT_FAILURE;
-    }
-    uint32_t nnuc = strlen(argv[1]);
-    ARRAY(NUC) nucs = new_ARRAY(NUC)(nnuc);
-    for ( uint32_t i=0 ; i<nucs.nelt ; i++){
-        nucs.elt[i] = nuc_from_char(argv[1][i]);
+    if(argc<2){
+        /* argument is test sequence and optional sequence/phred file with a line of sequence */
+        /* and up to 2 lines of potential quality characters, for valid and invalid               */
+        errx(EXIT_FAILURE, "Usage: test-nuc sequence [sequence/quality filename]");
     }
 
-    fputs("Read sequence:     ",stdout);
-    for ( uint32_t i=0 ; i<nucs.nelt ; i++){
-        fputc(char_from_nuc(nucs.elt[i]),stdout);
+    /* optional read sequence/quality testing */
+    if (argc > 2) {
+        XFILE * fp = xfopen(argv[2], XFILE_UNKNOWN, "r");
+        if (xfisnull(fp)) {
+            errx(EXIT_FAILURE, "Failed to open supplied sequence/quality file");
+        }
+        /* find length of lines and output as string */
+        char *line = NULL;
+        size_t len[3] = {0, 0, 0};
+        for (int i = 0; i < 3; i++) {
+            line = xfgetln(fp, &len[i]);
+            xfprintf(xstdout, "Test line %d              : %s\n", i + 1, line);
+            xfree(line);
+        }
+        xfclose(fp);
+
+        /* reopen to read as nuc/phredchar */
+        fp = xfopen(argv[2], XFILE_UNKNOWN, "r");
+        xfputs("Read in sequence         : ", xstdout);
+        NUC nuc;
+        for (int i = 0; i < len[0]; i++) {
+            nuc = read_NUC(fp);
+            show_NUC(xstdout, nuc);
+        }
+        xfputc('\n', xstdout);
+        /* skip end of line */
+        int c = xfgetc(fp);
+        
+        xfputs("Read in valid qualchar   : ", xstdout);
+        PHREDCHAR pc;
+        for (int i = 0; i < len[1]; i++) {
+            pc = read_PHREDCHAR(fp);
+            show_PHREDCHAR(xstdout, pc);
+        }
+        xfputc('\n', xstdout);
+        /* skip end of line */
+        c = xfgetc(fp);
+              
+        xfputs("Read in invalid qualchar : ", xstdout);
+        for (int i = 0; i < len[2]; i++) {
+            pc = read_PHREDCHAR(fp);
+            show_PHREDCHAR(xstdout, pc);
+        }
+        xfprintf(xstdout, "\n(should all be %c or %c)\n\n", MIN_PHRED, MAX_PHRED);
+        xfclose(fp);
     }
-    fputc('\n',stdout);
+
+    xfprintf(xstdout, "Supplied sequence string : %s\n", argv[1]);
+    xfprintf(xstdout, "Sequence length          : %u\n", strlen(argv[1]));
+    
+    xfputs("Null sequence            : ", xstdout);
+    ARRAY(NUC) nucs = nucs_from_string(NULL);
+    if ((nucs.elt==NULL) && (nucs.nelt==0)) {
+        xfputs("Return value null array, ok\n", xstdout);
+    }
+    else {
+        xfputs("Return value not null array, not ok\n", xstdout);
+    }
+    free_ARRAY(NUC)(nucs);
+
+    nucs = nucs_from_string(argv[1]);
+    xfprintf(xstdout, "Stored length            : %u\n", nucs.nelt);
+    xfputs("Store/write sequence     : ", xstdout);
+    for (uint32_t i = 0; i < nucs.nelt; i++){
+        show_NUC(xstdout, nucs.elt[i]);
+    }
+    xfputc('\n', xstdout);
 
     ARRAY(NUC) rc = reverse_complement(nucs);
-    fputs("Reversed sequence: ",stdout);
-    for ( uint32_t i=0 ; i<rc.nelt ; i++){
-        fputc(char_from_nuc(rc.elt[i]),stdout);
+    xfputs("Reversed sequence        : ", xstdout);
+    for (uint32_t i = 0; i < rc.nelt; i++){
+        show_NUC(xstdout, rc.elt[i]);
     }
-    fputc('\n',stdout);
+    xfputs("\n\n", xstdout);
+    free_ARRAY(NUC)(nucs);
+    free_ARRAY(NUC)(rc);
+    
+    xfputs("Outside range qualchars  : ", xstdout);
+    for (char ch = 0; ch < MIN_PHRED; ch++) {
+        show_PHREDCHAR(xstdout, ch);
+    }
+    xfputs("...", xstdout);
+    /* use int because char will alway be <= CHAR_MAX */
+    for (int ch = MAX_PHRED + 1; ch <= CHAR_MAX; ch++) {
+        show_PHREDCHAR(xstdout, (char)ch);
+    }
+    xfputs("\n(should all be blank)\n", xstdout);
 
+    xfputs("Coerced to quality range : ", xstdout);
+    for (char ch = 0; ch < MIN_PHRED; ch++) {
+        show_PHREDCHAR(xstdout, phredchar_from_char(ch));
+    }
+    xfputs("...", xstdout);
+    for (int ch = MAX_PHRED + 1; ch <= CHAR_MAX; ch++) {
+        show_PHREDCHAR(xstdout, phredchar_from_char((char)ch));
+    }
+    xfprintf(xstdout, "\n(should all be %c or %c)\n", MIN_PHRED, MAX_PHRED);
+    
+    xfputs("Range of qualchars       : ", xstdout);
+    for (char ch = MIN_PHRED; ch <= MAX_PHRED; ch++) {
+        show_PHREDCHAR(xstdout, phredchar_from_char(ch));
+    }
+    xfputs("\n\n", xstdout);
+    
+    xfputs("Quality character from probability:\n", xstdout);
+    int nprob = sizeof(probs) / sizeof(real_t);
+    PHREDCHAR pc;
+    for (int i = 0; i < nprob; i++) {
+        pc = phredchar_from_prob(probs[i]);
+        xfprintf(xstdout, "prob: % 10.8f, value: %3d, quality: ", probs[i], pc);
+        show_PHREDCHAR(xstdout, pc);
+        xfputc('\n', xstdout);
+    }
+
+    xfputs("Quality character from probability via value:\n", xstdout);
+    real_t val;
+    for (int i = 0; i < nprob; i++) {
+        val = quality_from_prob(probs[i]);
+        pc = phredchar_from_quality(val);
+        xfprintf(xstdout, "prob: % 10.8f, qual value: %5.2f, quality: ", probs[i], val);
+        show_PHREDCHAR(xstdout, pc);
+        xfputc('\n', xstdout);
+    }
+
+    return EXIT_SUCCESS;
 }
 #endif

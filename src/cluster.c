@@ -131,7 +131,7 @@ void show_CLUSTER(XFILE * fp, const CLUSTER cluster){
     if(NULL==fp){ return;}
     if(NULL==cluster){ return;}
     xfprintf(fp,"Cluster coordinates: (%u,%u)\n",cluster->x,cluster->y);
-    show_MAT(fp,cluster->signals,4,5);
+    show_MAT(fp,cluster->signals,4,10);
 }
 
 /**
@@ -297,32 +297,140 @@ void write_coordinates (XFILE * fp, const CLUSTER cluster) {
 
 
 #ifdef TEST
-//#include <stdio.h>
+#include <err.h>
+
 int main(int argc, char * argv[]){
-    if(argc!=3){
-        xfputs("Usage: test ncycle filename\n", xstdout);
-        return EXIT_FAILURE;
+    if(argc<3){
+        /* arguments are number of cycles, input file (standard format) and optional cif input file */
+        errx(EXIT_FAILURE, "Usage: test-cluster ncycle _int.txt_filename [cif_filename]");
     }
 
     unsigned int ncycle = 0;
     sscanf(argv[1], "%u", &ncycle);
 
-    /* test read from file */
     XFILE * fp = xfopen(argv[2], XFILE_UNKNOWN, "r");
-    /* don't want return ncycle value */
+    if (xfisnull(fp)) {
+        errx(EXIT_FAILURE, "Failed to open supplied _int.txt file");
+    }
+
+    /* optional cif file testing */
+    CIFDATA cif = NULL;
+    bool docif = false;
+    if (argc > 3) {
+        XFILE * fpcif = xfopen(argv[3], XFILE_UNKNOWN, "r");
+        if (xfisnull(fpcif)) {
+            errx(EXIT_FAILURE, "Failed to open supplied cif file");
+        }
+
+        /* read in all the cif data */
+        cif = readCIFfromStream(fpcif);
+        if(NULL==cif){
+            errx(EXIT_FAILURE, "Failed to read supplied cif file");
+        }
+        else {
+            docif = true;
+        }
+        xfclose(fpcif);
+    }
+
+    xfputs("Read null file as first cluster\n", xstdout);
     unsigned int nc = ncycle;
-    CLUSTER cl = read_known_CLUSTER(fp, &nc);
+    unsigned int lane = 0, tile = 0;
+    CLUSTER cl = read_first_CLUSTER(NULL, &nc, &lane, &tile);
+    if (cl==NULL) {
+        xfputs("Return value null, ok\n", xstdout);
+    }
+    else {
+        xfputs("Return value not null, not ok\n", xstdout);
+        cl = free_CLUSTER(cl);
+    }
+
+    xfputs("Read all cycles first cluster from _int.txt file\n", xstdout);
+    nc = 0;
+    cl = read_first_CLUSTER(fp, &nc, &lane, &tile);
+    if (cl==NULL) {
+        errx(EXIT_FAILURE, "Failed to read supplied _int.txt file");
+    }
+
+    xfprintf(xstdout, "Cycles found: %u\n", nc);
+    xfprintf(xstdout, "Lane: %u, Tile: %u\n", lane, tile);
+    xfputs("Write coordinates: ", xstdout);
+    write_coordinates(xstdout, cl);
+    xfprintf(xstdout, "\n");
     show_CLUSTER(xstdout, cl);
     
+    xfputs("Read first cluster from _int.txt file\n", xstdout);
+    nc = ncycle;
+    cl = free_CLUSTER(cl);
+    cl = read_first_CLUSTER(fp, &nc, &lane, &tile);
+    show_CLUSTER(xstdout, cl);
+    
+    xfputs("Read null file as next cluster\n", xstdout);
+    CLUSTER cl2 = read_known_CLUSTER(NULL, &nc);
+    if (cl2==NULL) {
+        xfputs("Return value null, ok\n", xstdout);
+    }
+    else {
+        xfputs("Return value not null, not ok\n", xstdout);
+        cl2 = free_CLUSTER(cl2);
+    }
+
+    xfputs("Read next cluster from _int.txt file\n", xstdout);
+    nc = ncycle;
+    cl2 = read_known_CLUSTER(fp, &nc);
+    show_CLUSTER(xstdout, cl2);
+    xfclose(fp);
+  
+    xfputs("Copy null cluster\n", xstdout);
+    cl2 = free_CLUSTER(cl2);
+    cl2 = copy_CLUSTER(NULL);
+    if (cl2==NULL) {
+        xfputs("Return value null, ok\n", xstdout);
+    }
+    else {
+        xfputs("Return value not null, not ok\n", xstdout);
+        cl2 = free_CLUSTER(cl2);
+    }
+    
     xfputs("Copy cluster\n", xstdout);
-    CLUSTER cl2 = copy_CLUSTER(cl);
+    cl2 = copy_CLUSTER(cl);
     show_CLUSTER(xstdout, cl2);
 
-    xfputs("Copy append cluster, from second column to half way\n", xstdout);
+    if (docif) {
+        xfputs("Too many cycles cluster from cif file\n", xstdout);
+        cl2 = free_CLUSTER(cl2);
+        cl2 = read_cif_CLUSTER(cif, 0, cif_get_ncycle(cif) + 1);
+        if (cl2==NULL) {
+            xfputs("Return value null, ok\n", xstdout);
+        }
+        else {
+            xfputs("Return value not null, not ok\n", xstdout);
+            cl2 = free_CLUSTER(cl2);
+        }
+
+        xfputs("Invalid cluster from cif file \n", xstdout);
+        cl2 = read_cif_CLUSTER(cif, cif_get_ncluster(cif), ncycle);
+        if (cl2==NULL) {
+            xfputs("Return value null, ok\n", xstdout);
+        }
+        else {
+            xfputs("Return value not null, not ok\n", xstdout);
+            cl2 = free_CLUSTER(cl2);
+        }
+    
+        xfputs("Valid cluster from cif file\n", xstdout);
+        cl2 = read_cif_CLUSTER(cif, 0, ncycle);
+        show_CLUSTER(xstdout, cl2);
+    }
+    else {
+        xfputs("Skip cif file tests\n", xstdout);
+    }
+    
+    xfputs("Copy append cluster, from second column (1) to ncol/2\n", xstdout);
     cl = copy_append_CLUSTER(cl, cl2, 1, cl2->signals->ncol/2);
     show_CLUSTER(xstdout, cl);
 
-    xfputs("Copy append cluster to null, from second column to half way\n", xstdout);
+    xfputs("Copy append cluster to null, from second column (1) to ncol/2\n", xstdout);
     CLUSTER cl3 = NULL;
     cl3 = copy_append_CLUSTER(cl3, cl2, 1, cl2->signals->ncol/2);
     show_CLUSTER(xstdout, cl3);
@@ -338,16 +446,25 @@ int main(int argc, char * argv[]){
     }
     xfputs("\n", xstdout);
 
+    xfputs("Coerce null array\n", xstdout);
+    real_t *x;
+    CLUSTER cl4 = coerce_CLUSTER_from_array(ncycle, NULL, &x);
+    if (cl4==NULL) {
+        xfputs("Return value null, ok\n", xstdout);
+    }
+    else {
+        xfputs("Return value not null, not ok\n", xstdout);
+    }
+
     xfputs("Coerce cluster from array, ignores x,y\n", xstdout);
-    real_t *x = arry;
-    CLUSTER cl4 = coerce_CLUSTER_from_array(ncycle, x, &x);
+    x = arry;
+    cl4 = coerce_CLUSTER_from_array(ncycle, x, &x);
     show_CLUSTER(xstdout, cl4);
 
     free_CLUSTER(cl);
     free_CLUSTER(cl2);
     free_CLUSTER(cl3);
     /* do not free cl4 as it points to arry */
-    xfclose(fp);
     return EXIT_SUCCESS;
 }
 #endif

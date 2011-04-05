@@ -401,7 +401,9 @@ bool writeCIFtoStream ( const CIFDATA  cif, XFILE * ayb_fp){
 
 
 CIFDATA readCIFfromStream ( XFILE * ayb_fp ){
+    if(NULL==ayb_fp){ return NULL;}
     CIFDATA cif = readCifHeader(ayb_fp);
+    if (NULL==cif) {return NULL;}
     encInt e = {.i8=NULL};
     cif->intensity = readCifIntensities ( ayb_fp , cif, e );
     return cif;
