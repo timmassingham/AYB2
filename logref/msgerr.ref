@@ -1,0 +1,23 @@
+test-matrix: Matrix append_columns: column start (4) greater than column end (3).
+test-matrix: Matrix append_columns: column start increased from -1 to 0.
+test-matrix: Matrix append_columns: column end reduced from 6 to maximum (5).
+test-matrix: Matrix append_columns: different number of rows in source (4) and target (5).
+Warning: Unrecognised nucleotide 'X'; returning NUC_AMBIG
+Warning: Unrecognised nucleotide 'X'; returning NUC_AMBIG
+test-tile: read_known_TILE is for demonstration and is not fully functional.
+test-tile: Intensity file contains more data than requested: additional 39 cycles.
+test-tile: Failed to read cif tile.
+Read cif tile: 76 cycles from 365 clusters.
+Read cif tile: 76 cycles from 365 clusters.
+Read cif tile: 76 cycles from 365 clusters.
+test-tile: Intensity file contains more data than requested: additional 70 cycles.
+test-tile: Failed to read tile from run-folder; lane number 1 tile number 1.
+test-tile: Assumption that lane numbering is less than 10 violated (asked for 10).
+test-tile: Failed to read tile from run-folder; lane number 10 tile number 1.
+test-tile: Assumption that tile numbering is less than 9999 violated (asked for 10000).
+test-tile: Failed to read tile from run-folder; lane number 1 tile number 10000.
+Information: Lane tile range selected: lanes: 2, tiles 8-9
+Information: Run-folder data found; lane number 2 tile number 8
+Read cif tile: 202 cycles from 30621 clusters.
+test-tile: Intensity file contains more data than requested: additional 196 cycles.
+test-tile: Failed to read tile from run-folder; lane number 2 tile number 9.

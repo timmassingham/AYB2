@@ -1,0 +1,65 @@
+Read null file as first cluster
+Return value null, ok
+Read all cycles first cluster from _int.txt file
+Cycles found: 45
+Lane: 1, Tile: 15
+Write coordinates: 	163	1932
+Cluster coordinates: (163,1932)
+1:   -38.30  1300.10   741.90    45.90  1334.00  1279.20   140.40   588.70  1331.90   555.40	... (35 others)
+2:    11.40   730.80   405.80    23.90   860.60   728.10    57.70   659.00   704.70   757.80	... (35 others)
+3:  3115.00    49.90    18.30   118.80    24.00    68.90  2050.40   119.50  1128.00    48.10	... (35 others)
+4:   945.90    52.50   850.20  1132.40    50.00   554.10   998.90   173.80   360.80    78.40	... (35 others)
+Read first cluster from _int.txt file
+Cluster coordinates: (181,537)
+1:   -77.60   206.90  1018.70   153.70   342.90   329.60
+2:   104.70   569.80   547.00   535.20   141.60   180.10
+3:  2889.20   356.70   101.90  1672.50  1514.40    99.60
+4:   980.60   718.10   872.60   670.00   881.00   852.90
+Read null file as next cluster
+Return value null, ok
+Read next cluster from _int.txt file
+Cluster coordinates: (165,1953)
+1:     5.40  1054.50   231.40    48.50    47.50    55.20
+2:    33.90   597.10    -1.30   154.10    46.50    27.80
+3:  2912.40    27.30  1679.80  1716.70  1396.70   110.50
+4:   851.80    44.20   883.10   620.90   718.20   896.00
+Copy null cluster
+Return value null, ok
+Copy cluster
+Cluster coordinates: (181,537)
+1:   -77.60   206.90  1018.70   153.70   342.90   329.60
+2:   104.70   569.80   547.00   535.20   141.60   180.10
+3:  2889.20   356.70   101.90  1672.50  1514.40    99.60
+4:   980.60   718.10   872.60   670.00   881.00   852.90
+Too many cycles cluster from cif file
+Return value null, ok
+Invalid cluster from cif file 
+Return value null, ok
+Valid cluster from cif file
+Cluster coordinates: (0,0)
+1:   539.00   446.00   462.00   497.00   474.00   520.00
+2:   109.00   106.00   108.00   171.00   145.00   180.00
+3:     8.00     7.00     4.00     8.00     9.00     7.00
+4:     7.00     6.00     9.00    10.00    11.00    13.00
+Copy append cluster, from second column (1) to ncol/2
+Cluster coordinates: (181,537)
+1:   -77.60   206.90  1018.70   153.70   342.90   329.60   446.00   462.00   497.00
+2:   104.70   569.80   547.00   535.20   141.60   180.10   106.00   108.00   171.00
+3:  2889.20   356.70   101.90  1672.50  1514.40    99.60     7.00     4.00     8.00
+4:   980.60   718.10   872.60   670.00   881.00   852.90     6.00     9.00    10.00
+Copy append cluster to null, from second column (1) to ncol/2
+Cluster coordinates: (0,0)
+1:   446.00   462.00   497.00
+2:   106.00   108.00   171.00
+3:     7.00     4.00     8.00
+4:     6.00     9.00    10.00
+Create an array
+array values:   -77.60   104.70  2889.20   980.60   206.90   569.80   356.70   718.10  1018.70   547.00   101.90   872.60   153.70   535.20  1672.50   670.00   342.90   141.60  1514.40   881.00   329.60   180.10    99.60   852.90
+Coerce null array
+Return value null, ok
+Coerce cluster from array, ignores x,y
+Cluster coordinates: (0,0)
+1:   -77.60   206.90  1018.70   153.70   342.90   329.60
+2:   104.70   569.80   547.00   535.20   141.60   180.10
+3:  2889.20   356.70   101.90  1672.50  1514.40    99.60
+4:   980.60   718.10   872.60   670.00   881.00   852.90

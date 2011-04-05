@@ -1,0 +1,24 @@
+Read null file by token
+Return values null and zero, ok
+Read file by token, null separator
+Return values null and zero, ok
+Read file by token, empty separator
+Token 1 chars 86: [the quick brown fox jumps over the lazy dog
+the owl and the pussycat
+twinkle, twinkle
+]
+Single token returned, ok
+Final Return value null, ok
+Read file by token 'ow'
+Token 1 chars 12: [the quick br]
+Token 2 chars 34: [n fox jumps over the lazy dog
+the ]
+Token 3 chars 36: [l and the pussycat
+twinkle, twinkle
+]
+Final Return value null, ok
+Read file by line
+Line 1 chars 43: [the quick brown fox jumps over the lazy dog]
+Line 2 chars 24: [the owl and the pussycat]
+Line 3 chars 16: [twinkle, twinkle]
+Final Return value null, ok
