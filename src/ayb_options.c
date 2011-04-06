@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include "ayb.h"
 #include "ayb_model.h"
 #include "ayb_options.h"
 #include "ayb_version.h"

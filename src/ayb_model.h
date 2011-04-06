@@ -27,31 +27,19 @@
 #define AYB_MODEL_H_
 
 #include <stdbool.h>
-#include <stdint.h>
 #include "dirio.h"
 #include "utility.h"
 #include "xio.h"
 
-/** AYB defined as a hidden data structure. Access via structure pointer. */
-typedef struct AybT * AYB;
 
 /* function prototypes */
-
-/* standard functions */
-AYB new_AYB(const uint32_t ncycle, const uint32_t ncluster);
-AYB free_AYB(AYB ayb);
-AYB copy_AYB(const AYB ayb);
-void show_AYB(XFILE * fp, const AYB ayb, bool showall);
 
 RETOPT analyse_tile (const int argc, char ** const argv);
 void read_intensities_file(XFILE *fp, unsigned int ncycle);
 void read_intensities_folder(const char *root, LANETILE lanetile, unsigned int ncycle);
-bool set_composition(const char *comp_str);
 void set_niter(const char *niter_str);
 bool set_output_format(const char *outform_str);
-void set_show_working(void);
 void set_simdata(const CSTRING simdata_str);
-bool set_solver(const char *solver_str);
 bool startup_model(void);
 void tidyup_model(void);
 

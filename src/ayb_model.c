@@ -1,6 +1,6 @@
 /** 
  * \file ayb_model.c
- * Top Level Modelling.
+ * Setup, read intensities, loop and output.
  * Used as a singleton class with local functions accessing global member data.
  *//* 
  *  Created : 14 Apr 2010
@@ -24,146 +24,47 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <math.h>
+#include <string.h>
+#include "ayb.h"
 #include "ayb_model.h"
 #include "ayb_options.h"
 #include "ayb_version.h"
-#include "call_bases.h"
-#include "cif.h"
 #include "datablock.h"
-#include "intensities.h"
-#include "lambda.h"
 #include "matrix.h"
 #include "message.h"
-#include "mpn.h"
-#include "nuc.h"
-#include "qual_table.h"
-#include "statistics.h"
 #include "tile.h"
 #include "weibull.h"
 
 
-/** AYB structure contains the data required for modelling. */
-struct AybT {
-    uint32_t ncluster;
-    uint32_t ncycle;
-    TILE tile;
-    ARRAY(NUC) bases;
-    ARRAY(PHREDCHAR) quals;
-    MAT M, P, N;
-    MAT lambda;
-    MAT we, cycle_var;
-};
-
-/** Structure for output of final working values. */
-struct WorkT {
-    XFILE *fp;
-    CIFDATA cif;
-};
-typedef struct WorkT * WORKPTR;
-
-
 /* constants */
-static const unsigned int AYB_NITER = 20;       ///< Number of parameter estimation loops.
-static const int DATA_ERR = -1;                 ///< Indicates an error in the data being processed, usually an overflow.
-static const real_t DELTA_DIAG = 1.0;           ///< Delta for solver routines.
+
 static const unsigned int MIN_CYCLE = 2;        ///< Minimum cycles for modelling.
 
-/** Initial Crosstalk matrix if not read in, fixed values of approximately the right shape. */
-static real_t INITIAL_CROSSTALK[] = {
-    2.0114300, 1.7217841, 0.06436576, 0.1126401,
-    0.6919319, 1.8022413, 0.06436576, 0.0804572,
-    0.2735545, 0.2252802, 1.39995531, 0.9976693,
-    0.2896459, 0.2413716, 0.11264008, 1.3194981
-};
-
-/** Name text for matrix messages. Match to IOTYPE enum in dirio. */
-static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Phasing"};
 /** Possible output format text. Match to OUTFORM enum. Used to match program argument and also as file extension. */
 static const char *OUTFORM_TEXT[] = {"fasta", "fastq"};
 /** New cluster symbol in sequence file. Match to OUTFORM enum. */
 static const int OUT_SYMBOL[] = {'>', '@'};
-/** Possible solver routine text. Match to SOLVERS list. Used to match --solver argument. */
-static const char *SOLVER_TEXT[] = {"ls", "zero", "nnls"};
 
 /* members */
-
-/** Possible solver routines and number. */
-typedef enum SolvIdT {E_LS, E_ZERO, E_NNLS, E_SOLVER_NUM} SOLVID;
-static SOLVID SolverIndex = E_ZERO;             ///< Selected solver routine index.
-/** Template for P solver routine. */
-typedef int (*SOLVER)(MAT , MAT, real_t *, const real_t);
-/** Possible solver routines. */
-SOLVER SOLVERS[] = { solverSVD, solverZeroSVD, solverNNLS };
-static SOLVER SolverRoutine = solverZeroSVD;    ///< Selected solver routine, match to index.
 
 /** Possible output formats, and number. */
 typedef enum OutFormT {E_FASTA, E_FASTQ, E_OUTFORM_NUM} OUTFORM;
 static OUTFORM OutputFormat  = E_FASTQ;         ///< Selected output format.
 
 static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.
-static real_t BasePenalty[NBASE] = {0.0,0.0,0.0,0.0}; ///< Penalty for least-squares base-calling.
 static unsigned int *ZeroLambda = NULL;         ///< Count of zero lambdas before base call, per iteration.
 static bool SimData = false;                    ///< Set to output simulation data.
 static CSTRING SimText = NULL;                  ///< Header text for simulation data file.
-static bool ShowWorking = false;                ///< Set to output final working values.
-static MAT Matrix[E_MNP];                       ///< Predetermined matrices.
 static TILE MainTile = NULL;                    ///< Tile data from file or run-folder.
-static AYB Ayb = NULL;                          ///< The model data.
 
 /* Additional data size constraint for debug output, set in analyse_tile */
-#ifndef NDEBUG
 static bool ShowDebug = false;
-#endif
 
 
 /* private functions */
 
-/**
- * Read in any external crosstalk (M), Noise (N) and Phasing (P) matrices.
- * Returns false if failed to read a supplied matrix file.
- */
-static bool read_matrices(void) {
-    XFILE *fpmat = NULL;
-    bool found = true;
-
-    for (IOTYPE idx = (IOTYPE)0; idx < E_MNP; idx++) {
-        if (matrix_from_file(idx)) {
-            fpmat = open_matrix(idx);
-            if (fpmat == NULL) {
-                found = false;
-            }
-            else {
-                /* read in matrix */
-                Matrix[idx] = read_MAT_from_column_file(fpmat);
-                if (Matrix[idx] == NULL) {
-                    found = false;
-                }
-            }
-            xfclose(fpmat);
-        }
-        else {
-            /* no input file specified, initialise using internal method later */
-            Matrix[idx] = NULL;
-        }
-
-        /* exit if this iteration failed */
-        if (!found) {
-            break;
-        }
-    }
-    if (found) {
-        /* Crosstalk is always the same size so create from default array */
-        if (Matrix[E_CROSSTALK] == NULL) {
-            Matrix[E_CROSSTALK] = new_MAT_from_array(NBASE, NBASE, INITIAL_CROSSTALK);
-        }
-    }
-
-    return found;
-}
-
 /** Create the sub-tile datablocks to be analysed. */
-static TILE * create_datablocks(TILE maintile, const unsigned int numblock) {
+static TILE * create_datablocks(const TILE maintile, const unsigned int numblock) {
 
     TILE * tileblock = NULL;
     if (get_defaultblock()) {
@@ -213,841 +114,6 @@ static TILE * create_datablocks(TILE maintile, const unsigned int numblock) {
     return tileblock;
 }
 
-/**
- * Initialise crosstalk (M), Noise (N) and Phasing (P) matrices.
- * May use read in values or initialise using an internal method.
- */
-static MAT init_matrix(MAT mat, const IOTYPE idx) {
-
-    if (mat == NULL) {return NULL;}
-
-    if (Matrix[idx] == NULL) {
-        /* initialise internally */
-        unsigned int nrow = mat->nrow;
-        switch (idx) {
-            case E_CROSSTALK:
-                /* shouldn't reach this as crosstalk always set up in read_matrices */
-                /* initial crosstalk from default array */
-                free_MAT(mat);
-                mat = new_MAT_from_array(NBASE, NBASE, INITIAL_CROSSTALK);
-                break;
-
-            case E_NOISE:
-                /* initial noise is zero */
-                set_MAT(mat, 0.0);
-                break;
-
-            case E_PHASING:
-                /* initial phasing */
-                #warning "Phasing not properly initialised yet"
-                free_MAT(mat);
-                mat = identity_MAT(nrow);
-                break;
-
-            default: ;
-        }
-    }
-
-    else {
-        /* use read in matrix */
-        unsigned int ncol = mat->ncol;
-        mat = copyinto_MAT(mat, Matrix[idx]);
-        if (mat == NULL) {
-            message (E_MATRIXINIT_SDD, MSG_ERR, MATRIX_TEXT[idx], ncol, Matrix[idx]->ncol);
-        }
-    }
-    return mat;
-}
-
-/** Returns true if array of data is missing (all zero). */
-static inline bool nodata(const real_t * sig, const int num) {
-
-    for (unsigned int i = 0; i < num; i++) {
-        if (sig[i] != 0) {return false;}
-    }
-    return true;
-}
-
-/**
- * Set initial values for the model.
- * Returns false if one of the initial matrices is wrong dimension or process intensities fails.
- */
-static bool initialise_model(void) {
-
-    /* initial M, P, N */
-    Ayb->M = init_matrix(Ayb->M, E_CROSSTALK);
-    if (Ayb->M == NULL) {
-        message (E_MATRIX_FAIL_S, MSG_ERR, MATRIX_TEXT[E_CROSSTALK]);
-        return false;
-    }
-    Ayb->N = init_matrix(Ayb->N, E_NOISE);
-    if (Ayb->N == NULL) {
-        message (E_MATRIX_FAIL_S, MSG_ERR, MATRIX_TEXT[E_NOISE]);
-        return false;
-    }
-    Ayb->P = init_matrix(Ayb->P, E_PHASING);
-    if (Ayb->P == NULL) {
-        message (E_MATRIX_FAIL_S, MSG_ERR, MATRIX_TEXT[E_PHASING]);
-        return false;
-    }
-
-    /* Initial weights and cycles are all equal. Arbitrarily one */
-    set_MAT(Ayb->we, 1.0);
-    set_MAT(Ayb->cycle_var, 1.0);
-
-    /* process intensities then call initial bases and lambda for each cluster */
-    MAT pcl_int = NULL;                     // Shell for processed intensities
-    MAT Minv_t = transpose_inplace(invert(Ayb->M));
-    MAT Pinv_t = transpose_inplace(invert(Ayb->P));
-    bool ret = true;
-
-#ifndef NDEBUG
-    XFILE *fpout = NULL;
-    if (ShowDebug) {
-        fpout = open_output("pi");
-    }
-#endif
-
-    unsigned int cl = 0;
-    LIST(CLUSTER) node = Ayb->tile->clusterlist;
-    while (NULL != node && cl < Ayb->ncluster){
-        pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
-        if (NULL == pcl_int) {
-            ret = false;
-            goto cleanup;
-        }
-
-#ifndef NDEBUG
-    if (ShowDebug) {
-        if (!xfisnull(fpout)) {
-            show_MAT(fpout, pcl_int, pcl_int->nrow, pcl_int->ncol);
-        }
-    }
-#endif
-
-        /* call initial bases for each cycle */
-        NUC * cl_bases = Ayb->bases.elt + cl * Ayb->ncycle;
-        PHREDCHAR * cl_quals = Ayb->quals.elt + cl * Ayb->ncycle;
-        for ( uint32_t cy = 0; cy < Ayb->ncycle; cy++){
-            /* deal differently with missing data */
-            if (nodata(node->elt->signals->x + cy * NBASE, NBASE)) {
-                cl_bases[cy] = call_base_nodata();
-            }
-            else {
-                cl_bases[cy] = call_base_simple(pcl_int->x + cy * NBASE);
-            }
-            cl_quals[cy] = MIN_PHRED;
-        }
-        /* initial lambda */
-        Ayb->lambda->x[cl] = estimate_lambdaOLS(pcl_int, cl_bases);
-
-        /* next cluster */
-        node = node->nxt;
-        cl++;
-    }
-
-#ifndef NDEBUG
-    if (ShowDebug) {
-        xfclose(fpout);
-    }
-#endif
-
-cleanup:
-    free_MAT(pcl_int);
-    free_MAT(Pinv_t);
-    free_MAT(Minv_t);
-    return ret;
-}
-
-/** Calculate new weights. */
-static real_t update_cluster_weights(void){
-    validate(NULL!=Ayb,NAN);
-    const uint32_t ncluster = Ayb->ncluster;
-    const uint32_t ncycle   = Ayb->ncycle;
-    real_t sumLSS = 0.;
-
-    MAT e = NULL;
-    /*  Calculate least squares error, using Ayb->we as temporary storage */
-    unsigned int cl = 0;
-    LIST(CLUSTER) node = Ayb->tile->clusterlist;
-    while (NULL != node && cl < ncluster){
-        Ayb->we->x[cl] = 0.;
-        MAT cycle_ints = node->elt->signals;
-        NUC * cycle_bases = Ayb->bases.elt + cl*ncycle;
-        e = expected_intensities(Ayb->lambda->x[cl],cycle_bases,Ayb->M,Ayb->P,Ayb->N,e);
-        for( uint32_t idx=0 ; idx<NBASE*ncycle ; idx++){
-            real_t tmp = cycle_ints->x[idx] - e->x[idx];
-            Ayb->we->x[cl] += tmp*tmp;
-        }
-        sumLSS += Ayb->we->x[cl];
-
-        /* next cluster */
-        node = node->nxt;
-        cl++;
-    }
-    free_MAT(e);
-
-    /* Calculate weight for each cluster */
-    real_t meanLSSi = mean(Ayb->we->x,ncluster);
-    real_t varLSSi = variance(Ayb->we->x,ncluster);
-    for ( uint32_t cl=0 ; cl<ncluster ; cl++){
-        const real_t d = Ayb->we->x[cl]-meanLSSi;
-        Ayb->we->x[cl] = cauchy(d*d,varLSSi);
-    }
-    //xfputs("Cluster weights:\n",xstderr);
-    //show_MAT(xstderr,Ayb->we,8,1);
-    return sumLSS;
-}
-
-/**
- * Code for parameter estimation loop.
- * Equivalent to parameter_estimation_loop in old AYB.
- * - Updates: M, P, N
- * - Recalculates weights
- * - Scales all lambda by factor
- */
-static real_t estimate_MPN(void){
-    validate(NULL!=Ayb,NAN);
-    const uint32_t ncycle = Ayb->ncycle;
-    /*  Calculate new weights */
-    //timestamp("Updating weights\n",stderr);
-    real_t sumLSS = update_cluster_weights();
-
-    /*  Precalculate terms for iteration */
-    //timestamp("Calculating matrices\n",stderr);
-    //timestamp("J\t",stderr);
-    MAT J = calculateJ(Ayb->lambda,Ayb->we,Ayb->bases,ncycle,NULL);
-    MAT Jt = transpose(J);
-    //timestamp("K\t",stderr);
-    MAT K = calculateK(Ayb->lambda,Ayb->we,Ayb->bases,Ayb->tile,ncycle,NULL);
-    //timestamp("Others\n",stderr);
-    MAT Kt = transpose(K);
-    MAT Sbar = calculateSbar(Ayb->lambda,Ayb->we,Ayb->bases,ncycle,NULL);
-    MAT SbarT = transpose(Sbar);
-    MAT Ibar = calculateIbar(Ayb->tile,Ayb->we,NULL);
-    MAT IbarT = transpose(Ibar);
-    real_t Wbar = calculateWbar(Ayb->we);
-    real_t lambdaf = 1.;
-    real_t * tmp = calloc(ncycle*ncycle*NBASE*NBASE,sizeof(real_t));
-    /* Convenience terms for M, P and N */
-    MAT matMt = transpose_inplace(Ayb->M);
-    MAT matP = Ayb->P;
-    MAT matN = Ayb->N;
-
-    //xfputs("Staring main loop",xstderr);
-    /*  Main iteration */
-    MAT mlhs=NULL,mrhs=NULL,plhs=NULL,prhs=NULL;
-    const uint32_t lda = NBASE + ncycle;
-    real_t det=0.;
-    //xfprintf(xstderr,"Starting\tdelta = %e\n",calculateDeltaLSE( matMt, matP, matN, J, K, tmp));
-    for( uint32_t i=0 ; i<AYB_NITER ; i++){
-        /*
-         *  Solution for phasing
-         */
-        plhs = calculatePlhs(Wbar,Sbar,matMt,J,tmp,plhs);
-        prhs = calculatePrhs(Ibar,matMt,Sbar,matN,K,tmp,prhs);
-        SolverRoutine(plhs,prhs,tmp, DELTA_DIAG);
-        for ( uint32_t i=0 ; i<ncycle ; i++){
-            for(uint32_t j=0 ; j<ncycle ; j++){
-                matP->x[i*ncycle+j] = prhs->x[i*ncycle+j];
-            }
-        }
-
-        // Scaling so det(P) = 1
-        det = normalise_MAT(matP,3e-8);
-        scale_MAT(J,det*det); scale_MAT(Jt,det*det);
-        scale_MAT(K,det);     scale_MAT(Kt,det);
-        scale_MAT(Sbar,det);  scale_MAT(SbarT,det);
-        lambdaf *= det;
-
-        /*
-         *  Solution for cross-talk and constant noise
-         */
-        mlhs = calculateMlhs(Ayb->cycle_var,Wbar,SbarT,matP,Jt,tmp,mlhs);
-        mrhs = calculateMrhs(Ayb->cycle_var,IbarT,matP,Kt,tmp,mrhs);
-        solverSVD(mlhs,mrhs,tmp,DELTA_DIAG);
-
-        for(uint32_t i=0 ; i<NBASE ; i++){
-            for(uint32_t j=0 ; j<NBASE ; j++){
-                matMt->x[i*NBASE+j] = mrhs->x[i*lda+j];
-            }
-        }
-        for(uint32_t i=0 ; i<NBASE ; i++){
-            for(uint32_t j=0 ; j<ncycle ; j++){
-                matN->x[j*NBASE+i] = mrhs->x[i*lda+j+NBASE];
-            }
-        }
-        // Scaling so det(M) = 1
-        det = normalise_MAT(matMt,3e-8);
-        scale_MAT(J,det*det); scale_MAT(Jt,det*det);
-        scale_MAT(K,det);     scale_MAT(Kt,det);
-        scale_MAT(Sbar,det);  scale_MAT(SbarT,det);
-        lambdaf *= det;
-        //xfprintf(xstderr,"... done %u\tdelta = %e\n",i,calculateDeltaLSE( matMt, matP, matN, J, K, tmp));
-    }
-    real_t delta = calculateDeltaLSE( matMt, matP, matN, J, K, tmp);
-
-    // Transpose Mt back to normal form
-    matMt = transpose_inplace(matMt);
-    if (NULL==matMt) { message(E_MATRIX_FAIL_S, MSG_ERR, "transposed"); }
-
-    // Scale lambdas by factor
-    scale_MAT(Ayb->lambda,lambdaf);
-
-    // Clean-up memory
-    free_MAT(prhs);
-    free_MAT(plhs);
-    free_MAT(mrhs);
-    free_MAT(mlhs);
-    xfree(tmp);
-    free_MAT(IbarT);
-    free_MAT(Ibar);
-    free_MAT(SbarT);
-    free_MAT(Sbar);
-    free_MAT(Kt);
-    free_MAT(K);
-    free_MAT(Jt);
-    free_MAT(J);
-
-    //xfprintf(xstderr,"Initial %e\tImprovement %e\t = %e\n",sumLSS,delta,sumLSS-delta);
-    //xfprintf(xstderr,"Updated weights %e\n", update_cluster_weights(ayb));
-    return sumLSS-delta;
-}
-
-/*
- * Routines to calculate covariance of errors, using the "fast approach".
- * Working with processed intensities.
- */
-
-/**
- * Accumulate full covariance matrix (ncycle * NBASE x ncycle * NBASE).
- * \n Note: If V is NULL, the required memory is allocated.
- * - p:        Matrix of processed intensities
- * - lambda:   Brightness of cluster
- * - base:     Current base call
- * - V:        Array of covariance matrices of size 1; single element used for accumulation
- *
- */
-static MAT * accumulate_all_covariance( const real_t we, const MAT p, const real_t lambda, const NUC * base, MAT * V) {
-    validate(NULL!=p, NULL);
-    validate(NBASE==p->nrow, NULL);
-    validate(lambda>=0.0, NULL);
-
-    const uint32_t ncycle = p->ncol;
-    const uint32_t ncyclebase = ncycle * NBASE;
-
-    // Allocate memory for V if necessary
-    // for compatibility of return value with normal accumulate use an array of size 1
-    if ( NULL==V ){
-        V = calloc(1, sizeof(*V));
-        if(NULL==V) {return NULL;}
-        V[0] = new_MAT(ncyclebase, ncyclebase);
-        if(NULL==V[0]) {
-            xfree(V);
-            return NULL;
-        }
-    }
-
-    // Perform accululation. V += R R^t
-    // Note: R = P - \lambda I_b, where I_b is unit vector with b'th elt = 1
-    //  so R R^t = P P^t - \lambda I_b P^t
-    //                   - \lambda P I_b^t + \lambda^2 I_b I_b^2
-    // P P^t
-    for (uint32_t i = 0; i < ncyclebase; i++) {
-        for (uint32_t j = 0; j < ncyclebase; j++) {
-            (V[0])->x[j * ncyclebase + i] += we * p->x[i] * p->x[j];
-        }
-    }
-
-    // \lambda I_b P^t and \lambda P I_b^t
-    for (uint32_t cy1 = 0; cy1 < ncycle; cy1++){
-
-        if (isambig(base[cy1])) { continue;}
-
-        uint32_t ibase1 = cy1 * NBASE + base[cy1];
-        for (uint32_t j = 0; j < ncyclebase; j++) {
-            (V[0])->x[j * ncyclebase + ibase1] -= we * lambda * p->x[j];
-            (V[0])->x[ibase1 * ncyclebase + j] -= we * lambda * p->x[j];
-        }
-
-        // \lambda^2 I_b I_b^t
-        for (uint32_t cy2 = 0; cy2 < ncycle; cy2++) {
-
-            if (isambig(base[cy2])) { continue;}
-
-            uint32_t ibase2 = cy2 * NBASE + base[cy2];
-            (V[0])->x[ibase2 * ncyclebase + ibase1] += we * lambda * lambda;
-        }
-    }
-
-    return V;
-}
-
-/**
- * Accumulate required variances (inner summation of variance calculation).
- * \n Note: If V is NULL, the required memory is allocated.
- * - p:        Matrix of processed intensities
- * - lambda:   Brightness of cluster
- * - base:     Current base call
- * - V:        Array of covariance matrices into which accumulation occurs
- */
-static MAT * accumulate_covariance( const real_t we, const MAT p, const real_t lambda, const NUC * base, MAT * V){
-    validate(NULL!=p,NULL);
-    validate(NBASE==p->nrow,NULL);
-    validate(lambda>=0.,NULL);
-
-    const uint32_t ncycle = p->ncol;
-    // Allocate memory for V if necessary
-    if ( NULL==V ){
-        V = calloc(ncycle+1,sizeof(*V));
-        if(NULL==V){ return NULL;}
-        for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
-            V[cycle] = new_MAT(NBASE,NBASE);
-            if(NULL==V[cycle]){ goto cleanup;}
-        }
-    }
-    // Perform accululation. V += R R^t
-    // Note: R = P - \lambda I_b, where I_b is unit vector with b'th elt = 1
-    //  so R R^t = P P^t - \lambda I_b P^t
-    //                   - \lambda P I_b^t + \lambda^2 I_b I_b^2
-    for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
-        const int cybase = base[cycle];
-        // P P^t
-        for ( uint32_t i=0 ; i<NBASE ; i++){
-            for ( uint32_t j=0 ; j<NBASE ; j++){
-                V[cycle]->x[i*NBASE+j] += we * p->x[cycle*NBASE+i] * p->x[cycle*NBASE+j];
-            }
-        }
-
-        if (isambig(cybase)) { continue;}
-
-        // \lambda I_b P^t and \lambda P I_b^t
-        for ( uint32_t i=0 ; i<NBASE ; i++){
-            V[cycle]->x[cybase*NBASE+i] -= we * lambda * p->x[cycle*NBASE+i];
-            V[cycle]->x[i*NBASE+cybase] -= we * lambda * p->x[cycle*NBASE+i];
-        }
-        // \lambda^2 I_b I_b^t
-        V[cycle]->x[cybase*NBASE+cybase] += we * lambda*lambda;
-    }
-    // Create residuals
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        if (!isambig(base[cy])) { p->x[cy*NBASE+base[cy]] -= lambda;}
-    }
-
-    return V;
-
-cleanup:
-    for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
-        free_MAT(V[cycle]);
-    }
-    xfree(V);
-    return NULL;
-}
-
-/**
- * Calculate covariance of (processed) residuals.
- * Returns a pointer to array of matrices, one per cycle.
- */
-static MAT * calculate_covariance(bool all){
-
-    const uint32_t ncluster = Ayb->ncluster;
-    const uint32_t ncycle = Ayb->ncycle;
-
-    MAT * V = NULL;                     // memory allocated in accumulate
-    MAT pcl_int = NULL;                 // Shell for processed intensities
-    MAT Minv_t = NULL, Pinv_t = NULL;   // Temporary matrices to speed calculation
-    /* Create t(inverse(M)) and t(inverse(P)) */
-    Minv_t = transpose_inplace(invert(Ayb->M));
-    if (NULL == Minv_t) { goto cleanup; }
-    Pinv_t = transpose_inplace(invert(Ayb->P));
-    if (NULL == Pinv_t) { goto cleanup; }
-
-    real_t wesum = 0.;
-
-    unsigned int cl = 0;
-    LIST(CLUSTER) node = Ayb->tile->clusterlist;
-    while (NULL != node && cl < ncluster){
-        const NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
-        pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
-        if (NULL == pcl_int) { goto cleanup; }
-
-        /* add this cluster values */
-        if (all) {
-            V = accumulate_all_covariance(Ayb->we->x[cl], pcl_int, Ayb->lambda->x[cl], cl_bases, V);
-        }
-        else {
-            V = accumulate_covariance(Ayb->we->x[cl], pcl_int, Ayb->lambda->x[cl], cl_bases, V);
-        }
-        if (NULL == V) { goto cleanup; }
-
-        /* sum denominator */
-        wesum += Ayb->we->x[cl];
-
-        /* next cluster */
-        node = node->nxt;
-        cl++;
-    }
-
-    pcl_int = free_MAT(pcl_int);
-    Pinv_t = free_MAT(Pinv_t);
-    Minv_t = free_MAT(Minv_t);
-
-    /* scale sum of squares to make covariance */
-    if (all) {
-        if (NULL == V || NULL == V[0]) { goto cleanup; }
-        scale_MAT(V[0], 1.0/wesum);
-    }
-    else {
-        for ( uint32_t cy = 0; cy < ncycle; cy++){
-            if (NULL == V || NULL == V[cy]) { goto cleanup; }
-            /* add a diagonal offset to help with bad data */
-            for ( uint32_t i = 0; i < NBASE; i++){
-                V[cy]->x[i * NBASE + i] += 1.0;
-            }
-            scale_MAT(V[cy], 1.0/wesum);
-        }
-    }
-    return V;
-
-cleanup:
-    if (NULL != V) {
-        const uint32_t nc =  all ? 1 : ncycle;
-        for (uint32_t cy = 0; cy < nc; cy++) {
-            free_MAT(V[cy]);
-        }
-        xfree(V);
-    }
-    free_MAT(pcl_int);
-    free_MAT(Pinv_t);
-    free_MAT(Minv_t);
-    return NULL;
-}
-
-/**
- * Initialise for final processed intensities output.
- * Open output file to be in same format as intensities input file.
- * If cif then also create cif structure.
- */
-static WORKPTR open_processed(int blk) {
-
-    WORKPTR work = calloc(1, sizeof(*work));
-    work->fp = open_output_blk("pif", blk);
-
-    switch (get_input_format()) {
-        case E_TXT:
-            /* nothing to do */
-            break;
-
-        case E_CIF:
-            work->cif = create_cif(Ayb->ncycle, Ayb->ncluster);
-            break;
-
-        default: ;
-    }
-
-    return work;
-}
-
-/** Output/store a line of processed intensities in same format as intensities input file. */
-static void write_processed(WORKPTR work, CLUSTER cluster, const uint32_t cl, MAT pcl_int) {
-
-    const uint32_t ncycle = Ayb->ncycle;
-
-    switch (get_input_format()) {
-        case E_TXT:
-            if (!xfisnull(work->fp)) {
-                write_lane_tile (work->fp, Ayb->tile);
-                write_coordinates (work->fp, cluster);
-                write_MAT_to_line(work->fp, pcl_int);
-            }
-            break;
-
-        case E_CIF:
-            for (uint32_t cy = 0; cy < ncycle; cy++) {
-                for (uint32_t base = 0; base < NBASE; base++){
-                    cif_set_from_real (work->cif, cl, base, cy, pcl_int->x[cy * NBASE + base]);
-                }
-            }
-            break;
-
-        default: ;
-    }
-}
-
-/** Output final model values. */
-static void output_final(int blk) {
-    XFILE *fpfin = NULL;
-
-    /* final model values */
-    fpfin = open_output_blk("final", blk);
-    if (!xfisnull(fpfin)) {
-        show_AYB(fpfin, Ayb, false);
-    }
-    xfclose(fpfin);
-
-    /* final M, N, P in input format */
-    fpfin = open_output_blk("M", blk);
-    if (!xfisnull(fpfin)) {
-        write_MAT_to_column_file (fpfin, Ayb->M, false);
-    }
-    xfclose(fpfin);
-
-    fpfin = open_output_blk("N", blk);
-    if (!xfisnull(fpfin)) {
-        write_MAT_to_column_file (fpfin, Ayb->N, false);
-    }
-    xfclose(fpfin);
-
-    fpfin = open_output_blk("P", blk);
-    if (!xfisnull(fpfin)) {
-        write_MAT_to_column_file (fpfin, Ayb->P, false);
-    }
-    xfclose(fpfin);
-}
-
-/**
- * Finish off and close up final processed intensities output.
- * Output is done here for cif and final model.
- * If status is error then just free resources.
- */
-static WORKPTR close_processed(WORKPTR work, int blk, const int status) {
-
-    if (status != DATA_ERR) {
-        switch (get_input_format()) {
-            case E_TXT:
-                /* nothing to do */
-                break;
-
-            case E_CIF:
-                if (!xfisnull(work->fp)) {
-                    writeCIFtoStream(work->cif, work->fp);
-                }
-                break;
-
-            default: ;
-        }
-
-        /* final model values */
-        output_final(blk);
-    }
-
-    free_cif(work->cif);
-    work->fp = xfclose(work->fp);
-    return work;
-}
-
-/**
- * Call bases. Includes calculate covariance and estimate lambda.
- * Last iteration parameter for final working.
- * Returns number of zero lambdas or data error indication.
- */
-static int estimate_bases(int blk, const bool lastiter) {
-
-    validate(NULL != Ayb, 0);
-    const uint32_t ncluster = Ayb->ncluster;
-    const uint32_t ncycle = Ayb->ncycle;
-    MAT pcl_int = NULL;                 // Shell for processed intensities
-    MAT Pinv_t=NULL, Minv_t=NULL;       // Temporary matrices to speed computation
-    MAT * V = NULL;                     // Array of covariance matrices
-    real_t * qual = NULL;
-    int ret_count = 0;
-    bool show_processed = (ShowWorking && lastiter);
-    WORKPTR work = NULL;
-
-#ifndef NDEBUG
-    XFILE *fpi2 = NULL;
-    XFILE *fpout = NULL;
-    if (ShowDebug) {
-        fpout = open_output("ayb2");
-        if (!xfisnull(fpout)) {
-            show_AYB(fpout, Ayb, false);
-        }
-        fpout = xfclose(fpout);
-    }
-#endif
-
-    /* calculate covariance */
-    V = calculate_covariance(false);
-
-    if (V == NULL) {
-        /* set calls to null and terminate processing */
-        unsigned int cl = 0;
-
-        LIST(CLUSTER) node = Ayb->tile->clusterlist;
-        while (NULL != node && cl < ncluster){
-            NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
-            PHREDCHAR * cl_quals = Ayb->quals.elt + cl * ncycle;
-
-            /* call null base for each cycle */
-            for (uint32_t cy = 0; cy < ncycle; cy++){
-                struct basequal bq = call_base_null();
-                cl_bases[cy] = bq.base;
-                cl_quals[cy] = MIN_PHRED;// bq.qual is in quality-score space, want PHRED
-            }
-
-            /* next cluster */
-            node = node->nxt;
-            cl++;
-        }
-
-        ret_count = DATA_ERR;
-        goto cleanup;
-    }
-
-#ifndef NDEBUG
-    if (ShowDebug) {
-        fpout = open_output("cov");
-        if (!xfisnull(fpout)) {
-            xfputs("covariance:\n", fpout);
-            for (uint32_t cy = 0; cy < ncycle; cy++){
-                show_MAT(fpout, V[cy], NBASE, NBASE);
-            }
-        }
-        fpout = xfclose(fpout);
-    }
-#endif
-
-    /* scale is variance of residuals; get from V matrices */
-    for (uint32_t cy = 0; cy < ncycle; cy++){
-        Ayb->cycle_var->x[cy] = 0.;
-        for (uint32_t b = 0; b < NBASE; b++){
-            Ayb->cycle_var->x[cy] += V[cy]->x[b * NBASE + b];
-        }
-        /* hmhm I have no idea why a reciprocal is taken here */
-//        Ayb->cycle_var->x[cy] = 1.0/Ayb->cycle_var->x[cy];
-    }
-
-    /* invert variance matrices to get omega */
-    for (uint32_t cy = 0; cy < ncycle; cy++){
-        MAT a = V[cy];
-        V[cy] = invert(a);
-        free_MAT(a);
-    }
-
-    /* process intensities then estimate lambda and call bases for each cluster */
-    Minv_t = transpose_inplace(invert(Ayb->M));
-    Pinv_t = transpose_inplace(invert(Ayb->P));
-
-#ifndef NDEBUG
-    if (ShowDebug) {
-        fpi2 = open_output("pi2");
-        fpout = open_output("lam2");
-        if (!xfisnull(fpout)) {
-            xfputs("lambda:\n", fpout);
-        }
-    }
-#endif
-
-    /* output processed intensities if requested and final iteration */
-    if (show_processed) {
-        work = open_processed(blk);
-    }
-
-    unsigned int cl = 0;
-
-    /* Temporary storage for (real_t) quality values */
-    qual = calloc(ncycle, sizeof(real_t));
-    if (NULL == qual) {
-        ret_count = DATA_ERR;
-        goto cleanup;
-    }
-
-    LIST(CLUSTER) node = Ayb->tile->clusterlist;
-    while (NULL != node && cl < ncluster){
-        NUC * cl_bases = Ayb->bases.elt + cl * ncycle;
-        PHREDCHAR * cl_quals = Ayb->quals.elt + cl * ncycle;
-        pcl_int = process_intensities(node->elt->signals, Minv_t, Pinv_t, Ayb->N, pcl_int);
-        if (NULL == pcl_int) {
-            ret_count = DATA_ERR;
-            goto cleanup;
-        }
-
-        if (show_processed) {
-            write_processed(work, node->elt, cl, pcl_int);
-        }
-
-        /* estimate lambda using Weighted Least Squares */
-//        Ayb->lambda->x[cl] = estimate_lambdaGWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x, V);
-        Ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x);
-        if (Ayb->lambda->x[cl] == 0.0) {
-            ret_count++;
-        }
-
-#ifndef NDEBUG
-    if (ShowDebug) {
-        if (!xfisnull(fpi2)) {
-            show_MAT(fpi2, pcl_int, pcl_int->nrow, pcl_int->ncol);
-        }
-        if (!xfisnull(fpout)) {
-            xfprintf(fpout, "%d: %#12.6f\n", cl + 1, Ayb->lambda->x[cl]);
-        }
-    }
-#endif
-
-        /* call bases for each cycle */
-        for (uint32_t cy = 0; cy < ncycle; cy++){
-            /* deal differently with missing data */
-            if (nodata(node->elt->signals->x + cy * NBASE, NBASE)) {
-                cl_bases[cy] = call_base_nodata();
-                qual[cy] = MIN_QUALITY;
-            }
-            else {
-                struct basequal bq = call_base(pcl_int->x+cy * NBASE, Ayb->lambda->x[cl], BasePenalty, V[cy]);
-                cl_bases[cy] = bq.base;
-                qual[cy] = bq.qual;
-            }
-        }
-
-        if (Ayb->lambda->x[cl] != 0.0) {
-            /* adjust quality values; first and Last bases of read are special cases */
-            qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
-            for (uint32_t cy=1; cy<(ncycle-1); cy++) {
-                qual[cy] = adjust_quality(qual[cy], cl_bases[cy-1], cl_bases[cy], cl_bases[cy+1]);
-            }
-            qual[ncycle-1] = adjust_last_quality(qual[ncycle-1], cl_bases[ncycle-2], cl_bases[ncycle-1]);
-
-        }
-
-        /* convert qualities to phred char */
-        for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-            cl_quals[cy] = phredchar_from_quality(qual[cy]);
-        }
-
-        /* repeat estimate lambda with the new bases */
-        Ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, Ayb->lambda->x[cl], Ayb->cycle_var->x);
-
-        /* next cluster */
-        node = node->nxt;
-        cl++;
-    }
-
-#ifndef NDEBUG
-    if (ShowDebug) {
-        xfclose(fpi2);
-        xfclose(fpout);
-    }
-#endif
-
-/* cleanup for success and error states */
-cleanup:
-    if (show_processed) {
-        work = close_processed(work, blk, ret_count);
-        xfree(work);
-    }
-
-    xfree(qual);
-    free_MAT(pcl_int);
-    free_MAT(Pinv_t);
-    free_MAT(Minv_t);
-    if (NULL != V) {
-        for (uint32_t cy = 0; cy < ncycle; cy++) {
-            free_MAT(V[cy]);
-        }
-        xfree(V);
-    }
-    return ret_count;
-}
-
 /** Output message with counts if any zero lambdas. */
 static void output_zero_lambdas(void) {
 
@@ -1094,9 +160,9 @@ static const char *BIG_NUM = "BigNum";      // Use if number too big for buffer
  * Output the results of the base calling.
  * Returns true if output file opened ok.
  */
-static RETOPT output_results (int blk) {
+static RETOPT output_results (const AYB ayb, const int blk) {
 
-    if (Ayb == NULL) {return E_FAIL;}
+    if (ayb == NULL) {return E_FAIL;}
 
     XFILE *fpout = NULL;
     /* different rules for varying input formats */
@@ -1114,22 +180,16 @@ static RETOPT output_results (int blk) {
 
     if (xfisnull(fpout)) {return E_STOP;}
 
-    const uint32_t ncluster = Ayb->ncluster;
-    const uint32_t ncycle = Ayb->ncycle;
+    const uint32_t ncluster = get_AYB_ncluster(ayb);
 
     for (uint32_t cl = 0; cl < ncluster; cl++){
         xfprintf(fpout, "%ccluster_%u\n", OUT_SYMBOL[OutputFormat], cl + 1);
-        for (uint32_t cy = 0; cy < ncycle; cy++){
-            show_NUC(fpout, Ayb->bases.elt[cl * ncycle + cy]);
-        }
+        show_AYB_bases(fpout, ayb, cl);
         /* quality score */
         if (OutputFormat == E_FASTQ) {
             xfputs("\n+\n", fpout);
-            for (uint32_t cy = 0; cy < ncycle; cy++){
-                show_PHREDCHAR(fpout, Ayb->quals.elt[cl * ncycle + cy]);
-            }
+            show_AYB_quals(fpout, ayb, cl);
         }
-//        xfputs("\n", fpout);
         xfputc('\n', fpout);
     }
     xfclose(fpout);
@@ -1186,21 +246,16 @@ static CSTRING format_header (CSTRING simtext) {
 }
 
 /** Output data for use by simulator. */
-static void output_simdata(const int argc, char ** const argv, int blk) {
+static void output_simdata(AYB ayb, const int argc, char ** const argv, const int blk) {
 
     XFILE *fpsim = open_output_blk("runfile", blk);
     if (xfisnull(fpsim)) {return;}
 
     /* header required if a single or first block */
     if (blk != BLK_APPEND) {
-        /* remove any zeros as weibull uses log */
-        real_t * lambdas = calloc(Ayb->lambda->nrow, sizeof(real_t));
+        /* get non-zero lambdas as weibull uses log */
         uint32_t num = 0;
-        for (uint32_t i = 0; i < Ayb->lambda->nrow; i++) {
-            if (Ayb->lambda->x[i] != 0.0) {
-                lambdas[num++] = Ayb->lambda->x[i];
-            }
-        }
+        real_t * lambdas = get_AYB_lambdas(ayb, &num);
 
         /* get parameters for fitted lambda distribution */
         pair_real lambdafit = fit_weibull(lambdas, num);
@@ -1241,12 +296,12 @@ static void output_simdata(const int argc, char ** const argv, int blk) {
         xfputs("\n", fpsim);
 
         /* number of cycles and lambda fit parameters */
-        xfprintf(fpsim, "%u %f %f \n", Ayb->ncycle, lambdafit.e1, lambdafit.e2);
+        xfprintf(fpsim, "%u %f %f \n", get_AYB_ncycle(ayb), lambdafit.e1, lambdafit.e2);
         xfree(lambdas);
     }
 
     /* calculate and output all covariance */
-    MAT * V = calculate_covariance(true);
+    MAT * V = calculate_covariance(ayb, true);
     
     if (V == NULL) {
         message(E_NOCREATE_S, MSG_ERR, "full covariance");
@@ -1262,116 +317,6 @@ static void output_simdata(const int argc, char ** const argv, int blk) {
 
 
 /* public functions */
-
-/* standard functions */
-
-AYB new_AYB(const uint32_t ncycle, const uint32_t ncluster){
-    AYB ayb = malloc(sizeof(*ayb));
-    if(NULL==ayb){ return NULL;}
-    ayb->ncycle = ncycle;
-    ayb->ncluster = ncluster;
-    ayb->tile = new_TILE();
-    ayb->bases = new_ARRAY(NUC)(ncluster*ncycle);
-    ayb->quals = new_ARRAY(PHREDCHAR)(ncluster*ncycle);
-    ayb->M = new_MAT(NBASE,NBASE);
-    ayb->P = new_MAT(ncycle,ncycle);
-    ayb->N = new_MAT(NBASE,ncycle);
-    ayb->lambda = new_MAT(ncluster,1);
-    ayb->we = new_MAT(ncluster,1);
-    ayb->cycle_var = new_MAT(ncycle,1);
-    if( NULL==ayb->tile || NULL==ayb->bases.elt || NULL==ayb->quals.elt
-            || NULL==ayb->M || NULL==ayb->P || NULL==ayb->N
-            || NULL==ayb->lambda || NULL==ayb->we || NULL==ayb->cycle_var){
-        goto cleanup;
-    }
-
-    return ayb;
-
-cleanup:
-    free_AYB(ayb);
-    return NULL;
-}
-
-AYB free_AYB(AYB ayb){
-    if(NULL==ayb){ return NULL;}
-    free_TILE(ayb->tile);
-    free_ARRAY(NUC)(ayb->bases);
-    free_ARRAY(PHREDCHAR)(ayb->quals);
-    free_MAT(ayb->M);
-    free_MAT(ayb->P);
-    free_MAT(ayb->N);
-    free_MAT(ayb->we);
-    free_MAT(ayb->cycle_var);
-    free_MAT(ayb->lambda);
-    xfree(ayb);
-    return NULL;
-}
-
-AYB copy_AYB(const AYB ayb){
-    if(NULL==ayb){return NULL;}
-    AYB ayb_copy = malloc(sizeof(*ayb));
-    if(NULL==ayb_copy){ return NULL;}
-
-    ayb_copy->ncycle = ayb->ncycle;
-    ayb_copy->ncluster = ayb->ncluster;
-
-    ayb_copy->tile = copy_TILE(ayb->tile);
-    if(NULL!=ayb->tile && NULL==ayb_copy->tile){ goto cleanup;}
-
-    ayb_copy->bases = copy_ARRAY(NUC)(ayb->bases);
-    if(NULL!=ayb->bases.elt && NULL==ayb_copy->bases.elt){ goto cleanup;}
-
-    ayb_copy->quals = copy_ARRAY(PHREDCHAR)(ayb->quals);
-    if(NULL!=ayb->quals.elt && NULL==ayb_copy->quals.elt){ goto cleanup;}
-
-    ayb_copy->M = copy_MAT(ayb->M);
-    if(NULL!=ayb->M && NULL==ayb_copy->M){ goto cleanup;}
-
-    ayb_copy->P = copy_MAT(ayb->P);
-    if(NULL!=ayb->P && NULL==ayb_copy->P){ goto cleanup;}
-
-    ayb_copy->N = copy_MAT(ayb->N);
-    if(NULL!=ayb->N && NULL==ayb_copy->N){ goto cleanup;}
-
-    ayb_copy->we = copy_MAT(ayb->we);
-    if(NULL!=ayb->we && NULL==ayb_copy->we){ goto cleanup;}
-
-    ayb_copy->cycle_var = copy_MAT(ayb->cycle_var);
-    if(NULL!=ayb->cycle_var && NULL==ayb_copy->cycle_var){ goto cleanup;}
-
-    ayb_copy->lambda = copy_MAT(ayb->lambda);
-    if(NULL!=ayb->lambda && NULL==ayb_copy->lambda){ goto cleanup;}
-
-    return ayb_copy;
-
-cleanup:
-    free_AYB(ayb_copy);
-    return NULL;
-}
-
-void show_AYB(XFILE * fp, const AYB ayb, bool showall){
-    validate(NULL!=fp,);
-    validate(NULL!=ayb,);
-    xfprintf(fp,"%u cycles from %u clusters\n",ayb->ncycle,ayb->ncluster);
-    xfputs("M:\n",fp); show_MAT(fp,ayb->M,NBASE,NBASE);
-    xfputs("P:\n",fp); show_MAT(fp,ayb->P,ayb->ncycle,ayb->ncycle);
-    xfputs("N:\n",fp); show_MAT(fp,ayb->N,NBASE,ayb->ncycle);
-    xfputs("we:\n",fp); show_MAT(fp,ayb->we,ayb->ncluster,1);
-    xfputs("cycle_var:\n",fp); show_MAT(fp,ayb->cycle_var,ayb->ncycle,1);
-    xfputs("lambda:\n",fp); show_MAT(fp,ayb->lambda,ayb->ncluster,1);
-    if (showall) {
-        xfputs("Bases:\n",fp); show_ARRAY(NUC)(fp,ayb->bases,"",ayb->ncycle);
-        xfputc('\n',fp);
-        xfputs("Quality:\n",fp); show_ARRAY(PHREDCHAR)(fp,ayb->quals,"",ayb->ncycle*10);
-        xfputc('\n',fp);
-#ifdef NDEBUG
-        xfputs("Tile:\n",fp); show_TILE(fp,ayb->tile,10);
-#else
-        xfputs("Tile:\n",fp); show_TILE(fp,ayb->tile,ayb->ncluster);
-#endif
-    }
-    xfputc('\n',fp);
-}
 
 /**
  * Analyse a single tile. Intensities data already read in and stored in MainTile.
@@ -1402,6 +347,7 @@ RETOPT analyse_tile (const int argc, char ** const argv) {
     else {
         message(E_TILESIZE_DD, MSG_INFO, MainTile->ncluster, MainTile->ncycle);
 
+        ShowDebug = false;
 #ifndef NDEBUG
     /* set additional debug output, can overload the process if too much data; vary as required */
     ShowDebug = ((NIter == 1) && (MainTile->ncycle <= 20) && (MainTile->ncluster <= 100));
@@ -1424,10 +370,11 @@ RETOPT analyse_tile (const int argc, char ** const argv) {
     }
 
     /* analyse each tile block separately */
+    AYB ayb = NULL;
     for (int blk = 0; blk < numblock; blk++) {
 
-        Ayb = new_AYB(tileblock[blk]->ncycle, ncluster);
-        if (Ayb == NULL) {
+        ayb = new_AYB(tileblock[blk]->ncycle, ncluster);
+        if (ayb == NULL) {
             message(E_NOMEM_S, MSG_FATAL, "model structure creation");
             message(E_INIT_FAIL_DD, MSG_ERR, blk + 1, tileblock[blk]->ncycle);
             status = E_FAIL;
@@ -1435,20 +382,18 @@ RETOPT analyse_tile (const int argc, char ** const argv) {
         }
 
         /* get next tile block of raw intensities */
-        /* tile has already been allocated memory in new_AYB */
-        free_TILE(Ayb->tile);
-        Ayb->tile = copy_TILE(tileblock[blk]);
+        ayb = replace_AYB_tile(ayb, tileblock[blk]);
 
         /* set initial model values */
-        if (initialise_model()) {
-            message(E_PROCESS_DD, MSG_INFO, blk + 1, Ayb->ncycle);
+        if (initialise_model(ayb, ShowDebug)) {
+            message(E_PROCESS_DD, MSG_INFO, blk + 1, get_AYB_ncycle(ayb));
 
 #ifndef NDEBUG
     if (ShowDebug) {
         XFILE *fpout = NULL;
         fpout = open_output_blk("ayb1", (numblock > 1) ? blk : BLK_SINGLE);
         if (!xfisnull(fpout)) {
-            show_AYB(fpout, Ayb, true);
+            show_AYB(fpout, ayb, true);
         }
         xfclose(fpout);
     }
@@ -1459,11 +404,11 @@ RETOPT analyse_tile (const int argc, char ** const argv) {
             for (int i = 0; i < NIter; i++){
                 xfprintf(xstdout, "Iteration: %d\n", i+1);
 
-                estimate_MPN();
+                estimate_MPN(ayb);
 
                 /* parameters to estimate bases are block index and flag to indicate last iteration */
                 /* return is number of zero lambdas or error */
-                res = estimate_bases((numblock > 1) ? blk : BLK_SINGLE, (i == (NIter - 1)));
+                res = estimate_bases(ayb, (numblock > 1) ? blk : BLK_SINGLE, (i == (NIter - 1)), ShowDebug);
 
                 if (res == DATA_ERR) {
                     /* terminate processing */
@@ -1479,22 +424,22 @@ RETOPT analyse_tile (const int argc, char ** const argv) {
             output_zero_lambdas();
 
             /* output the results */
-            status = output_results((numblock > 1) ? blk : BLK_SINGLE);
+            status = output_results(ayb, (numblock > 1) ? blk : BLK_SINGLE);
             
             /* output simulation data if requested */
             if (SimData) {
                 /* block indicator is append if not first of multiple blocks otherwise single */
-                output_simdata(argc, argv, ((numblock > 1) && (blk > 0)) ? BLK_APPEND : BLK_SINGLE);
+                output_simdata(ayb, argc, argv, ((numblock > 1) && (blk > 0)) ? BLK_APPEND : BLK_SINGLE);
             }
         }
 
         else {
-            message(E_INIT_FAIL_DD, MSG_ERR, blk + 1, Ayb->ncycle);
+            message(E_INIT_FAIL_DD, MSG_ERR, blk + 1, get_AYB_ncycle(ayb));
             status = E_FAIL;
         }
 
         /* free the structure ready for next */
-        Ayb = free_AYB(Ayb);
+        ayb = free_AYB(ayb);
         if (status != E_CONTINUE) {break;}
     }
 
@@ -1534,7 +479,7 @@ void read_intensities_file(XFILE *fp, unsigned int ncycle) {
 /**
  * Read and store a single lane/tile of intensities from a run-folder.
  */
-void read_intensities_folder(const char *root, LANETILE lanetile, unsigned int ncycle) {
+void read_intensities_folder(const char *root, const LANETILE lanetile, unsigned int ncycle) {
 
     /* should always be null on entry, but check anyway */
     if (MainTile != NULL) {
@@ -1542,26 +487,6 @@ void read_intensities_folder(const char *root, LANETILE lanetile, unsigned int n
     }
 
     MainTile = read_folder_TILE(root, lanetile.lane, lanetile.tile, ncycle);
-}
-
-/**
- * Set the GC composition of the sequence.
- * Reads proportion from string and creates a penalty vector for the
- * least square statistic such that the penalty is zero for equally likely bases.
- * Returns true if valid value (0 to 1 non-inclusive).
- */
-bool set_composition(const char *comp_str){
-
-    char *endptr;
-    const double gc = strtod(comp_str, &endptr);
-
-    /* limit GC to a proportion and avoid log overflow */
-    if (gc <= 0.0 || gc >= 1.0) {return false;}
-
-    const double pen_mid = 2.0 * log(0.5);
-    BasePenalty[NUC_A] = BasePenalty[NUC_T] = -2.0 * log1p(-gc) + pen_mid;
-    BasePenalty[NUC_C] = BasePenalty[NUC_G] = -2.0 * log(gc) + pen_mid;
-    return true;
 }
 
 /** Set the number of base call iterations. */
@@ -1588,12 +513,6 @@ bool set_output_format(const char *outform_str) {
     }
 }
 
-/** Set show working flag. */
-void set_show_working(void) {
-
-    ShowWorking = true;
-}
-
 /** Set simdata flag and text for file. */
 void set_simdata(const CSTRING simdata_str) {
     SimData = true;
@@ -1601,30 +520,12 @@ void set_simdata(const CSTRING simdata_str) {
 }
 
 /**
- * Set solver routine to use for estimation of P.
- * Text must match one of options specified in SOLVER_TEXT, case insensitive.
- * Returns true if match found.
- */
-bool set_solver(const char *solver_str) {
-
-    /* match to options */
-    int matchidx = match_string(solver_str, SOLVER_TEXT, E_SOLVER_NUM);
-    if (matchidx>=0) {
-        SolverIndex = (SOLVID)matchidx;
-        SolverRoutine = SOLVERS[matchidx];
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-
-/**
  * Start up; call at program start after options.
+ * Issues option info messages.
  * Returns true if cycle blocks and iterations parameters are ok
- * and M, N, P matrix initialisation is successful.
+ * and ayb startup is successful.
  */
-bool startup_model(void){
+bool startup_model(void) {
 
     message(E_OPT_SELECT_SS, MSG_INFO, "Output format" ,OUTFORM_TEXT[OutputFormat]);
 
@@ -1658,28 +559,15 @@ bool startup_model(void){
     ZeroLambda = calloc(NIter, sizeof(int));
 
     message(E_OPT_SELECT_SD, MSG_INFO, "iterations", NIter);
-    message(E_OPT_SELECT_SS, MSG_INFO, "P solver", SOLVER_TEXT[SolverIndex]);
-    message(E_OPT_SELECT_SE, MSG_INFO, "Mu value", get_mu());
-    if (BasePenalty[0] != 0.0) {
-        message(E_OPT_SELECT_SE, MSG_INFO, "Genome GC Composition", exp(log(0.5) - BasePenalty[NUC_C] / 2.0));
-    }
 
-    /* read any M, N, P */
-    if (!read_matrices()) {
-        return false;
-    }
-
-    /* read any quality calibration table */
-    return read_quality_table();
+    return startup_ayb();
 }
 
 /** Tidy up; call at program shutdown. */
-void tidyup_model(void){
+void tidyup_model(void) {
 
     /* free memory */
     SimText = free_CSTRING(SimText);
-    for (IOTYPE idx = (IOTYPE)0; idx < E_MNP; idx++) {
-        Matrix[idx] = free_MAT(Matrix[idx]);
-    }
     xfree(ZeroLambda);
+    tidyup_ayb();
 }
