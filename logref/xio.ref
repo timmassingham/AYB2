@@ -1,3 +1,132 @@
+Guess mode from null filename
+Return value unknown, ok
+Guess mode from empty filename
+Return value raw, ok
+Guess mode from arbitrary filename
+Return value raw, ok
+Open null filename
+Return value null, ok
+Open empty filename
+Return value null, ok
+Close null file
+Return value null, ok
+Write to null file
+Values returned: -1, -1, -1, 0
+Read from null file
+Return value xfgetc EOF, ok
+Return value xfgets null, ok; string: aswas
+Return value xfgetln null and zero, ok
+Return value xfread zero, ok
+Test each file type...
+
+Open invalid filename for read
+Return value null, ok
+Guess mode from filename: log/xio_out.txt
+Return value correct, ok
+Open invalid mode string
+Return value null, ok
+Open new file for write, known mode, suffix: txt
+Read from open for write file
+Return value xfgetc EOF, ok
+Return value xfgets null, ok; string: aswas
+Return value xfgetln null and zero, ok
+Return value xfread zero, ok
+Close file
+Return value null, ok
+Re-open empty file for read, known mode, suffix: txt
+Read from empty file
+Return value xfgetc EOF, ok
+Return value xfgets null, ok; string: aswas
+Return value xfgetln null and zero, ok
+Return value xfread zero, ok
+Write to open for read file, xfputc, xfputs, xfprintf, xfwrite
+Values returned: -1, -1, -1, 0
+Open new file for write, unknown mode, suffix: txt
+Write with null data pointer, xfputs, xfprintf, xfwrite
+Values returned: -1, -1, 0
+Write with xfputc, xfputs, xfprintf, xfwrite
+Values returned: 120, 1, 63, 8
+Close and re-open file for read, unknown mode
+Read with null data pointer
+Return value xfgets null, ok; string: aswas
+Return value xfread zero, ok
+Read with xfgetc, xfgets, xfgetln, xfread
+x..a line of text..
+A formatted line; string xxxx; char x; int 99; float 99.990000 (length 62)
+written_as_block (returned 8)
+
+Open invalid filename for read
+Return value null, ok
+Guess mode from filename: log/xio_out.txt.gz
+Return value correct, ok
+Open invalid mode string
+Return value null, ok
+Open new file for write, known mode, suffix: txt.gz
+Read from open for write file
+Return value xfgetc EOF, ok
+Return value xfgets null, ok; string: aswas
+Return value xfgetln null and zero, ok
+Return value xfread zero, ok
+Close file
+Return value null, ok
+Re-open empty file for read, known mode, suffix: txt.gz
+Read from empty file
+Return value xfgetc EOF, ok
+Return value xfgets null, ok; string: aswas
+Return value xfgetln null and zero, ok
+Return value xfread zero, ok
+Write to open for read file, xfputc, xfputs, xfprintf, xfwrite
+Values returned: -1, -2, -2, 0
+Open new file for write, unknown mode, suffix: txt.gz
+Write with null data pointer, xfputs, xfprintf, xfwrite
+Values returned: -1, -1, 0
+Write with xfputc, xfputs, xfprintf, xfwrite
+Values returned: 120, 18, 63, 16
+Close and re-open file for read, unknown mode
+Read with null data pointer
+Return value xfgets null, ok; string: aswas
+Return value xfread zero, ok
+Read with xfgetc, xfgets, xfgetln, xfread
+x..a line of text..
+A formatted line; string xxxx; char x; int 99; float 99.990000 (length 62)
+written_as_block (returned 16)
+
+Open invalid filename for read
+Return value null, ok
+Guess mode from filename: log/xio_out.txt.bz2
+Return value correct, ok
+Open invalid mode string
+(Skip for bzip2; fails test and appears to open read)
+Open new file for write, known mode, suffix: txt.bz2
+Read from open for write file
+Return value xfgetc EOF, ok
+Return value xfgets null, ok; string: aswas
+Return value xfgetln null and zero, ok
+Return value xfread zero, ok
+Close file
+Return value null, ok
+Re-open empty file for read, known mode, suffix: txt.bz2
+Read from empty file
+Return value xfgetc EOF, ok
+Return value xfgets null, ok; string: aswas
+Return value xfgetln null and zero, ok
+Return value xfread zero, ok
+Write to open for read file, xfputc, xfputs, xfprintf, xfwrite
+Values returned: -1, -1, -1, 0
+Open new file for write, unknown mode, suffix: txt.bz2
+Write with null data pointer, xfputs, xfprintf, xfwrite
+Values returned: -1, -1, 0
+Write with xfputc, xfputs, xfprintf, xfwrite
+Values returned: 1, 18, 63, 16
+Close and re-open file for read, unknown mode
+Read with null data pointer
+Return value xfgets null, ok; string: aswas
+Return value xfread zero, ok
+Read with xfgetc, xfgets, xfgetln, xfread
+x..a line of text..
+A formatted line; string xxxx; char x; int 99; float 99.990000 (length 62)
+written_as_block (returned 16)
+
 Read null file by token
 Return values null and zero, ok
 Read file by token, null separator

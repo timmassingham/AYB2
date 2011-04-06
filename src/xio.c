@@ -68,7 +68,7 @@ const char * BZ2 = "bz2";
 /* members */
 
 XFILE _xstdin, _xstdout, _xstderr;
-XFILE * xstdin  = &_xstdin;		///< Standard input as an XFILE.
+XFILE * xstdin  = &_xstdin;	            ///< Standard input as an XFILE.
 XFILE * xstdout = &_xstdout;            ///< Standard output as an XFILE.
 XFILE * xstderr = &_xstderr;            ///< Standard error as an XFILE.
 static bool _xinit = false;
@@ -149,6 +149,7 @@ int xfisnull(XFILE * fp) {
 
 /** Attempt to guess the mode of file compression from the suffix of the supplied filename. */
 XFILE_MODE guess_mode_from_filename ( const char * fn ){
+	if (NULL==fn){ return XFILE_UNKNOWN;}
     const char * suffix = find_suffix (fn);
     if ( strcmp(suffix, GZ) == 0 ){ return XFILE_GZIP;}
     if ( strcmp(suffix, BZ2) == 0 ){ return XFILE_BZIP2;}
@@ -159,7 +160,7 @@ XFILE_MODE guess_mode_from_filename ( const char * fn ){
 /** Close an XFILE. Closes selected file and frees structure memory. */
 XFILE * xfclose(XFILE * fp){
     if(!_xinit){initialise_std();}
-    if (NULL==fp) {return NULL;}
+    if (NULL==fp) { return NULL;}
 
     if(xnotnull_file(fp)) {
         switch( fp->mode ){
@@ -175,12 +176,14 @@ XFILE * xfclose(XFILE * fp){
 
 /**
  * Open an XFILE. Allocates structure memory then guesses the compression mode if not supplied.
- * mode_str selects read/write etc as for normal file stream.
  * Opens the file in the appropriate mode.
+ * mode_str selects read/write etc as for normal file stream
+ * (note: gzip does not support '+' and bzip2 is only known to support 'r' and 'w'.)
  * If fails to open then frees structure memory and returns a null pointer.
- * */
+ */
 XFILE * xfopen(const char * restrict fn, const XFILE_MODE mode, const char * mode_str){
     if(!_xinit){initialise_std();}
+	if (NULL==fn){ return NULL;}
     XFILE * fp = malloc(sizeof(XFILE));
     int fail=0;
 
@@ -216,17 +219,22 @@ XFILE * xfopen(const char * restrict fn, const XFILE_MODE mode, const char * mod
 /**
  * Read a block of data, up to nmemb elements of the given size.
  * Result placed in buffer *ptr which must be large enough to accommodate.
- * Returns number of bytes read or number of elements (mode RAW)?
+ * Returns number of bytes read (or number of elements for mode RAW).
  */
 size_t xfread(void *ptr, size_t size, size_t nmemb, XFILE *fp){
     if(!_xinit){initialise_std();}
+	if (NULL==fp) { return 0;}
+	if (NULL==ptr) { return 0;}
     size_t ret = 0;
+    int retz = 0;
 
     switch( fp->mode ){
     	case XFILE_UNKNOWN:
         case XFILE_RAW:   ret = fread(ptr,size,nmemb,fp->ptr.fh); break;
-        case XFILE_GZIP:  ret = gzread(fp->ptr.zfh,ptr,size*nmemb); break;
-        case XFILE_BZIP2: ret = BZ2_bzread(fp->ptr.bzfh,ptr,size*nmemb); break;
+        case XFILE_GZIP:  retz = gzread(fp->ptr.zfh,ptr,size*nmemb);
+                          if (retz>0) {ret = retz;} break;
+        case XFILE_BZIP2: retz = BZ2_bzread(fp->ptr.bzfh,ptr,size*nmemb);
+                          if (retz>0) {ret = retz;} break;
     }
 
     return ret; 
@@ -234,25 +242,31 @@ size_t xfread(void *ptr, size_t size, size_t nmemb, XFILE *fp){
 
 /**
  * Write a block of data, up to nmemb elements of the given size.
- * Returns number of bytes written or number of elements (mode RAW)?
+ * Returns number of bytes written (or number of elements for mode RAW).
  */
 size_t xfwrite(const void * restrict ptr, const size_t size, const size_t nmemb, XFILE * fp){
     if(!_xinit){initialise_std();}
+	if (NULL==fp) { return 0;}
+	if (NULL==ptr) { return 0;}
     size_t ret = 0;
+    int retz = 0;
 
     switch( fp->mode ){
     	case XFILE_UNKNOWN:
         case XFILE_RAW:   ret = fwrite(ptr,size,nmemb,fp->ptr.fh); break;
-        case XFILE_GZIP:  ret = gzwrite(fp->ptr.zfh,ptr,size*nmemb); break;
-        case XFILE_BZIP2: ret = BZ2_bzwrite(fp->ptr.bzfh,(void*)ptr,size*nmemb); break;
+        case XFILE_GZIP:  retz = gzwrite(fp->ptr.zfh,ptr,size*nmemb);
+                          if (retz>0) {ret = retz;} break;
+        case XFILE_BZIP2: retz = BZ2_bzwrite(fp->ptr.bzfh,(void*)ptr,size*nmemb);
+                          if (retz>0) {ret = retz;} break;
     }       
 
     return ret;
 }
 
-/** Write a character. */
+/** Write a character. Returns negative value if fails to write. */
 int xfputc ( int c, XFILE * fp){
     if(!_xinit){initialise_std();}
+	if (NULL==fp) { return EOF;}
     int ret = EOF;
     switch(fp->mode){
     	case XFILE_UNKNOWN:
@@ -263,9 +277,14 @@ int xfputc ( int c, XFILE * fp){
     return ret;
 }
 
-/** Write a string. Does not append the terminating null or a new line. */
+/** 
+ * Write a string. Does not append the terminating null or a new line. 
+ * Returns negative value if fails to write. 
+ */
 int xfputs ( const char * restrict str, XFILE * fp){
     if(!_xinit){initialise_std();}
+	if (NULL==fp) { return EOF;}
+	if (NULL==str) { return EOF;}
     int ret = EOF;
     switch(fp->mode){
     	case XFILE_UNKNOWN:
@@ -285,6 +304,8 @@ int xfprintf( XFILE * fp, const char * fmt, ... ){
     va_list args;
 
     if(!_xinit){initialise_std();}
+	if (NULL==fp) { return EOF;}
+	if (NULL==fmt) { return EOF;}
 
     va_start(args,fmt);
     switch( fp->mode ){
@@ -299,17 +320,22 @@ int xfprintf( XFILE * fp, const char * fmt, ... ){
 
 /** Read and return a single character. Returns EOF if fails to read. */
 int xfgetc(XFILE * fp){
+	if (NULL==fp) { return EOF;}
     char c=0;
     int ret = xfread(&c,sizeof(char),1,fp);
-    return (ret!=0)?c:EOF;
+    return (ret>0)?c:EOF;
 }
 
 /**
  * Read a string of length n. Appends a null terminator.
  * Result placed in buffer *s which must be large enough to accommodate.
+ * Returns NULL if fails to read.
  */
 char * xfgets( char * restrict s, int n, XFILE * restrict fp){
+	if (NULL==fp) { return NULL;}
+	if (NULL==s) { return NULL;}
     int ret = xfread(s,sizeof(char),n-1,fp);
+    if (ret<=0) { return NULL;}
     s[ret] = '\0';
     return s;
 }
@@ -318,6 +344,7 @@ char * xfgets( char * restrict s, int n, XFILE * restrict fp){
  * Get a line from a file, allocating necessary memory.
  * Calling function is responsible for freeing allocated memory.
  * Returns pointer to line, and length in len. Appends a null terminator.
+ * Returns NULL and zero len if fails to read anything.
  * Returns NULL if fails to allocate memory or other error.
  * Does not deal with MS-DOS style line-feeds gracefully.
  */
@@ -330,19 +357,20 @@ char * xfgetln( XFILE * fp, size_t * len ){
  * necessary memory.
  * Calling function is responsible for freeing allocated memory.
  * Returns pointer to line, and length in len. Appends a null terminator.
+ * Returns NULL and zero len if fails to read anything.
  * Returns NULL if fails to allocate memory or other error.
  * Does not deal with MS-DOS style line-feeds gracefully.
  */
 
 char * xfgettok( XFILE * fp, size_t * len, const char * sep){
-	if(NULL==fp){ return NULL; }
-	if(NULL==sep){ return NULL; }
+	*len = 0;
+	if (NULL==fp) { return NULL;}
+	if (NULL==sep) { return NULL;}
 	size_t seplen = strlen(sep);
 
 	char * str = NULL;
 	int size = 0;
 	int c = 0;
-	*len = 0;
 	int sepidx = 0;
 	while ( c=xfgetc(fp), (c!=EOF) ){
 		if(size<=*len){
@@ -378,15 +406,346 @@ char * xfgettok( XFILE * fp, size_t * len, const char * sep){
 	return str;
 }
 
+
 #ifdef TEST
 #include <err.h>
+#include <stdint.h>
+
+static const char CH1 = 'x';
+static const char ALINE[] = "..a line of text..";
+static const char ASWAS[] = "aswas";
+static const char DATA[] = "written_as_block";
+static const char FLINE[] = "A formatted line; string %s; char %c; int %d; float %f\n";
+static const char * DOT = ".";
+static const char * STR1 = "xxxx";
+static const char * SUFF[] = {"", "txt", "txt.gz", "txt.bz2"};
+static const int INT1 = 99;
+static const double FL1 = 99.99;
+
+/* for writing as block */
+typedef uint16_t int_t;
+size_t IntSize = sizeof(int_t);
+size_t DataLen;
+
+/* Add file type suffix to name */
+static char * add_suff(const char * name, const char * suff) {
+    if (NULL==name) { return NULL;}
+    if (NULL==suff) { return NULL;}
+    char * fullname = NULL;
+    fullname = calloc(strlen(name) + strlen(DOT) + strlen(suff) + 1, sizeof(char));
+    strcpy(fullname, name);
+    strcat(fullname, DOT);
+    strcat(fullname, suff);
+    return fullname;
+}
+
+/* used for null, empty and open for write file */
+static void read_bad_file(XFILE * fp, const char *desc, int_t *intdata) {
+    fprintf(stdout, "Read from %s file\n", desc);
+    int ch = xfgetc(fp);
+    if (ch==EOF) {
+        fputs("Return value xfgetc EOF, ok\n", stdout);
+    }
+    else {
+        fputs("Return value xfgetc not EOF, not ok\n", stdout);
+    }
+    char * line = malloc(9);
+    strcpy(line, ASWAS);
+    char * res = xfgets(line, 9, fp);
+    if (res==NULL) {
+        fprintf(stdout, "Return value xfgets null, ok; string: %s\n", line);
+    }
+    else {
+        fputs("Return value xfgets not null, not ok\n", stdout);
+    }
+    free(line);
+    size_t lenz = 99;
+    line = xfgetln(fp, &lenz);
+    if ((lenz==0) && (line==NULL)) {
+        fputs("Return value xfgetln null and zero, ok\n", stdout);
+    }
+    else {
+        fputs("Return value xfgetln not null and zero, not ok\n", stdout);
+    }
+    if (line!=NULL) { free(line); }
+    lenz = 99;
+    lenz = xfread(intdata, IntSize, DataLen, fp);
+    if (lenz==0) {
+        fputs("Return value xfread zero, ok\n", stdout);
+    }
+    else {
+        fputs("Return value xfread not zero, not ok\n", stdout);
+    }
+}
 
 int main ( int argc, char * argv[]){
-	if(argc<3){
-	    /* argumens are separator and input file */
-		errx(EXIT_FAILURE, "Usage: test-xio separator filename");
+	if(argc<4){
+	    /* arguments are separator, input file and output file */
+		errx(EXIT_FAILURE, "Usage: test-xio separator in_filename out_filename");
 	}
 
+    XFILE * fp = NULL;
+    int num[3] = {0, 0, 0};
+    size_t lenz = 0;
+    XFILE_MODE mode;
+    DataLen = (strlen(DATA) + IntSize - 1) / IntSize;    // round up
+    int_t intdata[DataLen];
+
+    fputs("Guess mode from null filename\n", stdout);
+    mode = guess_mode_from_filename (NULL);
+    if (mode==XFILE_UNKNOWN) {
+        fputs("Return value unknown, ok\n", stdout);
+    }
+    else {
+        fputs("Return value not unknown, not ok\n", stdout);
+    }
+
+    fputs("Guess mode from empty filename\n", stdout);
+    mode = guess_mode_from_filename ("");
+    if (mode==XFILE_RAW) {
+        fputs("Return value raw, ok\n", stdout);
+    }
+    else {
+        fputs("Return value not raw, not ok\n", stdout);
+    }
+
+    fputs("Guess mode from arbitrary filename\n", stdout);
+    mode = guess_mode_from_filename (STR1);
+    if (mode==XFILE_RAW) {
+        fputs("Return value raw, ok\n", stdout);
+    }
+    else {
+        fputs("Return value not raw, not ok\n", stdout);
+    }
+
+    fputs("Open null filename\n", stdout);
+    fp = xfopen(NULL, XFILE_UNKNOWN, "r");
+    if (fp==NULL) {
+        fputs("Return value null, ok\n", stdout);
+    }
+    else {
+        fputs("Return value not null, not ok\n", stdout);
+    	fp = xfclose(fp);
+    }
+    
+    fputs("Open empty filename\n", stdout);
+    fp = xfopen("", XFILE_UNKNOWN, "r");
+    if (fp==NULL) {
+        fputs("Return value null, ok\n", stdout);
+    }
+    else {
+        fputs("Return value not null, not ok\n", stdout);
+    	fp = xfclose(fp);
+    }
+    
+    fputs("Close null file\n", stdout);
+	fp = xfclose(NULL);
+    if (fp==NULL) {
+        fputs("Return value null, ok\n", stdout);
+    }
+    else {
+        fputs("Return value not null, not ok\n", stdout);
+    }
+
+    fputs("Write to null file\n", stdout);
+    memset(num, 9, 3 * sizeof(int));
+    num[0] = xfputc(CH1, NULL);
+    num[1] = xfputs(ALINE, NULL);
+    num[2] = xfprintf(NULL, FLINE, STR1, CH1, INT1, FL1);
+    lenz = 99;
+    lenz = xfwrite(intdata, IntSize, DataLen, NULL);
+    fprintf(stdout, "Values returned: %d, %d, %d, %lu\n", num[0], num[1], num[2], lenz);
+
+    /* read from null file */
+    read_bad_file(NULL, "null", intdata);
+    
+    fputs("Test each file type...\n", stdout);
+    
+    for (XFILE_MODE modi = XFILE_RAW; modi <= XFILE_BZIP2; modi++) {
+        char * line = NULL;
+        char * res = NULL;
+        char * fullname = NULL;
+        
+        fputs("\n", stdout);
+        fullname = add_suff(STR1, SUFF[modi]);
+        if (NULL==fullname) {
+		    errx(EXIT_FAILURE, "Failed to create filename");
+        }
+        
+        fputs("Open invalid filename for read\n", stdout);
+        fp = xfopen(STR1, modi, "r");
+        if (xfisnull(fp)) {
+            fputs("Return value null, ok\n", stdout);
+        }
+        else {
+            fputs("Return value not null, not ok\n", stdout);
+        	fp = xfclose(fp);
+        }
+        free(fullname);
+
+        fullname = add_suff(argv[3], SUFF[modi]);
+        if (NULL==fullname) {
+		    errx(EXIT_FAILURE, "Failed to create filename");
+        }
+
+        fprintf(stdout, "Guess mode from filename: %s\n", fullname);
+        mode = guess_mode_from_filename (fullname);
+        if (mode==modi) {
+            fputs("Return value correct, ok\n", stdout);
+        }
+        else {
+            fputs("Return value incorrect, not ok\n", stdout);
+        }
+
+        fputs("Open invalid mode string\n", stdout);
+        if (modi < XFILE_BZIP2) {
+            fp = xfopen(fullname, modi, "x");
+            if (xfisnull(fp)) {
+                fputs("Return value null, ok\n", stdout);
+            }
+            else {
+                fputs("Return value not null, not ok\n", stdout);
+            	fp = xfclose(fp);
+            }
+        }
+        else {
+            fputs("(Skip for bzip2; fails test and appears to open read)\n", stdout);
+        }
+
+        fprintf(stdout, "Open new file for write, known mode, suffix: %s\n", SUFF[modi]);
+        fp = xfopen(fullname, modi, "w");
+        if (xfisnull(fp)) {
+		    errx(EXIT_FAILURE, "Failed to open %s for output", fullname);
+        }
+        
+        /* read from open for write file */
+        read_bad_file(fp, "open for write", intdata);
+
+	    fputs("Close file\n", stdout);
+	    fp = xfclose(fp);
+        if (fp==NULL) {
+            fputs("Return value null, ok\n", stdout);
+        }
+        else {
+            fputs("Return value not null, not ok\n", stdout);
+        }
+
+        fprintf(stdout, "Re-open empty file for read, known mode, suffix: %s\n", SUFF[modi]);
+        fp = xfopen(fullname, modi, "r");
+        if (xfisnull(fp)) {
+		    errx(EXIT_FAILURE, "Failed to open %s for input", fullname);
+        }
+        
+        /* read from empty file */
+        read_bad_file(fp, "empty", intdata);
+        
+        fputs("Write to open for read file, xfputc, xfputs, xfprintf, xfwrite\n", stdout);
+        memset(num, 9, 3 * sizeof(int));
+        num[0] = xfputc(CH1, fp);
+        num[1] = xfputs(ALINE, fp);
+        num[2] = xfprintf(fp, FLINE, STR1, CH1, INT1, FL1);
+        lenz = 99;
+        lenz = xfwrite(intdata, IntSize, DataLen, fp);
+        fprintf(stdout, "Values returned: %d, %d, %d, %lu\n", num[0], num[1], num[2], lenz);
+
+	    fp = xfclose(fp);
+
+        fprintf(stdout, "Open new file for write, unknown mode, suffix: %s\n", SUFF[modi]);
+        fp = xfopen(fullname, XFILE_UNKNOWN, "w");
+        if (xfisnull(fp)) {
+		    errx(EXIT_FAILURE, "Failed to open %s for output", fullname);
+        }
+
+        fputs("Write with null data pointer, xfputs, xfprintf, xfwrite\n", stdout);
+        memset(num, 9, 3 * sizeof(int));
+        num[1] = xfputs(NULL, fp);
+        num[2] = xfprintf(fp, NULL, STR1, CH1, INT1, FL1);
+        lenz = 99;
+        lenz = xfwrite(NULL, IntSize, DataLen, fp);
+        fprintf(stdout, "Values returned: %d, %d, %lu\n", num[1], num[2], lenz);
+
+        fputs("Write with xfputc, xfputs, xfprintf, xfwrite\n", stdout);
+        memset(num, 0, 3 * sizeof(int));
+        num[0] = xfputc(CH1, fp);
+        num[1] = xfputs(ALINE, fp);
+        xfputc('\n', fp);   // add a new line
+        num[2] = xfprintf(fp, FLINE, STR1, CH1, INT1, FL1);
+
+        memset(intdata, 0, DataLen * IntSize);
+        memcpy(intdata, DATA, strlen(DATA));
+        lenz = 0;
+        lenz = xfwrite(intdata, IntSize, DataLen, fp);
+        fprintf(stdout, "Values returned: %d, %d, %d, %lu\n", num[0], num[1], num[2], lenz);
+      
+        fprintf(stdout, "Close and re-open file for read, unknown mode\n");
+	    fp = xfclose(fp);
+        fp = xfopen(fullname, XFILE_UNKNOWN, "r");
+        if (xfisnull(fp)) {
+		    errx(EXIT_FAILURE, "Failed to open %s for input", fullname);
+        }
+
+        fputs("Read with null data pointer\n", stdout);
+        line = malloc(9);
+        strcpy(line, ASWAS);
+        res = xfgets(NULL, 9, fp);
+        if (res==NULL) {
+            fprintf(stdout, "Return value xfgets null, ok; string: %s\n", line);
+        }
+        else {
+            fputs("Return value xfgets not null, not ok\n", stdout);
+        }
+        free(line);
+        lenz = 99;
+        lenz = xfread(NULL, IntSize, DataLen, fp);
+        if (lenz==0) {
+            fputs("Return value xfread zero, ok\n", stdout);
+        }
+        else {
+            fputs("Return value xfread not zero, not ok\n", stdout);
+        }
+
+        fputs("Read with xfgetc, xfgets, xfgetln, xfread\n", stdout);
+        int ch = xfgetc(fp);
+        lenz = strlen(ALINE);
+        line = malloc(lenz + 1);
+        strcpy(line, ASWAS);
+        res = xfgets(line, (int)lenz + 1, fp);
+        if (res==NULL) {
+            fputs("Failed to read with xfgets\n", stdout);
+        }
+        fprintf(stdout, "%c%s\n", ch, line);
+        free(line);
+        xfgetc(fp);         // skip the newline
+        lenz = 0;
+        line = xfgetln(fp, &lenz);
+        if ((lenz > 0) && (line!=NULL)) {
+            fprintf(stdout, "%s (length %lu)\n", line, lenz); 
+        }
+        else {
+            fputs("Failed to read with xfgetln\n", stdout);
+        }
+        if (line!=NULL) { free(line); }
+        
+        memset(intdata, 0, DataLen * IntSize);
+        lenz = 0;
+        lenz = xfread(intdata, IntSize, DataLen, fp);
+        if (lenz > 0) {
+            line = malloc(DataLen * IntSize + 1);
+            memcpy(line, intdata, DataLen * IntSize);
+            line[DataLen * IntSize] = 0;
+            fprintf(stdout, "%s (returned %lu)\n", line, lenz);
+            free(line);
+        }
+        else {
+            fputs("Failed to read with xfread\n", stdout);
+        }
+
+	    fp = xfclose(fp);
+        free(fullname);
+    }
+    
+    /* test read by token */
+    fputs("\n", stdout);
 	char * sep = argv[1];
 
 	XFILE * xfp = xfopen(argv[2], XFILE_UNKNOWN, "r");
@@ -398,82 +757,82 @@ int main ( int argc, char * argv[]){
 	int ntok = 0;
 	char * tok = NULL;
 	
-    xfputs("Read null file by token\n", xstdout);
+    fputs("Read null file by token\n", stdout);
 	tok = xfgettok(NULL, &len, sep);
 	if ((tok==NULL) && (len==0)) {
-        xfputs("Return values null and zero, ok\n", xstdout);
+        fputs("Return values null and zero, ok\n", stdout);
     }
     else {
-        xfputs("Return values not null and zero, not ok\n", xstdout);
+        fputs("Return values not null and zero, not ok\n", stdout);
      	if (tok!=NULL) {free(tok);}
     }
 
-    xfputs("Read file by token, null separator\n", xstdout);
+    fputs("Read file by token, null separator\n", stdout);
 	tok = xfgettok(xfp, &len, NULL);
 	if ((tok==NULL) && (len==0)) {
-        xfputs("Return values null and zero, ok\n", xstdout);
+        fputs("Return values null and zero, ok\n", stdout);
     }
     else {
-        xfputs("Return values not null and zero, not ok\n", xstdout);
+        fputs("Return values not null and zero, not ok\n", stdout);
      	if (tok!=NULL) {free(tok);}
     }
-	xfclose(xfp);
+	xfp = xfclose(xfp);
 
-    xfputs("Read file by token, empty separator\n", xstdout);
+    fputs("Read file by token, empty separator\n", stdout);
 	xfp = xfopen(argv[2], XFILE_UNKNOWN, "r");
 	while ((tok = xfgettok(xfp, &len, "")), (len!=0) ) {
 		ntok++;
-		xfprintf(xstdout, "Token %d chars %lu: [%s]\n", ntok, len, tok);
+		fprintf(stdout, "Token %d chars %lu: [%s]\n", ntok, len, tok);
      	free(tok);
 	}
 	if (ntok==1) {
-        xfputs("Single token returned, ok\n", xstdout);
+        fputs("Single token returned, ok\n", stdout);
 	}
 	else {
-        xfputs("More than one token returned, not ok\n", xstdout);
+        fputs("More than one token returned, not ok\n", stdout);
 	}
 	if (tok==NULL) {
-        xfputs("Final Return value null, ok\n", xstdout);
+        fputs("Final Return value null, ok\n", stdout);
     }
     else {
-        xfputs("Final return value not null, not ok\n", xstdout);
+        fputs("Final return value not null, not ok\n", stdout);
      	free(tok);
     }
-	xfclose(xfp);
+	xfp = xfclose(xfp);
 
-    xfprintf(xstdout, "Read file by token \'%s\'\n", sep);
+    fprintf(stdout, "Read file by token \'%s\'\n", sep);
 	xfp = xfopen(argv[2], XFILE_UNKNOWN, "r");
     ntok = 0;
 	while ((tok = xfgettok(xfp, &len, sep)), (len!=0) ) {
 		ntok++;
-		xfprintf(xstdout, "Token %d chars %lu: [%s]\n", ntok, len, tok);
+		fprintf(stdout, "Token %d chars %lu: [%s]\n", ntok, len, tok);
      	free(tok);
 	}
 	if (tok==NULL) {
-        xfputs("Final Return value null, ok\n", xstdout);
+        fputs("Final Return value null, ok\n", stdout);
     }
     else {
-        xfputs("Final return value not null, not ok\n", xstdout);
+        fputs("Final return value not null, not ok\n", stdout);
      	free(tok);
     }
-	xfclose(xfp);
+	xfp = xfclose(xfp);
 
-    xfputs("Read file by line\n", xstdout);
+    fputs("Read file by line\n", stdout);
 	xfp = xfopen(argv[2], XFILE_UNKNOWN, "r");
     ntok = 0;
 	while ((tok = xfgetln(xfp, &len)), (len!=0) ) {
 		ntok++;
-		xfprintf(xstdout, "Line %d chars %lu: [%s]\n", ntok, len, tok);
+		fprintf(stdout, "Line %d chars %lu: [%s]\n", ntok, len, tok);
     	free(tok);
 	}
 	if (tok==NULL) {
-        xfputs("Final Return value null, ok\n", xstdout);
+        fputs("Final Return value null, ok\n", stdout);
     }
     else {
-        xfputs("Final return value not null, not ok\n", xstdout);
+        fputs("Final return value not null, not ok\n", stdout);
      	free(tok);
     }
-	xfclose(xfp);
+	xfp = xfclose(xfp);
 
 	return EXIT_SUCCESS;
 }
