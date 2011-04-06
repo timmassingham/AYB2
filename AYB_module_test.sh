@@ -5,6 +5,7 @@
 # No arguments.
 
 # Location and name of test files and other inputs
+BIN=bin
 INDIR=test
 OUTDIR=log
 REFDIR=logref
@@ -16,11 +17,15 @@ ININT=test100_int.txt
 INCIF=s_2_0001.cif
 INFOLDER=/nfs/research2/goldman/NextGen/Data/sample-runfolder
 LANETILE=L2T8-9
-INSEQ=ACGTaatgXc
-INSEQPHRED=nuc_phred.txt
 MATFROM=mat_from.txt
 MATTO=mat_to.txt
+NODIR=nodir.txt
+NEWDIR=newdir
+MESSLOG=messagelog
+INSEQ=ACGTaatgXc
+INSEQPHRED=nuc_phred.txt
 INTOK=xio_in.txt
+OUTXIO=xio_out
 SEP=ow
 
 echo "AYB module test results  " $(date +"%d %B %Y %H:%M")
@@ -29,50 +34,81 @@ echo ""
 MODULE=cluster
 echo "Testing $MODULE"
 # arguments ncycle _int.txt_filename [cif_filename]
-#bin/test-$MODULE $NC $INDIR/$ININT >$OUTDIR/$MODULE.$LOGEXT  2>$OUTDIR/$ERRFILE.$LOGEXT
-bin/test-$MODULE $NC $INDIR/$ININT $INDIR/$INCIF >$OUTDIR/$MODULE.$LOGEXT  2>$OUTDIR/$ERRFILE.$LOGEXT
+#$BIN/test-$MODULE $NC $INDIR/$ININT >$OUTDIR/$MODULE.$LOGEXT  2>$OUTDIR/$ERRFILE.$LOGEXT
+$BIN/test-$MODULE $NC $INDIR/$ININT $INDIR/$INCIF >$OUTDIR/$MODULE.$LOGEXT  2>$OUTDIR/$ERRFILE.$LOGEXT
 diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
 
 MODULE=matrix
 echo "Testing $MODULE"
 # arguments appendto appendfrom (filenames)
-bin/test-$MODULE $INDIR/$MATTO $INDIR/$MATFROM >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
+$BIN/test-$MODULE $INDIR/$MATTO $INDIR/$MATFROM >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
 diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT 
 
 MODULE=message
+echo "Testing $MODULE I/O"
+# arguments log_path more_flag
+# test log dir not a dir
+cat > $NODIR << ENDIT
+empty
+ENDIT
+$BIN/test-$MODULE $NODIR/notadir F >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+rm $NODIR
+
+#test log dir not exist, creatable
+if [ `find ./ -name $NEWDIR` ]; then
+    chmod u+w $NEWDIR
+    rm -r $NEWDIR
+fi
+$BIN/test-$MODULE $NEWDIR/canmake.log F >>$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+echo -e "Log file in new directory \c"
+if [ `find $NEWDIR -name canmake.log` ]; then
+    echo "created ok"
+else
+    echo "failed to create"
+fi
+
+#test log dir not writable
+chmod u-w $NEWDIR
+$BIN/test-$MODULE $NEWDIR/nomake.log F >>$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+#test log dir not exist, not creatable
+$BIN/test-$MODULE $NEWDIR/nomakedir/nomake.log F >>$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+chmod u+w $NEWDIR
+rm -r $NEWDIR
+
 echo "Testing $MODULE"
-# arguments none
-bin/test-$MODULE >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
-diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
+# arguments log_path more_flag
+$BIN/test-$MODULE $OUTDIR/$MESSLOG.$LOGEXT T >>$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+diff -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
+diff -s $OUTDIR/$MESSLOG.$LOGEXT $REFDIR/$MESSLOG.$REFEXT
 
 MODULE=mpn
 echo "Testing $MODULE"
 # arguments none
-bin/test-$MODULE >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+$BIN/test-$MODULE >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
 diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
 
 MODULE=nuc
 echo "Testing $MODULE"
 # arguments sequence [sequence/quality filename]
-#bin/test-$MODULE $INSEQ >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
-bin/test-$MODULE $INSEQ $INDIR/$INSEQPHRED >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+#$BIN/test-$MODULE $INSEQ >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+$BIN/test-$MODULE $INSEQ $INDIR/$INSEQPHRED >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
 diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT 
 
 MODULE=tile
 echo "Testing $MODULE"
 # arguments ncycle _int.txt_filename [cif_filename run-folder lane_tile_range]
-#bin/test-$MODULE $NC $INDIR/$ININT >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
-#bin/test-$MODULE $NC $INDIR/$ININT $INDIR/$INCIF >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
-bin/test-$MODULE $NC $INDIR/$ININT $INDIR/$INCIF $INFOLDER $LANETILE >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
+#$BIN/test-$MODULE $NC $INDIR/$ININT >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
+#$BIN/test-$MODULE $NC $INDIR/$ININT $INDIR/$INCIF >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
+$BIN/test-$MODULE $NC $INDIR/$ININT $INDIR/$INCIF $INFOLDER $LANETILE >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
 diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
 
 MODULE=xio
 echo "Testing $MODULE"
 # arguments separator filename
-bin/test-$MODULE $SEP $INDIR/$INTOK >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+$BIN/test-$MODULE $SEP $INDIR/$INTOK $OUTDIR/$OUTXIO >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
 diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
 
 # compare the error output file
 echo "Checking program messages"
-diff -q -s $OUTDIR/$ERRFILE.$LOGEXT $REFDIR/$ERRFILE.$REFEXT
+diff -s $OUTDIR/$ERRFILE.$LOGEXT $REFDIR/$ERRFILE.$REFEXT
 
