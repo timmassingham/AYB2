@@ -167,9 +167,9 @@ OPTIONS
     Output simulation data as used by simNGS program (lambda fit and full covariance matrix).
     The header argument text is included in the file with limited interpretation.
     Spaces can be used if the whole thing is enclosed in double quotes ("). 
-    This also allows the newline escape sequence (\n) to be interpreted. 
     If quotes are required within the header then use either the double quote 
-    escape sequence (\") or single quotes (').    
+    escape sequence (\") or single quotes (\').    
+    Use ANSI-C style bash quoting ($\'...') to allow escape sequences such as newline (\n) to be interpreted. 
     The output file name is `{filename}.runfile` (cif) or `{filename}_runfile.txt` (txt).
 
 *-S,  --solver* <solver> [default zero]::
