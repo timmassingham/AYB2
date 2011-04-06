@@ -1,11 +1,28 @@
+Startup with path: nodir.txt/notadir
+Startup with path: newdir/canmake.log
+AYB message log is newdir/canmake.log
+Startup with path: newdir/nomake.log
+Startup with path: newdir/nomakedir/nomake.log
+Startup no path:
+AYB virtual log name is ayb_041196_110308_1607
+Startup with path: log/messagelog.log
+AYB message log is log/messagelog.log
 Generate Randomised Name:
-  Name 0: ayb_461194_110301_1533
-  Name 1: ayb_380990_110301_1533
-  Name 2: ayb_883997_110301_1533
-  Name 3: ayb_765005_110301_1533
-  Name 4: ayb_914585_110301_1533
-  Name 5: ayb_028989_110301_1533
-  Name 6: ayb_230686_110301_1533
-  Name 7: ayb_063146_110301_1533
-  Name 8: ayb_851298_110301_1533
-  Name 9: ayb_881667_110301_1533
+  Name 0: ayb_708539_110308_1607
+  Name 1: ayb_610913_110308_1607
+  Name 2: ayb_565081_110308_1607
+  Name 3: ayb_177960_110308_1607
+  Name 4: ayb_738351_110308_1607
+  Name 5: ayb_485476_110308_1607
+  Name 6: ayb_684110_110308_1607
+  Name 7: ayb_883003_110308_1607
+  Name 8: ayb_338125_110308_1607
+  Name 9: ayb_437816_110308_1607
+Set invalid message level, xxx1:
+Return value false, ok
+Set valid message level, error:
+Return value true, ok
+Get message path and level:
+Message path; level: log/messagelog.log; Error
+Suppress messages by level:
+For message output see message log:

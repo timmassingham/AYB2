@@ -58,6 +58,7 @@ static const char *MSG_TEXT[] = {
         "No file pattern match supplied\n",                                     // E_NOPATTERN
         "Number of model iterations incorrectly supplied\n",                    // E_BAD_ITER
         "Run folder option invalid with txt input format\n",                    // E_BAD_RUNOPT
+        "",                                                                     // E_END_NONE
         "Memory allocation failed during %s\n",                                 // E_NOMEM_S
         "Log message output level: %s\n",                                       // E_MSG_LEVEL_S
         "Input from directory: %s\n",                                           // E_INPUT_DIR_S
@@ -69,6 +70,7 @@ static const char *MSG_TEXT[] = {
         "Failed to initialise %s matrix\n",                                     // E_MATRIX_FAIL_S
         "Failed to create %s\n",                                                // E_NOCREATE_S
         "Zero lambdas per iteration: %s\n",                                     // E_ZERO_LAMBDA_S
+        "",                                                                     // E_END_S
         "Supplied %s location parameter \'%s\' is not a directory\n",           // E_BAD_DIR_SS
         "Failed to create new %s directory \'%s\'\n",                           // E_NOCREATE_DIR_SS
         "Created new %s directory: %s\n",                                       // E_CREATED_DIR_SS
@@ -79,18 +81,26 @@ static const char *MSG_TEXT[] = {
         "%s selected: %s\n",                                                    // E_OPT_SELECT_SS
         "%s error; %s\n",                                                       // E_BAD_TXT_SS
         "%s contains invalid numeric: \'%s\'\n",                                // E_BAD_NUM_SS
+        "",                                                                     // E_END_SS
         "%s contains invalid character: \'%c\'\n",                              // E_BAD_CHAR_SC
+        "",                                                                     // E_END_SC
         "Input file pattern match: \'%s\'; %d files found\n",                   // E_PATTERN_MATCH_SD
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
+        "",                                                                     // E_END_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
+        "",                                                                     // E_END_SDD
         "%s selected: %0.2E\n",                                                 // E_OPT_SELECT_SE
+        "",                                                                     // E_END_SE
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
+        "",                                                                     // E_END_C
         "Processing failed at iteration %d; calls set to null\n",               // E_PROCESS_FAIL_D
         "Insufficient cycles for model; %d selected or found\n",                // E_CYCLESIZE_D
+        "",                                                                     // E_END_D
         "Input file contains fewer cycles than requested; %d instead of %d\n",  // E_CYCLESIZE_DD
         "Tile data size: %d clusters of %d cycles\n",                           // E_TILESIZE_DD
         "Failed to initialise model for block %d, %d cycles\n",                 // E_INIT_FAIL_DD
         "Processing block %d, %d cycles\n",                                     // E_PROCESS_DD
+        "",                                                                     // E_END_DD
 
         "%s %20s\n",                                                            // E_GENERIC_SS
         "%s %d\n",                                                              // E_GENERIC_SD
@@ -334,38 +344,131 @@ bool startup_message(void) {
 /** Tidy up; call at program shutdown. */
 void tidyup_message (void) {
 
-    /* close the message file */
-    fclose(stderr);
-
     /* free string memory */
     free_CSTRING(Msg_Path);
 }
 
 
 #ifdef TEST
-
 #include <err.h>
 
+static const char * SETMSGLEV = "error";
+static const char *STRING1 = "xxx1";
+static const char *STRING2 = "xxx2";
+static const char CHAR1 = 'x';
+static const int INT1 = 9;
+static const int INT2 = 99;
+static const real_t EXP1 = 1e-5;
+
 int main ( int argc, char * argv[]){
-// no parameters yet
-//    if(argc!=3){
-//        errx(EXIT_FAILURE,"Usage: test-message p1 p2");
-//    }
-
-    fputs("Generate Randomised Name:\n", stdout);
-    const int NUM = 10;
-    time_t lt = time(NULL);
-    struct tm *p_tm = localtime(&lt);
-    CSTRING names[NUM];
-
-    for (int i = 0; i < NUM; i++) {
-        names[i] = generate_name(p_tm);
-    }
-    for (int i = 0; i < NUM; i++) {
-        fprintf(stdout, "  Name %d: %s\n", i, names[i]);
-        free_CSTRING(names[i]);
+    if(argc<3){
+        /* arguments are log path and whether to test anything else in addition to path selection */
+        errx(EXIT_FAILURE,"Usage: test-message log_path more_flag");
     }
 
+    bool more = false;
+    if ((*argv[2] == 'T') || (*argv[2] == 't')) {
+        more = true;
+    }
+
+    if (more) {
+        fputs("Startup no path:\n", stdout);
+        startup_message();
+        free_CSTRING(Msg_Path);
+    }
+
+    fprintf(stdout, "Startup with path: %s\n", argv[1]);
+    set_message_path((const CSTRING)argv[1]);
+    startup_message();
+    
+    if (more) {
+        fputs("Generate Randomised Name:\n", stdout);
+        const int NUM = 10;
+        time_t lt = time(NULL);
+        struct tm *p_tm = localtime(&lt);
+        CSTRING names[NUM];
+
+        for (int i = 0; i < NUM; i++) {
+            names[i] = generate_name(p_tm);
+        }
+        for (int i = 0; i < NUM; i++) {
+            fprintf(stdout, "  Name %d: %s\n", i, names[i]);
+            free_CSTRING(names[i]);
+        }
+
+        fprintf(stdout, "Set invalid message level, %s:\n", STRING1);
+        bool ret = set_message_level(STRING1);
+        if (ret==false) {
+            xfputs("Return value false, ok\n", xstdout);
+        }
+        else {
+            xfputs("Return value not false, not ok\n", xstdout);
+        }
+        
+        fprintf(stdout, "Set valid message level, %s:\n", SETMSGLEV);
+        ret = set_message_level(SETMSGLEV);
+        if (ret==true) {
+            xfputs("Return value true, ok\n", xstdout);
+        }
+        else {
+            xfputs("Return value not true, not ok\n", xstdout);
+        }
+
+        fputs("Get message path and level:\n", stdout);
+        fprintf(stdout, "Message path; level: %s; %s\n", get_message_path(), MSG_SEV_TEXT[get_message_level()]);
+
+        fputs("Suppress messages by level:\n", stdout);
+        for (MSGSEV sevi = (MSGSEV)0; sevi < MSG_NUM; sevi++) {
+            message((MSGTYPE)0, sevi);
+        }
+
+        fputs("For message output see message log:\n", stdout);
+        /* maximum level ensures output */
+        Msg_Level = MSG_NUM - 1;
+        MSGSEV sev = (MSGSEV)0;
+        for (MSGTYPE typi = 0; typi < E_END_NONE; typi++) {
+            message(typi, sev);
+        }
+        /* vary the severity */
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_NONE + 1; typi < E_END_S; typi++) {
+            message(typi, sev, STRING1);
+        }
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_S + 1; typi < E_END_SS; typi++) {
+            message(typi, sev, STRING1, STRING2);
+        }
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_SS + 1; typi < E_END_SC; typi++) {
+            message(typi, sev, STRING1, CHAR1);
+        }
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_SC + 1; typi < E_END_SD; typi++) {
+            message(typi, sev, STRING1, INT1);
+        }
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_SD + 1; typi < E_END_SDD; typi++) {
+            message(typi, sev, STRING1, INT1, INT2);
+        }
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_SDD + 1; typi < E_END_SE; typi++) {
+            message(typi, sev, STRING1, EXP1);
+        }
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_SE + 1; typi < E_END_C; typi++) {
+            message(typi, sev, CHAR1);
+        }
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_C + 1; typi < E_END_D; typi++) {
+            message(typi, sev, INT1);
+        }
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_D + 1; typi < E_END_DD; typi++) {
+            message(typi, sev, INT1, INT2);
+        }
+    }
+    
+    tidyup_message();
     return EXIT_SUCCESS;
 }
 

@@ -67,8 +67,8 @@ On Related Pages see:
 /**
 \page newmess Adding a New Message
 To add a new message:
-- In message header, add new enum to #MSGTYPE; set suffix to indicate required parameters; 
-  keep enums with same suffix together (assists with testing)
+- In message header, add new enum to #MSGTYPE; set suffix to indicate required parameters;
+  keep enums with same suffix together and between the correct dummy E_END_s (enables testing)
 - In message source, add format string to #MSG_TEXT, keeping the order exactly as in enum
  */
 
@@ -221,7 +221,8 @@ File locations in the script assume it is run from the AYB top directory.
 Expected inputs are located in sub-directory test.
 Output files are created in sub-directory log and compared with reference files in sub-directory logref.
 
-Note: output from module message (message.c) will be different from the reference because of the randomised filename function. 
+Note: output from module message (message.c) and associated program messages will be different from the reference 
+because of the randomised filename function and timestamp. 
 Check that is the only difference and that each generated filename is unique.
 */
 
