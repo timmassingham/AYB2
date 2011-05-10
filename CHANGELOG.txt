@@ -1,6 +1,16 @@
 AYB ChangeLog
 =============
 
+Version 2.03 (2011-05-10)
+-------------------------
+
+.Additions and changes
+
+- Modelling refactored; no changes to functionality.
+
+- Automated module and system testing introduced.
+
+
 Version 2.02 (2011-02-17)
 -------------------------
 
