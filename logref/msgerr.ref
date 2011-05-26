@@ -1,12 +1,13 @@
 test-matrix: Matrix append_columns: column start (4) greater than column end (3).
 test-matrix: Matrix append_columns: column start increased from -1 to 0.
 test-matrix: Matrix append_columns: column end reduced from 6 to maximum (5).
-test-matrix: Matrix append_columns: different number of rows in source (4) and target (5).
+test-matrix: Matrix append_columns: different number of rows in source (4) and target (3).
+test-matrix: Matrix append_columns: different value types in source and target.
 Fatal: Supplied message location parameter 'nodir.txt' is not a directory
 Information: Created new message directory: newdir
 Fatal: Message file failed to open: newdir/nomake.log
 Fatal: Failed to create new message directory 'newdir/nomakedir'
-AYB Message Log;	Created by hazelm;	07 March 2011 17:38
+AYB Message Log;	Created by hazelm;	24 May 2011 10:30
 
 Information: Log message output level: Warning
 Warning: Unrecognised nucleotide 'X'; returning NUC_AMBIG
