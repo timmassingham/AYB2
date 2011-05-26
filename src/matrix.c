@@ -58,9 +58,19 @@
 /* undetermined */
 
 
-/*  First deal with allocation and deallocation of matrices  */
+/* First deal with allocation and deallocation of matrices  */
 /* Allocate memory for matrix of a specified size */
 MAT new_MAT( const int nrow, const int ncol ){
+    /* default is real type */
+    MAT mat = new_MAT_int(nrow, ncol, false);
+    return mat;
+}
+
+/**
+ * Create a new matrix structure and allocate memory for specified size.
+ * Create integer array if requested else real.
+ */
+MAT new_MAT_int( const int nrow, const int ncol, const bool useint ) {
     MAT mat = malloc(sizeof(*mat));
     if ( NULL==mat){
         WARN_MEM("matrix");
@@ -68,6 +78,7 @@ MAT new_MAT( const int nrow, const int ncol ){
     }
     mat->ncol=ncol;
     mat->nrow=nrow;
+    mat->useint = useint;
     /* Number of rows or columns might be zero but probably an error, so warn
      * as such. Want to avoid malloc(0) since this is "implementation defined"
      * in the C standard, may be a real address that should not be used or NULL
@@ -75,12 +86,21 @@ MAT new_MAT( const int nrow, const int ncol ){
      if ( 0==ncol || 0==nrow ){
          warn("One of dimensions of matrix equal to zero. Setting memory to NULL.\n");
          mat->x = NULL;
-     } else {
-         /* Usual case. Use calloc rather than malloc so elements are
-          * initialised
-          */
-         mat->x = calloc(nrow*ncol,sizeof(real_t));
-         if ( NULL==mat->x){
+         mat->xint = NULL;
+     }
+     else {
+         /* Usual case. Use calloc rather than malloc so elements are initialised */
+         bool memfail = false;
+         if (useint) {
+             mat->xint = calloc(nrow*ncol,sizeof(int_t));
+             memfail = (NULL==mat->xint);
+         }
+         else {
+             mat->x = calloc(nrow*ncol,sizeof(real_t));
+             memfail = (NULL==mat->x);
+         }
+
+         if (memfail) {
              WARN_MEM("matrix elements");
              xfree(mat);
              mat = NULL;
@@ -93,9 +113,17 @@ MAT new_MAT( const int nrow, const int ncol ){
 /* Free memory allocated for matrix */
 MAT free_MAT ( MAT mat ){
     if(NULL==mat){ return NULL; }
-    /* Memory for elements may be NULL if nrow or ncol equals zero */
-    if ( NULL!=mat->x){
-        xfree(mat->x);
+    /* free real or int array */
+    if (mat->useint) {
+        if ( NULL!=mat->xint){
+            xfree(mat->xint);
+        }
+    }
+    else {
+        /* Memory for elements may be NULL if nrow or ncol equals zero */
+        if ( NULL!=mat->x){
+            xfree(mat->x);
+        }
     }
     xfree(mat);
     return NULL;
@@ -104,10 +132,16 @@ MAT free_MAT ( MAT mat ){
 MAT copy_MAT( const MAT mat){
     if(NULL==mat){ return NULL;}
 
-    MAT newmat = new_MAT(mat->nrow,mat->ncol);
+    MAT newmat = new_MAT_int(mat->nrow, mat->ncol, mat->useint);
     if(NULL==newmat){ return NULL;}
 
-    memcpy(newmat->x,mat->x,mat->nrow*mat->ncol*sizeof(real_t));
+    /* copy real or int array */
+    if (mat->useint) {
+        memcpy(newmat->xint,mat->xint,mat->nrow*mat->ncol*sizeof(int_t));
+    }
+    else {
+        memcpy(newmat->x,mat->x,mat->nrow*mat->ncol*sizeof(real_t));
+    }
     return newmat;
 }
 
@@ -139,7 +173,12 @@ void show_MAT_rownum( XFILE * fp, const MAT mat, const uint32_t mrow, const uint
             xfprintf(fp,"%d:",row+1);
         }
         for ( int col=0 ; col<maxcol ; col++){
-            xfprintf(fp,fmt,mat->x[col*nrow+row]);
+            if (mat->useint) {
+                xfprintf(fp, INT_FORMAT, mat->xint[col * nrow + row]);
+            }
+            else {
+                xfprintf(fp, fmt, mat->x[col*nrow+row]);
+            }
         }
         if(maxcol<ncol){ xfprintf(fp,"\t... (%u others)",ncol-maxcol); }
         xfputc('\n',fp);
@@ -147,6 +186,9 @@ void show_MAT_rownum( XFILE * fp, const MAT mat, const uint32_t mrow, const uint
     if( maxrow<nrow){ xfprintf(fp,"... (%u others)\n",nrow-maxrow); }
 }
 
+/**
+ * Create a new real value matrix from a supplied real array.
+ */
 MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x){
     if(NULL==x){ return NULL;}
     MAT mat = new_MAT(nrow,ncol);
@@ -155,17 +197,37 @@ MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t *
     return mat;
 }
 
+/**
+ * Create a matrix from a supplied real array.
+ * Resultant matrix references supplied array values directly so only free top structure.
+ */
 MAT coerce_MAT_from_array(const uint32_t nrow, const uint32_t ncol, real_t * x){
     assert(NULL!=x);
     MAT mat = malloc(sizeof(*mat));
     if(NULL==mat){ return NULL; }
     mat->nrow = nrow;
     mat->ncol = ncol;
+    mat->useint = false;
     mat->x = x;
     return mat;
 }
 
-/** Create a new identity matrix of the specified size. */
+/**
+ * Create a matrix from a supplied integer array.
+ * Resultant matrix references supplied array values directly so only free top structure.
+ */
+MAT coerce_MAT_from_intarray(const uint32_t nrow, const uint32_t ncol, int_t * x){
+    assert(NULL!=x);
+    MAT mat = malloc(sizeof(*mat));
+    if(NULL==mat){ return NULL; }
+    mat->nrow = nrow;
+    mat->ncol = ncol;
+    mat->useint = true;
+    mat->xint = x;
+    return mat;
+}
+
+/** Create a new real value identity matrix of the specified size. */
 MAT identity_MAT( const int nrow){
     MAT mat = new_MAT(nrow,nrow);
     validate(NULL!=mat,NULL);
@@ -175,6 +237,7 @@ MAT identity_MAT( const int nrow){
     return mat;
 }
 
+/** Copy values from a real value matrix into another of the same size. */
 MAT copyinto_MAT( MAT newmat, const MAT mat){
     if(NULL==newmat || NULL==mat){ return NULL;}
     if(newmat->nrow!=mat->nrow){ return NULL;}
@@ -190,6 +253,7 @@ MAT copyinto_MAT( MAT newmat, const MAT mat){
  * - matin is null
  * - colstart is greater than colend (warning issued)
  * - matin and matout do not have the same number of rows (warning issued)
+ * - matin and matout do no have the same value type (warning issued)
  * - matout is not empty and extend fails
  *
  * Returns NULL if:
@@ -225,6 +289,10 @@ MAT append_columns(MAT matout, const MAT matin, int colstart, int colend) {
             warnx("Matrix append_columns: different number of rows in source (%d) and target (%d).", nrow, matout->nrow );
             return matout;
         }
+        if (matout->useint != matin->useint) {
+            warnx("Matrix append_columns: different value types in source and target.");
+            return matout;
+        }
         /* target column to start append */
         colout = matout->ncol;
     }
@@ -232,27 +300,43 @@ MAT append_columns(MAT matout, const MAT matin, int colstart, int colend) {
     /* calculate size of appended matrix and create or extend */
     int newcol = colout + colend - colstart + 1;
     if (matout == NULL) {
-        matout = new_MAT(nrow, newcol);
+        matout = new_MAT_int(nrow, newcol, matin->useint);
         validate(NULL != matout, NULL);
     }
     else {
-        real_t * tmp = realloc(matout->x, nrow * newcol * sizeof(real_t));
-        if (NULL == tmp) {
-            WARN_MEM("matrix append");
-            return matout;
+        if (matout->useint) {
+            int_t * tmp = realloc(matout->xint, nrow * newcol * sizeof(int_t));
+            if (NULL == tmp) {
+                WARN_MEM("matrix append");
+                return matout;
+            }
+            matout->xint = tmp;
+        }
+        else {
+            real_t * tmp = realloc(matout->x, nrow * newcol * sizeof(real_t));
+            if (NULL == tmp) {
+                WARN_MEM("matrix append");
+                return matout;
+            }
+            matout->x = tmp;
         }
         matout->ncol = newcol;
-        matout->x = tmp;
     }
 
     /* copy selected columns to append */
-    memcpy(matout->x + colout * nrow, matin->x + colstart * nrow,
-           nrow * (colend - colstart + 1) * sizeof(real_t));
+    if (matout->useint) {
+        memcpy(matout->xint + colout * nrow, matin->xint + colstart * nrow,
+               nrow * (colend - colstart + 1) * sizeof(int_t));
+    }
+    else {
+        memcpy(matout->x + colout * nrow, matin->x + colstart * nrow,
+               nrow * (colend - colstart + 1) * sizeof(real_t));
+    }
 
     return matout;
 }
 
-/** Set all elements in a supplied matrix to the specified value. */
+/** Set all elements in a supplied real value matrix to the specified value. */
 MAT set_MAT( MAT mat, const real_t x){
     if(NULL==mat){ return NULL;}
     const uint32_t nelt = mat->nrow * mat->ncol;
@@ -260,6 +344,14 @@ MAT set_MAT( MAT mat, const real_t x){
         mat->x[i] = x;
     }
     return mat;
+}
+
+/** Ensure a value is within integer value range. */
+int_t clipint(long int val) {
+    if      (val < INT_MIN) { val = INT_MIN; }
+    else if (val > INT_MAX) { val = INT_MAX; }
+
+    return (int_t)val;
 }
 
 /** Count the number of sets of columns in a tab separated line of char (standard illumina format). */
@@ -296,13 +388,13 @@ int count_line_columns(const int nrow, char *ptr) {
 }
 
 /**
- * Create a new matrix from tab separated sets of columns in a line of char.
+ * Create a new integer value matrix from tab separated sets of columns in a line of char.
  * Return actual number of columns found as reference parameter if not enough.
  */
 MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr){
 
     if (ptr == NULL) {return NULL;}
-    MAT mat = new_MAT(nrow, *ncol);
+    MAT mat = new_MAT_int(nrow, *ncol, true);
     if(mat == NULL) {return NULL;}
 
     int nc = -1;
@@ -321,7 +413,11 @@ MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr){
                     break;
                 }
                 else {
-                    mat->x[nc * nrow + nr] = strtor(ptr, &ptr);
+                    /*
+                     * read real value, round to integer and ensure within range
+                     * Probably safe to assume value is less than max longint
+                     */
+                    mat->xint[nc * nrow + nr] = clipint((long int)(roundr(strtor(ptr, &ptr))));
                 }
             }
         }
@@ -336,7 +432,7 @@ MAT new_MAT_from_line(const int nrow, int *ncol, char *ptr){
     return mat;
 }
 
-/** Write a matrix to file in a single line as tab separated sets of columns (standard illumina format). */
+/** Write a real value matrix to file in a single line as tab separated sets of columns (standard illumina format). */
 void write_MAT_to_line (XFILE * fp, const MAT mat) {
     if (NULL == fp) {return;}
     if (NULL == mat) {return;}
@@ -595,6 +691,10 @@ MAT reshape_MAT( MAT mat, const int nrow){
     return mat;
 }
 
+/**
+ * Reduce the size of a matrix.
+ * Adjust the elements array to match.
+ */
 MAT trim_MAT( MAT mat, const int mrow, const int mcol, const bool forwards){
     validate(NULL!=mat,NULL);
     validate(mrow>=0,NULL);
@@ -605,7 +705,12 @@ MAT trim_MAT( MAT mat, const int mrow, const int mcol, const bool forwards){
     for ( uint32_t col=0 ; col<mcol ; col++){
         uint32_t midx = col*mrow;
         uint32_t nidx = col*mat->nrow;
-        memmove(mat->x+midx,mat->x+nidx,mrow*sizeof(real_t));
+        if (mat->useint) {
+            memmove(mat->xint+midx,mat->xint+nidx,mrow*sizeof(int_t));
+        }
+        else {
+            memmove(mat->x+midx,mat->x+nidx,mrow*sizeof(real_t));
+        }
     }
     mat->nrow = mrow;
     mat->ncol = mcol;
@@ -770,9 +875,32 @@ real_t normalise_MAT(MAT mat, const real_t delta_diag){
 
 #ifdef TEST
 
+/* Create a new integer value matrix as a copy of the one supplied (real or integer).*/
+MAT copy_MAT_int(const MAT mat) {
+    if(NULL==mat) { return NULL; }
+
+    MAT newmat = new_MAT_int(mat->nrow, mat->ncol, true);
+    if(NULL==newmat) { return NULL; }
+
+    if (mat->useint) {
+        /* can do a memory copy */
+        memcpy(newmat->xint, mat->xint, mat->nrow * mat->ncol * sizeof(int_t));
+    }
+    else {
+        /* copy values, ensuring within range */
+        int nrow = mat->nrow;
+        for (int col = 0; col < mat->ncol; col++) {
+            for (int row = 0; row < nrow; row++) {
+                newmat->xint[col * nrow + row] = clipint((long int)(roundr(mat->x[col * nrow + row])));
+            }
+        }
+    }
+    return newmat;
+}
+
 int main (int argc, char * argv[]){
     if(argc!=3){
-        fputs("Usage: test appendfrom appendto (filenames)\n",stdout);
+        fputs("Usage: test appendto appendfrom (filenames)\n",stdout);
         return EXIT_FAILURE;
     }
 
@@ -830,11 +958,30 @@ int main (int argc, char * argv[]){
     outcopy = free_MAT(outcopy);
 
     fputs("Append row mismatch:\n", stdout);
-//    outcopy = copy_MAT(matout);
-    outcopy = new_MAT(matin->nrow + 1, matin->ncol);
+    outcopy = copy_MAT(matout);
+    outcopy = trim_MAT(outcopy, outcopy->nrow - 1, outcopy->ncol - 1, true);
+//    outcopy = new_MAT(matin->nrow + 1, matin->ncol);
     outcopy = append_columns(outcopy, matin, 1, matin->ncol - 2);
     show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
     outcopy = free_MAT(outcopy);
+
+    fputs("Append type mismatch:\n", stdout);
+    outcopy = copy_MAT_int(matout);
+    outcopy = append_columns(outcopy, matin, 1, matin->ncol - 2);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+
+    matout->x[0] = (real_t)(INT16_MIN *2);
+    matout->x[1] = (real_t)(INT16_MAX *2);
+    fprintf(stdout, "Values outside integer range: %0.2f %0.2f; see clipped values below\n", matout->x[0], matout->x[1]);
+
+    fputs("Append integer type:\n", stdout);
+    outcopy = copy_MAT_int(matout);
+    MAT outcopyin = copy_MAT_int(matin);
+    outcopy = append_columns(outcopy, outcopyin, 0, outcopyin->ncol - 1);
+    show_MAT(xstdout, outcopy, outcopy->nrow, outcopy->ncol);
+    outcopy = free_MAT(outcopy);
+    outcopyin = free_MAT(outcopyin);
 
     free_MAT(matin);
     free_MAT(matout);
