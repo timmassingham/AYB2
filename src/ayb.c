@@ -267,7 +267,7 @@ static MAT init_matrix(MAT mat, const IOTYPE idx) {
 }
 
 /** Returns true if array of data is missing (all zero). */
-static inline bool nodata(const real_t * sig, const int num) {
+static inline bool nodata(const int_t * sig, const int num) {
 
     for (unsigned int i = 0; i < num; i++) {
         if (sig[i] != 0) {return false;}
@@ -329,7 +329,7 @@ static real_t update_cluster_weights(AYB ayb){
         NUC * cycle_bases = ayb->bases.elt + cl*ncycle;
         e = expected_intensities(ayb->lambda->x[cl],cycle_bases,ayb->M,ayb->P,ayb->N,e);
         for( uint32_t idx=0 ; idx<NBASE*ncycle ; idx++){
-            real_t tmp = cycle_ints->x[idx] - e->x[idx];
+            real_t tmp = cycle_ints->xint[idx] - e->x[idx];
             ayb->we->x[cl] += tmp*tmp;
         }
         sumLSS += ayb->we->x[cl];
@@ -871,7 +871,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         /* call bases for each cycle */
         for (uint32_t cy = 0; cy < ncycle; cy++){
             /* deal differently with missing data */
-            if (nodata(node->elt->signals->x + cy * NBASE, NBASE)) {
+            if (nodata(node->elt->signals->xint + cy * NBASE, NBASE)) {
                 cl_bases[cy] = call_base_nodata();
                 qual[cy] = MIN_QUALITY;
             }
@@ -1109,7 +1109,7 @@ bool initialise_model(AYB ayb, const bool showdebug) {
         PHREDCHAR * cl_quals = ayb->quals.elt + cl * ayb->ncycle;
         for ( uint32_t cy = 0; cy < ayb->ncycle; cy++){
             /* deal differently with missing data */
-            if (nodata(node->elt->signals->x + cy * NBASE, NBASE)) {
+            if (nodata(node->elt->signals->xint + cy * NBASE, NBASE)) {
                 cl_bases[cy] = call_base_nodata();
             }
             else {

@@ -141,11 +141,11 @@ void show_CLUSTER(XFILE * fp, const CLUSTER cluster){
  * Returns a pointer to the following element in the array
  * (which may be beyond its range).
  */
-CLUSTER coerce_CLUSTER_from_array(const unsigned int ncycle, real_t * x, real_t ** next){
+CLUSTER coerce_CLUSTER_from_array(const unsigned int ncycle, int_t * x, int_t ** next){
     if(NULL==x){ return NULL;}
     CLUSTER cl = new_CLUSTER();
     if(NULL==cl){ return NULL;}
-    cl->signals = coerce_MAT_from_array(NBASE, ncycle, x);
+    cl->signals = coerce_MAT_from_intarray(NBASE, ncycle, x);
     if(NULL==cl->signals){ goto cleanup;}
     /* return the next element in the array */
     *next = x + NBASE * ncycle;
@@ -194,14 +194,14 @@ CLUSTER read_cif_CLUSTER(CIFDATA cif, const unsigned int cl, unsigned int ncycle
     if (NULL==cif) {return NULL;}
     if ((ncycle > cif_get_ncycle(cif)) || (cl >= cif_get_ncluster(cif))) {return NULL;}
 
-    MAT signals = new_MAT(NBASE, ncycle);
+    MAT signals = new_MAT_int(NBASE, ncycle, true);
     if(signals==NULL) {return NULL;}
     CLUSTER cluster = new_CLUSTER();
     if(NULL==cluster) {goto cleanup;}
 
     for (int cy = 0; cy < ncycle; cy++) {
         for (int base = 0; base < NBASE; base++) {
-            signals->x[cy * NBASE + base] = cif_get_real(cif, cl, base, cy);
+            signals->xint[cy * NBASE + base] = clipint(cif_get_int(cif, cl, base, cy));
         }
     }
     /* x and y not available */
@@ -436,18 +436,18 @@ int main(int argc, char * argv[]){
     show_CLUSTER(xstdout, cl3);
 
     xfputs("Create an array\n", xstdout);
-    real_t arry[NBASE * ncycle];
+    int_t arry[NBASE * ncycle];
     for (unsigned int idx = 0; idx < NBASE * ncycle; idx++) {
-        arry[idx] = cl->signals->x[idx];
+        arry[idx] = cl->signals->xint[idx];
     }
     xfputs("array values:", xstdout);
     for (unsigned int idx = 0; idx < NBASE * ncycle; idx++) {
-        xfprintf(xstdout, " %#8.2f", arry[idx]);
+        xfprintf(xstdout, INT_FORMAT, arry[idx]);
     }
     xfputs("\n", xstdout);
 
     xfputs("Coerce null array\n", xstdout);
-    real_t *x;
+    int_t *x;
     CLUSTER cl4 = coerce_CLUSTER_from_array(ncycle, NULL, &x);
     if (cl4==NULL) {
         xfputs("Return value null, ok\n", xstdout);

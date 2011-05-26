@@ -43,6 +43,7 @@ uint16_t cif_get_ncycle( const CIFDATA cif );
 uint32_t cif_get_ncluster( const CIFDATA cif );
 encInt cif_get_const_intensities( const CIFDATA cif);
 
+long int cif_get_int (const CIFDATA cif, const uint32_t cl, const uint32_t base, const uint32_t cy);
 real_t cif_get_real (const CIFDATA cif, const uint32_t cl, const uint32_t base, const uint32_t cy);
 void cif_set_from_real (CIFDATA cif, const uint32_t cl, const uint32_t base, const uint32_t cy, real_t x );
 

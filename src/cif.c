@@ -93,6 +93,21 @@ uint16_t cif_get_ncycle ( const CIFDATA cif ){ return cif->ncycle;}
 uint32_t cif_get_ncluster ( const CIFDATA cif ){ return cif->ncluster;}
 encInt cif_get_const_intensities ( const CIFDATA cif ){ return cif->intensity; }
 
+/** Return a single channel value as an integer of sufficent size. */
+long int cif_get_int (const CIFDATA cif, const uint32_t cl, const uint32_t base, const uint32_t cy) {
+
+    if (NULL==cif) {return 0;}
+    if (NULL==cif->intensity.i8) {return 0;}
+    if ((cl >= cif->ncluster) || (base >= NCHANNEL)|| (cy >= cif->ncycle) ) {return 0;}
+
+    switch(cif->datasize) {
+        case 1: return cif->intensity.i8 [(cy * NCHANNEL + base) * cif->ncluster + cl]; break;
+        case 2: return cif->intensity.i16[(cy * NCHANNEL + base) * cif->ncluster + cl]; break;
+        case 4: return cif->intensity.i32[(cy * NCHANNEL + base) * cif->ncluster + cl]; break;
+        default: return 0;
+    }
+}
+
 /** Return a single channel value as a real. */
 real_t cif_get_real (const CIFDATA cif, const uint32_t cl, const uint32_t base, const uint32_t cy) {
 

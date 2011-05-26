@@ -93,7 +93,7 @@ MAT calculateIbar( const TILE tile, const MAT we, MAT Ibar){
     LIST(CLUSTER) node = tile->clusterlist;
     while (NULL != node && cl < ncluster){
         for( uint32_t idx=0 ; idx<NBASE*ncycle ; idx++){
-            Ibar->x[idx] += node->elt->signals->x[idx] * we->x[cl];
+            Ibar->x[idx] += node->elt->signals->xint[idx] * we->x[cl];
         }
 
         /* next cluster */
@@ -224,7 +224,7 @@ MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TI
         const bool has_ambig = has_ambiguous_base(bases.elt+cl*ncycle, ncycle);
         const real_t welam = we->x[cl] * lambda->x[cl];
         for ( uint_fast32_t i=0 ; i<(NBASE*ncycle) ; i++){
-           tmp[i] = welam * node->elt->signals->x[i];
+           tmp[i] = welam * node->elt->signals->xint[i];
         }
         if (has_ambig) {
             for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
@@ -714,7 +714,13 @@ int main ( void){
     MAT matLambda = coerce_MAT_from_array(ncluster,1,lambda);
     fputs("Lambda matrix:\n",stdout);
     show_MAT(xstdout,matLambda,0,0);
-    TILE tileInts = coerce_TILE_from_array(ncluster, ncycle, ints_t);
+
+    /* values originally supplied as small reals; increase size and change to integer */
+    int_t * tmp2 = malloc(ncluster * ncycle * NBASE * sizeof(int_t));
+    for (unsigned int i = 0; i < ncluster * ncycle * NBASE; i++) {
+        tmp2[i] = (int_t)(roundr(ints_t[i] * 1000));
+    }
+    TILE tileInts = coerce_TILE_from_array(ncluster, ncycle, tmp2);
     fputs("Intensity tile:\n", stdout);
     show_TILE(xstdout, tileInts, 10);
 

@@ -64,12 +64,19 @@ MAT process_intensities(const MAT intensities,
     }
     memset(ip->x, 0, ip->nrow * ip->ncol * sizeof(real_t));
 
+    // pre-calculate I - N, especially as I now integer
+    real_t *tmp = calloc(NBASE * ncycle, sizeof(real_t));
+    if (NULL==tmp) { goto cleanup; }
+
+    for (uint_fast32_t i = 0; i < (NBASE * ncycle); i++) {
+       tmp[i] = intensities->xint[i] - N->x[i];
+    }
+
     for (uint_fast32_t icol = 0; icol < ncycle; icol++) {    // Columns of Intensity
         for (uint_fast32_t base = 0; base < NBASE; base++) { // Bases (rows of Minv, cols of Minv_t)
             real_t dp = 0;
             for (uint_fast32_t chan = 0; chan < NBASE; chan++) {  // Channels
-                dp += Minv_t->x[base * NBASE + chan] *
-                        (intensities->x[icol * NBASE + chan] - N->x[icol * NBASE + chan]);
+                dp += Minv_t->x[base * NBASE + chan] * tmp[icol * NBASE + chan];
             }
             for (uint_fast32_t pcol = 0; pcol < ncycle; pcol++) { // Columns of ip
                 ip->x[pcol * NBASE + base] += Pinv_t->x[icol * ncycle + pcol] * dp;
@@ -77,7 +84,13 @@ MAT process_intensities(const MAT intensities,
         }
     }
 
+    free(tmp);
     return ip;
+
+cleanup:
+    free_MAT(ip);
+    return NULL;
+
 }
 
 MAT expected_intensities(const real_t lambda, const NUC * bases,

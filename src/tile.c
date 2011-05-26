@@ -154,7 +154,7 @@ void show_TILE(XFILE * fp, const TILE tile, const unsigned int n){
  * It is the responsibility of the caller to ensure the supplied array is large enough
  * as no size checking can be done. Ignores lane and tile.
  */
-TILE coerce_TILE_from_array(unsigned int ncluster, unsigned int ncycle, real_t * x){
+TILE coerce_TILE_from_array(unsigned int ncluster, unsigned int ncycle, int_t * x){
     TILE tile = NULL;
     CLUSTER cl = NULL;
     LIST(CLUSTER) listtail = NULL;
@@ -164,7 +164,7 @@ TILE coerce_TILE_from_array(unsigned int ncluster, unsigned int ncycle, real_t *
     if(NULL==tile){ return NULL;}
     tile->ncluster = ncluster;
     tile->ncycle = ncycle;
-    real_t * next_x;
+    int_t * next_x;
 
     /* first cluster, create new list */
     cl = coerce_CLUSTER_from_array(ncycle, x, &next_x);
@@ -630,12 +630,12 @@ int main ( int argc, char * argv[]){
     unsigned int matsize = tile1->clusterlist->elt->signals->nrow * ncycle;
     unsigned int ncluster = tile1->ncluster;
     if (ncluster > 10) {ncluster = 10;}
-    real_t arry[matsize * ncluster];
+    int_t arry[matsize * ncluster];
 
     LIST(CLUSTER) node = tile1->clusterlist;
     while (NULL!=node && ncl < ncluster){
         for (unsigned int idx = 0; idx < matsize; idx++) {
-            arry[ncl * matsize + idx] = node->elt->signals->x[idx];
+            arry[ncl * matsize + idx] = node->elt->signals->xint[idx];
         }
         node = node->nxt;
         ncl++;
@@ -643,12 +643,12 @@ int main ( int argc, char * argv[]){
 
     xfputs("array values:", xstdout);
     for (unsigned int idx = 0; idx < matsize * ncluster; idx++) {
-        xfprintf(xstdout, " %#8.2f", arry[idx]);
+        xfprintf(xstdout, INT_FORMAT, arry[idx]);
     }
     xfputs("\n", xstdout);
 
     xfputs("Coerce null array\n", xstdout);
-    real_t *x;
+    int_t *x;
     TILE tile_ary = coerce_TILE_from_array(ncluster, ncycle, NULL);
     if (tile_ary==NULL) {
         xfputs("Return value null, ok\n", xstdout);

@@ -47,7 +47,7 @@ TILE copy_TILE(const TILE tile);
 void show_TILE(XFILE * fp, const TILE tile, const unsigned int n);
 
 // standard variations
-TILE coerce_TILE_from_array(unsigned int ncluster, unsigned int ncycle, real_t * x);
+TILE coerce_TILE_from_array(unsigned int ncluster, unsigned int ncycle, int_t * x);
 TILE copy_append_TILE(TILE tileout, const TILE tilein, int colstart, int colend);
 
 // Read a tile from a cif file.
