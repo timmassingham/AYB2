@@ -24,6 +24,7 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
 #include <string.h>
 #include "ayb.h"
 #include "ayb_model.h"
@@ -32,6 +33,8 @@
 #include "datablock.h"
 #include "matrix.h"
 #include "message.h"
+#include "mixnormal.h"
+#include "statistics.h"
 #include "tile.h"
 #include "weibull.h"
 
@@ -248,6 +251,12 @@ static CSTRING format_header (CSTRING simtext) {
 /** Output data for use by simulator. */
 static void output_simdata(AYB ayb, const int argc, char ** const argv, const int blk) {
 
+    enum FitT {E_LOGISTIC, E_MIXED, E_NORMAL, E_WEIBULL};       // possible distributions to fit
+    const enum FitT fitdist = E_LOGISTIC;                       // fixed within this version of AYB
+    const unsigned int MIX_ITER = 100;
+    const unsigned int MIX_NUM = 3;
+    const unsigned int SIM_VERSION = 5;
+
     XFILE *fpsim = open_output_blk("runfile", blk);
     if (xfisnull(fpsim)) {return;}
 
@@ -287,17 +296,65 @@ static void output_simdata(AYB ayb, const int argc, char ** const argv, const in
             }
         }
         xfputs("\n", fpsim);
+        
+        /* sim version */
+        xfprintf(fpsim, "Version %u\n", SIM_VERSION);
     }
 
     /* get non-zero lambdas as weibull uses log */
     uint32_t num = 0;
     real_t * lambdas = get_AYB_lambdas(ayb, &num);
 
-    /* get parameters for fitted lambda distribution */
-    pair_real lambdafit = fit_weibull(lambdas, num);
+    /* get parameters for fitted lambda distribution according to fixed selection */
+    char fitc = 'X';
+    pair_real lambdafit = {NAN, NAN};
+    NormMixParam mparam = NULL;
+    
+    switch (fitdist) {
+        case E_LOGISTIC:
+            fitc = 'L';
+            lambdafit.e1 = mean(lambdas, num);
+            /* scale stdev by root 3 over pi */
+            lambdafit.e2 = sqrt(variance(lambdas, num) * 3) / M_PI;
+            break;
+
+        case E_MIXED:
+            fitc = 'M';
+            /* mix and iterations fixed */
+            mparam = fit_mixnormal(lambdas, num, MIX_NUM, MIX_ITER);
+            break;
+
+        case E_NORMAL:
+            fitc = 'N';
+            lambdafit.e1 = mean(lambdas, num);
+            lambdafit.e2 = sqrt(variance(lambdas, num));
+            break;
+
+        case E_WEIBULL:
+            fitc = 'W';
+            lambdafit = fit_weibull(lambdas, num);
+            break;
+
+        default: ;
+    }
 
     /* number of cycles and lambda fit parameters */
-    xfprintf(fpsim, "%u %f %f \n", get_AYB_ncycle(ayb), lambdafit.e1, lambdafit.e2);
+    if (fitdist == E_MIXED) {
+        xfprintf(fpsim, "%u %c %u", get_AYB_ncycle(ayb), fitc, MIX_NUM);
+        if (mparam == NULL) {
+            message(E_NOCREATE_S, MSG_ERR, "mixed normal distribution");
+        }
+        else {
+            for (int i = 0; i < MIX_NUM; i++) {
+                xfprintf(fpsim, " %f %f %f", mparam->prob[i], mparam->mean[i], mparam->sd[i]);
+            }
+        }
+        xfputs("\n", fpsim);
+        free_NormMixParam(mparam); 
+    }
+    else {
+        xfprintf(fpsim, "%u %c %f %f\n", get_AYB_ncycle(ayb), fitc, lambdafit.e1, lambdafit.e2);
+    }
     xfree(lambdas);
 
     /* calculate and output all covariance */

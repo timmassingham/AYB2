@@ -10,7 +10,7 @@ INCFLAGS =
 DEFINES = -D_BSD_SOURCE
 objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o ayb.o calibration.o call_bases.o \
            cif.o cluster.o datablock.o dirio.o handler.o intensities.o lambda.o matrix.o \
-           message.o mpn.o nuc.o qual_table.o statistics.o tile.o utility.o weibull.o xio.o \
+           message.o mixnormal.o mpn.o nuc.o qual_table.o statistics.o tile.o utility.o weibull.o xio.o \
            snnls.o dnnls.o
 
 AYB: $(objects)
@@ -26,6 +26,9 @@ test-matrix: $(objects)
 
 test-message: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST message.c $(filter-out message.o ayb_main.o,$(objects))
+
+test-mixnormal: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST mixnormal.c $(filter-out mixnormal.o ayb_main.o,$(objects))
 
 test-mpn: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST mpn.c $(filter-out mpn.o ayb_main.o,$(objects))
