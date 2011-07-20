@@ -253,13 +253,6 @@ static void output_simdata(AYB ayb, const int argc, char ** const argv, const in
 
     /* header required if a single or first block */
     if (blk != BLK_APPEND) {
-        /* get non-zero lambdas as weibull uses log */
-        uint32_t num = 0;
-        real_t * lambdas = get_AYB_lambdas(ayb, &num);
-
-        /* get parameters for fitted lambda distribution */
-        pair_real lambdafit = fit_weibull(lambdas, num);
-
         /* header text followed by AYB version */
         SimText = format_header(SimText);
         xfprintf(fpsim, "# %s\n", SimText);
@@ -294,11 +287,18 @@ static void output_simdata(AYB ayb, const int argc, char ** const argv, const in
             }
         }
         xfputs("\n", fpsim);
-
-        /* number of cycles and lambda fit parameters */
-        xfprintf(fpsim, "%u %f %f \n", get_AYB_ncycle(ayb), lambdafit.e1, lambdafit.e2);
-        xfree(lambdas);
     }
+
+    /* get non-zero lambdas as weibull uses log */
+    uint32_t num = 0;
+    real_t * lambdas = get_AYB_lambdas(ayb, &num);
+
+    /* get parameters for fitted lambda distribution */
+    pair_real lambdafit = fit_weibull(lambdas, num);
+
+    /* number of cycles and lambda fit parameters */
+    xfprintf(fpsim, "%u %f %f \n", get_AYB_ncycle(ayb), lambdafit.e1, lambdafit.e2);
+    xfree(lambdas);
 
     /* calculate and output all covariance */
     MAT * V = calculate_covariance(ayb, true);
