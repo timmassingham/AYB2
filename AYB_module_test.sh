@@ -22,6 +22,9 @@ MATTO=mat_to.txt
 NODIR=nodir.txt
 NEWDIR=newdir
 MESSLOG=messagelog
+NMIX=3
+NITER=20
+INMIXVAL=test100_lambdas.txt
 INSEQ=ACGTaatgXc
 INSEQPHRED=nuc_phred.txt
 INTOK=xio_in.txt
@@ -80,6 +83,12 @@ echo "Testing $MODULE"
 $BIN/test-$MODULE $OUTDIR/$MESSLOG.$LOGEXT T >>$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
 diff -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
 diff -s $OUTDIR/$MESSLOG.$LOGEXT $REFDIR/$MESSLOG.$REFEXT
+
+MODULE=mixnormal
+echo "Testing $MODULE"
+# arguments nmix niter filename
+$BIN/test-$MODULE $NMIX $NITER $INDIR/$INMIXVAL >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
+diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
 
 MODULE=mpn
 echo "Testing $MODULE"
