@@ -1,6 +1,25 @@
 AYB ChangeLog
 =============
 
+Version 2.04 (2011-07-22)
+-------------------------
+
+.Additions and changes
+
+- Store intensities as integers to reduce memory use with little (if any) 
+  difference to results as cif files are integer anyway.
+
+- Changes to sim data output; lambda fit for each block; 
+  lambda fit now uses logistic distribution and indicates with char (L); 
+  runfile version number (5).
+
+
+Regression issues
+~~~~~~~~~~~~~~~~~
+
+This change follows the release of simNGS version 1.5 (12/05/11).
+
+
 Version 2.03 (2011-05-10)
 -------------------------
 
