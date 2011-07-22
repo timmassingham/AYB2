@@ -30,11 +30,12 @@
 /* constants */
 
 /** Program Version. */
-static const float VERSION = 2.03;      // Model refactor and automated testing
+static const float VERSION = 2.04;      // Memory use reduction and sim output changes
 /** Version release date. */
-static const unsigned int VERSION_DATE = 20110510;
+static const unsigned int VERSION_DATE = 20110722;
 
 /* keep a history */
+// Version 2.03;    20110510    Model refactor and automated testing
 // Version 2.02;    20110217    Quality calibration file now values to use
 // Version 2.01;    20110121    Quality calibration file and cif run-folder
 // Version 2.00;    20101207    Additional final MPN output, documenting, tidy up
