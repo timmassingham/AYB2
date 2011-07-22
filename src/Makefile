@@ -16,7 +16,7 @@ objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o ayb.o calibration.
 AYB: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ $(LDFLAGS) $(objects)
 	
-test: test-cluster test-matrix test-message test-mpn test-nuc test-tile test-xio
+test: test-cluster test-matrix test-message test-mixnormal test-mpn test-nuc test-tile test-xio
 
 test-cluster: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects))
