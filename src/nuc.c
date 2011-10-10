@@ -54,9 +54,9 @@ void show_NUC(XFILE * fp, const NUC nuc){
 
 void show_PHREDCHAR(XFILE *fp, const PHREDCHAR pc){
     validate(NULL!=fp,);
-    /* replace with space if not a printable character */
+    /* replace with minimum if not a printable character */
     if(pc<MIN_PHRED || pc>MAX_PHRED) {
-        xfputc(NULL_PHRED,fp);
+        xfputc(MIN_PHRED,fp);
     }
     else {
         xfputc(pc,fp);
