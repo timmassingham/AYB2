@@ -9,7 +9,7 @@ LDFLAGS =  -lz -lbz2 -llapack -lgfortran
 INCFLAGS = 
 DEFINES = -D_BSD_SOURCE
 objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o ayb.o calibration.o call_bases.o \
-           cif.o cluster.o datablock.o dirio.o handler.o intensities.o lambda.o matrix.o \
+           cif.o cluster.o conjugate.o datablock.o dirio.o handler.o intensities.o lambda.o matrix.o \
            message.o mixnormal.o mpn.o nuc.o qual_table.o statistics.o tile.o utility.o weibull.o xio.o \
            snnls.o dnnls.o
 
@@ -20,6 +20,9 @@ test: test-cluster test-matrix test-message test-mixnormal test-mpn test-nuc tes
 
 test-cluster: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects))
+
+test-conjugate: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST conjugate.c $(filter-out conjugate.o ayb_main.o,$(objects))
 
 test-matrix: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST matrix.c $(filter-out matrix.o ayb_main.o,$(objects))
