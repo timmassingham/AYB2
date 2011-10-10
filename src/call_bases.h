@@ -38,6 +38,8 @@ NUC call_base_simple( const real_t * restrict p);
 NUC call_base_nodata(void);
 struct basequal call_base_null(void);
 struct basequal call_base( const real_t * restrict p, const real_t lambda, const real_t * restrict penalty, const MAT omega);
+void call_bases( const MAT p, const real_t lambda, const MAT omega, NUC * base);
+void call_qualities( const MAT p, const real_t lambda, const MAT omega, NUC * base, real_t * qual);
 
 real_t get_mu(void);
 bool set_mu(const char *mu_str);

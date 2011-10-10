@@ -30,9 +30,11 @@
 #include "call_bases.h"
 #include "cif.h"
 #include "cluster.h"
+#include "conjugate.h"
 #include "dirio.h"
 #include "intensities.h"
 #include "lambda.h"
+#include "lapack.h"
 #include "message.h"
 #include "mpn.h"
 #include "nuc.h"
@@ -50,6 +52,7 @@ struct AybT {
     MAT M, P, N;
     MAT lambda;
     MAT we, cycle_var;
+    MAT omega;
 };
 
 /** Structure for output of final working values. */
@@ -98,7 +101,7 @@ static SOLVER SolverRoutine = solverZeroSVD;    ///< Selected solver routine, ma
 
 /**
  * Accumulate full covariance matrix (ncycle * NBASE x ncycle * NBASE).
- * \n Note: If V is NULL, the required memory is allocated.
+ * Note: If V is NULL, the required memory is allocated.
  * - p:        Matrix of processed intensities
  * - lambda:   Brightness of cluster
  * - base:     Current base call
@@ -110,14 +113,14 @@ static MAT * accumulate_all_covariance( const real_t we, const MAT p, const real
     validate(lambda>=0.0, NULL);
 
     const uint32_t ncycle = p->ncol;
-    const uint32_t ncyclebase = ncycle * NBASE;
+    const int lda = ncycle * NBASE;
 
     // Allocate memory for V if necessary
     // for compatibility of return value with normal accumulate use an array of size 1
     if ( NULL==V ){
         V = calloc(1, sizeof(*V));
         if(NULL==V) {return NULL;}
-        V[0] = new_MAT(ncyclebase, ncyclebase);
+        V[0] = new_MAT(lda, lda);
         if(NULL==V[0]) {
             xfree(V);
             return NULL;
@@ -126,33 +129,17 @@ static MAT * accumulate_all_covariance( const real_t we, const MAT p, const real
 
     // Perform accululation. V += R R^t
     // Note: R = P - \lambda I_b, where I_b is unit vector with b'th elt = 1
-    //  so R R^t = P P^t - \lambda I_b P^t
-    //                   - \lambda P I_b^t + \lambda^2 I_b I_b^2
-    // P P^t
-    for (uint32_t i = 0; i < ncyclebase; i++) {
-        for (uint32_t j = 0; j < ncyclebase; j++) {
-            (V[0])->x[j * ncyclebase + i] += we * p->x[i] * p->x[j];
+    for (uint32_t cy = 0; cy < ncycle; cy++){
+        if (!isambig(base[cy])) {
+            p->x[cy * NBASE + base[cy]] -= lambda;
         }
     }
+    syr(LAPACK_LOWER, &lda, &we, p->x, LAPACK_UNIT, V[0]->x, &lda);
 
-    // \lambda I_b P^t and \lambda P I_b^t
-    for (uint32_t cy1 = 0; cy1 < ncycle; cy1++){
-
-        if (isambig(base[cy1])) { continue;}
-
-        uint32_t ibase1 = cy1 * NBASE + base[cy1];
-        for (uint32_t j = 0; j < ncyclebase; j++) {
-            (V[0])->x[j * ncyclebase + ibase1] -= we * lambda * p->x[j];
-            (V[0])->x[ibase1 * ncyclebase + j] -= we * lambda * p->x[j];
-        }
-
-        // \lambda^2 I_b I_b^t
-        for (uint32_t cy2 = 0; cy2 < ncycle; cy2++) {
-
-            if (isambig(base[cy2])) { continue;}
-
-            uint32_t ibase2 = cy2 * NBASE + base[cy2];
-            (V[0])->x[ibase2 * ncyclebase + ibase1] += we * lambda * lambda;
+    // V is lower triangular
+    for (int i = 0; i < lda; i++){
+        for (int j = 0; j < i; j++){
+            V[0]->x[i * lda + j] = V[0]->x[j * lda + i];
         }
     }
 
@@ -161,7 +148,7 @@ static MAT * accumulate_all_covariance( const real_t we, const MAT p, const real
 
 /**
  * Accumulate required variances (inner summation of variance calculation).
- * \n Note: If V is NULL, the required memory is allocated.
+ * Note: If V is NULL, the required memory is allocated.
  * - p:        Matrix of processed intensities
  * - lambda:   Brightness of cluster
  * - base:     Current base call
@@ -486,6 +473,7 @@ AYB new_AYB(const uint32_t ncycle, const uint32_t ncluster){
     ayb->lambda = new_MAT(ncluster,1);
     ayb->we = new_MAT(ncluster,1);
     ayb->cycle_var = new_MAT(ncycle,1);
+    ayb->omega = NULL;
     if( NULL==ayb->tile || NULL==ayb->bases.elt || NULL==ayb->quals.elt
             || NULL==ayb->M || NULL==ayb->P || NULL==ayb->N
             || NULL==ayb->lambda || NULL==ayb->we || NULL==ayb->cycle_var){
@@ -507,9 +495,10 @@ AYB free_AYB(AYB ayb){
     free_MAT(ayb->M);
     free_MAT(ayb->P);
     free_MAT(ayb->N);
+    free_MAT(ayb->lambda);
     free_MAT(ayb->we);
     free_MAT(ayb->cycle_var);
-    free_MAT(ayb->lambda);
+    free_MAT(ayb->omega);
     xfree(ayb);
     return NULL;
 }
@@ -540,14 +529,17 @@ AYB copy_AYB(const AYB ayb){
     ayb_copy->N = copy_MAT(ayb->N);
     if(NULL!=ayb->N && NULL==ayb_copy->N){ goto cleanup;}
 
+    ayb_copy->lambda = copy_MAT(ayb->lambda);
+    if(NULL!=ayb->lambda && NULL==ayb_copy->lambda){ goto cleanup;}
+
     ayb_copy->we = copy_MAT(ayb->we);
     if(NULL!=ayb->we && NULL==ayb_copy->we){ goto cleanup;}
 
     ayb_copy->cycle_var = copy_MAT(ayb->cycle_var);
     if(NULL!=ayb->cycle_var && NULL==ayb_copy->cycle_var){ goto cleanup;}
 
-    ayb_copy->lambda = copy_MAT(ayb->lambda);
-    if(NULL!=ayb->lambda && NULL==ayb_copy->lambda){ goto cleanup;}
+    ayb_copy->omega = copy_MAT(ayb->omega);
+    if(NULL!=ayb->omega && NULL==ayb_copy->omega){ goto cleanup;}
 
     return ayb_copy;
 
@@ -565,9 +557,10 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
     xfputs("N:\n",fp); show_MAT(fp,ayb->N,NBASE,ayb->ncycle);
     xfputs("we:\n",fp); show_MAT(fp,ayb->we,ayb->ncluster,1);
     xfputs("cycle_var:\n",fp); show_MAT(fp,ayb->cycle_var,ayb->ncycle,1);
+    xfputs("omega:\n",fp); show_MAT(fp,ayb->omega,NBASE*ayb->ncycle,NBASE*ayb->ncycle);
     xfputs("lambda:\n",fp); show_MAT(fp,ayb->lambda,ayb->ncluster,1);
     if (showall) {
-        xfputs("Bases:\n",fp); show_ARRAY(NUC)(fp,ayb->bases,"",ayb->ncycle);
+        xfputs("Bases:\n",fp); show_ARRAY(NUC)(fp,ayb->bases,"",ayb->ncycle*10);
         xfputc('\n',fp);
         xfputs("Quality:\n",fp); show_ARRAY(PHREDCHAR)(fp,ayb->quals,"",ayb->ncycle*10);
         xfputc('\n',fp);
@@ -732,7 +725,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     const uint32_t ncycle = ayb->ncycle;
     MAT pcl_int = NULL;                 // Shell for processed intensities
     MAT Pinv_t=NULL, Minv_t=NULL;       // Temporary matrices to speed computation
-    MAT * V = NULL;                     // Array of covariance matrices
+    MAT * V_full = NULL;                // Full covariance matrix (array of size 1)
     real_t * qual = NULL;
     int ret_count = 0;
     bool show_processed = (ShowWorking && lastiter);
@@ -740,6 +733,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
 #ifndef NDEBUG
     XFILE *fpi2 = NULL;
+    XFILE *fplam = NULL;
     XFILE *fpout = NULL;
     if (showdebug) {
         fpout = open_output("ayb2");
@@ -750,10 +744,10 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     }
 #endif
 
-    /* calculate covariance */
-    V = calculate_covariance(ayb, false);
+    /* calculate full covariance */
+    V_full = calculate_covariance(ayb, true);
 
-    if (V == NULL) {
+    if (V_full == NULL) {
         /* set calls to null and terminate processing */
         unsigned int cl = 0;
 
@@ -779,34 +773,38 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     }
 
 #ifndef NDEBUG
-    if (showdebug) {
-        fpout = open_output("cov");
-        if (!xfisnull(fpout)) {
-            xfputs("covariance:\n", fpout);
-            for (uint32_t cy = 0; cy < ncycle; cy++){
-                show_MAT(fpout, V[cy], NBASE, NBASE);
-            }
-        }
-        fpout = xfclose(fpout);
+if (showdebug) {
+    fpout = open_output("covfull");
+    if (!xfisnull(fpout)) {
+        xfputs("covariance full:\n", fpout);
+        show_MAT(fpout, V_full[0], 0, 0);
     }
+    fpout = xfclose(fpout);
+}
 #endif
 
-    /* scale is variance of residuals; get from V matrices */
+    /* scale is variance of residuals; get from V full matrix */
     for (uint32_t cy = 0; cy < ncycle; cy++){
         ayb->cycle_var->x[cy] = 0.;
         for (uint32_t b = 0; b < NBASE; b++){
-            ayb->cycle_var->x[cy] += V[cy]->x[b * NBASE + b];
+            uint32_t offset = cy * NBASE + b;
+            ayb->cycle_var->x[cy] += V_full[0]->x[offset * ncycle * NBASE + offset];
         }
-        /* hmhm I have no idea why a reciprocal is taken here */
-//        ayb->cycle_var->x[cy] = 1.0/ayb->cycle_var->x[cy];
     }
 
-    /* invert variance matrices to get omega */
-    for (uint32_t cy = 0; cy < ncycle; cy++){
-        MAT a = V[cy];
-        V[cy] = invert(a);
-        free_MAT(a);
+    /* calculate restricted fitted V inverse */
+	ayb->omega = fit_omega(V_full[0], ayb->omega);
+	
+#ifndef NDEBUG
+if (showdebug) {
+    fpout = open_output("omfit");
+    if (!xfisnull(fpout)) {
+        xfputs("omega fitted:\n", fpout);
+        show_MAT(fpout, ayb->omega, 0, 0);
     }
+    fpout = xfclose(fpout);
+}
+#endif    	
 
     /* process intensities then estimate lambda and call bases for each cluster */
     Minv_t = transpose_inplace(invert(ayb->M));
@@ -815,9 +813,9 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 #ifndef NDEBUG
     if (showdebug) {
         fpi2 = open_output("pi2");
-        fpout = open_output("lam2");
-        if (!xfisnull(fpout)) {
-            xfputs("lambda:\n", fpout);
+        fplam = open_output("lam2");
+        if (!xfisnull(fplam)) {
+            xfputs("lambda:\n", fplam);
         }
     }
 #endif
@@ -851,7 +849,6 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         }
 
         /* estimate lambda using Weighted Least Squares */
-//        ayb->lambda->x[cl] = estimate_lambdaGWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x, V);
         ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
         if (ayb->lambda->x[cl] == 0.0) {
             ret_count++;
@@ -860,28 +857,19 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 #ifndef NDEBUG
     if (showdebug) {
         if (!xfisnull(fpi2)) {
+            xfprintf(fpi2, "cluster: %u\n", cl + 1);
             show_MAT(fpi2, pcl_int, pcl_int->nrow, pcl_int->ncol);
         }
-        if (!xfisnull(fpout)) {
-            xfprintf(fpout, "%d: %#12.6f\n", cl + 1, ayb->lambda->x[cl]);
+        if (!xfisnull(fplam)) {
+            xfprintf(fplam, "%u: %#12.6f\n", cl + 1, ayb->lambda->x[cl]);
         }
     }
 #endif
 
-        /* call bases for each cycle */
-        for (uint32_t cy = 0; cy < ncycle; cy++){
-            /* deal differently with missing data */
-            if (nodata(node->elt->signals->xint + cy * NBASE, NBASE)) {
-                cl_bases[cy] = call_base_nodata();
-                qual[cy] = MIN_QUALITY;
-            }
-            else {
-                struct basequal bq = call_base(pcl_int->x+cy * NBASE, ayb->lambda->x[cl], BasePenalty, V[cy]);
-                cl_bases[cy] = bq.base;
-                qual[cy] = bq.qual;
-            }
-        }
-
+        /* call bases and qualities for all cycles */
+        call_bases(pcl_int, ayb->lambda->x[cl], ayb->omega, cl_bases);
+        call_qualities(pcl_int, ayb->lambda->x[cl], ayb->omega, cl_bases, qual);
+        
         if (ayb->lambda->x[cl] != 0.0) {
             /* adjust quality values; first and Last bases of read are special cases */
             qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
@@ -908,7 +896,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 #ifndef NDEBUG
     if (showdebug) {
         xfclose(fpi2);
-        xfclose(fpout);
+        xfclose(fplam);
     }
 #endif
 
@@ -923,11 +911,9 @@ cleanup:
     free_MAT(pcl_int);
     free_MAT(Pinv_t);
     free_MAT(Minv_t);
-    if (NULL != V) {
-        for (uint32_t cy = 0; cy < ncycle; cy++) {
-            free_MAT(V[cy]);
-        }
-        xfree(V);
+    if (NULL != V_full) {
+        free_MAT(V_full[0]);
+        xfree(V_full);
     }
     return ret_count;
 }
@@ -1099,6 +1085,7 @@ bool initialise_model(AYB ayb, const bool showdebug) {
 #ifndef NDEBUG
     if (showdebug) {
         if (!xfisnull(fpout)) {
+            xfprintf(fpout, "cluster: %u\n", cl + 1);
             show_MAT(fpout, pcl_int, pcl_int->nrow, pcl_int->ncol);
         }
     }
