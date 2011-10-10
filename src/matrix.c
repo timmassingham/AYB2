@@ -663,13 +663,25 @@ MAT symmeteriseL2U( MAT mat){
     return mat;
 }
 
-// Cholesky factorisation of matrix
+/** 
+ * Cholesky decomposition of matrix. Done in place.
+ */
 MAT cholesky( MAT mat){
     validate(NULL!=mat,NULL);
     validate(mat->nrow==mat->ncol,NULL);
+    
+    // LAPACK routine for Cholesky decomposition
     int info=0;
-    potrf(LAPACK_LOWER,&mat->nrow,mat->x,&mat->nrow,&info);
-    symmeteriseL2U(mat);
+    int n = mat->nrow;
+    potrf(LAPACK_UPPER,&mat->nrow,mat->x,&mat->nrow,&info);
+    if(info!=0){ warnx("potrf in %s returned %d\n",__func__,info);}
+    
+    // Zero entries in lower diagonal (not referenced in potrf, so retain initial values)
+    for ( int i=0 ; i<n ; i++){
+        for ( int j=i+1 ; j<n ; j++){
+           mat->x[i*n+j] = 0;
+        }
+    } 
     return mat;
 }
 
@@ -821,6 +833,38 @@ MAT invert(const MAT mat){
     xfree(IPIV);
     xfree(WORK);
 
+    return matinv;
+}
+
+/** Create a new matrix which is the inverse of a supplied symmetric positive definite matrix. */
+MAT invert_symmetric(const MAT mat){
+    validate(NULL!=mat,NULL);
+    validate(mat->nrow==mat->ncol,NULL);
+
+    int info = 0;
+    int N = mat->nrow;
+
+    MAT matinv = copy_MAT(mat);
+    validate(NULL!=matinv,NULL);
+
+    // Cholesky factorisation required for inversion
+    potrf(LAPACK_LOWER,&N,matinv->x,&N,&info);
+    if (info!=0) {
+        warnx("Supplied matrix is not positive definite, order: %d", info);
+        free_MAT(matinv);
+        return NULL;
+    }
+
+    // Invert
+    potri(LAPACK_LOWER,&N,matinv->x,&N,&info);
+    if (info!=0) {
+        warnx("Cholesky diagonal is zero, element: %d", info);
+        free_MAT(matinv);
+        return NULL;
+    }
+
+    // Only lower triangle returned
+    symmeteriseL2U(matinv);
     return matinv;
 }
 
