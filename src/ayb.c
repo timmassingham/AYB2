@@ -715,7 +715,7 @@ cleanup:
 
 /**
  * Call bases. Includes calculate covariance and estimate lambda.
- * Last iteration parameter for final working.
+ * Last iteration parameter for final working and qualities.
  * Returns number of zero lambdas or data error indication.
  */
 int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showdebug) {
@@ -773,14 +773,14 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     }
 
 #ifndef NDEBUG
-if (showdebug) {
-    fpout = open_output("covfull");
-    if (!xfisnull(fpout)) {
-        xfputs("covariance full:\n", fpout);
-        show_MAT(fpout, V_full[0], 0, 0);
+    if (showdebug) {
+        fpout = open_output("covfull");
+        if (!xfisnull(fpout)) {
+            xfputs("covariance full:\n", fpout);
+            show_MAT(fpout, V_full[0], 0, 0);
+        }
+        fpout = xfclose(fpout);
     }
-    fpout = xfclose(fpout);
-}
 #endif
 
     /* scale is variance of residuals; get from V full matrix */
@@ -796,14 +796,14 @@ if (showdebug) {
 	ayb->omega = fit_omega(V_full[0], ayb->omega);
 	
 #ifndef NDEBUG
-if (showdebug) {
-    fpout = open_output("omfit");
-    if (!xfisnull(fpout)) {
-        xfputs("omega fitted:\n", fpout);
-        show_MAT(fpout, ayb->omega, 0, 0);
+    if (showdebug) {
+        fpout = open_output("omfit");
+        if (!xfisnull(fpout)) {
+            xfputs("omega fitted:\n", fpout);
+            show_MAT(fpout, ayb->omega, 0, 0);
+        }
+        fpout = xfclose(fpout);
     }
-    fpout = xfclose(fpout);
-}
 #endif    	
 
     /* process intensities then estimate lambda and call bases for each cluster */
@@ -867,26 +867,32 @@ if (showdebug) {
 #endif
 
         /* call bases and qualities for all cycles */
+        /* qualities only needed on last iteration */
         call_bases(pcl_int, ayb->lambda->x[cl], ayb->omega, cl_bases);
-        call_qualities(pcl_int, ayb->lambda->x[cl], ayb->omega, cl_bases, qual);
-        
-        if (ayb->lambda->x[cl] != 0.0) {
-            /* adjust quality values; first and Last bases of read are special cases */
-            qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
-            for (uint32_t cy=1; cy<(ncycle-1); cy++) {
-                qual[cy] = adjust_quality(qual[cy], cl_bases[cy-1], cl_bases[cy], cl_bases[cy+1]);
+
+        if (lastiter) {
+            call_qualities(pcl_int, ayb->lambda->x[cl], ayb->omega, cl_bases, qual);
+            
+            if (ayb->lambda->x[cl] != 0.0) {
+                /* adjust quality values; first and Last bases of read are special cases */
+                qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
+                for (uint32_t cy=1; cy<(ncycle-1); cy++) {
+                    qual[cy] = adjust_quality(qual[cy], cl_bases[cy-1], cl_bases[cy], cl_bases[cy+1]);
+                }
+                qual[ncycle-1] = adjust_last_quality(qual[ncycle-1], cl_bases[ncycle-2], cl_bases[ncycle-1]);
             }
-            qual[ncycle-1] = adjust_last_quality(qual[ncycle-1], cl_bases[ncycle-2], cl_bases[ncycle-1]);
 
-        }
-
-        /* convert qualities to phred char */
-        for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-            cl_quals[cy] = phredchar_from_quality(qual[cy]);
+            /* convert qualities to phred char */
+            for ( uint32_t cy=0 ; cy<ncycle ; cy++){
+                cl_quals[cy] = phredchar_from_quality(qual[cy]);
+            }
         }
 
         /* repeat estimate lambda with the new bases */
-        ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
+        /* don't do if last iteration for working values */
+        if (!lastiter) {
+            ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
+        }
 
         /* next cluster */
         node = node->nxt;
