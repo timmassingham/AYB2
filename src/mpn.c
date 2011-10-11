@@ -452,6 +452,147 @@ MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT Sbar, const MAT N, co
     return rhs;
 }
 
+/**
+ * Calculates matrix J used in calculateLhs.
+ * J is the matrix \\sum_i we_i lambda_i lambda_i Vec(S_i) Vec(S_i)^t.
+ */
+MAT calculateNewJ(const MAT lambda, const ARRAY(NUC) bases, const MAT we, const int ncycle, MAT newJ){
+   if(NULL==lambda || NULL==bases.elt || NULL==we){ return NULL;}
+
+   // Allocate memory if necessary and initialise to zero
+   if(NULL==newJ){
+      newJ = new_MAT(ncycle*NBASE,ncycle*NBASE);
+      if(NULL==newJ){ return NULL; }
+   }
+   memset(newJ->x, 0, newJ->nrow*newJ->ncol*sizeof(real_t));
+
+   const uint_fast32_t lda = ncycle * NBASE;
+   const uint_fast32_t ncluster = we->nrow;
+   for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
+      const real_t eltmult = we->x[cl] * lambda->x[cl] * lambda->x[cl];
+      for ( uint_fast32_t i=0 ; i<ncycle ; i++){
+         const uint_fast32_t base = bases.elt[cl*ncycle+i];
+         if(!isambig(base)){
+             const uint_fast32_t idx1 = i*NBASE+base;
+             for ( uint_fast32_t j=0 ; j<ncycle ; j++){
+                const uint_fast32_t base2 = bases.elt[cl*ncycle+j];
+                if(!isambig(base2)){
+                    const uint_fast32_t idx2 = j*NBASE+base2;
+                    newJ->x[idx1*lda+idx2] += eltmult;
+                }
+             }
+         }
+      }
+   }
+
+   return newJ;
+}
+
+/**
+ * Calculates matrix K used in calculateRhs.
+ * K is the matrix \\sum_i we_i lambda_i Vec(S_i) Vec(I_i)^t.
+ * First calculate its transpose (better memory layout).
+ */
+MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases, const TILE tile, const MAT we, const int ncycle, MAT newK){
+    if(NULL==lambda || NULL==bases.elt || NULL==tile || NULL==we){ return NULL;}
+
+    // Allocate memory if necessary and initialise to zero
+    if(NULL==newK){
+        newK = new_MAT(ncycle*NBASE,ncycle*NBASE);
+        if(NULL==newK){ return NULL; }
+    }
+    memset(newK->x, 0, newK->nrow*newK->ncol*sizeof(real_t));
+
+	// Calculate transpose
+    const uint_fast32_t ncluster = tile->ncluster;
+    const uint_fast32_t lda = ncycle * NBASE;
+    uint_fast32_t cl = 0;
+    LIST(CLUSTER) node = tile->clusterlist;
+    while (NULL != node && cl < ncluster){
+        for ( uint_fast32_t i=0 ; i<ncycle ; i++){
+            const uint_fast32_t base = bases.elt[cl*ncycle+i];
+            if(!isambig(base)){
+                const uint_fast32_t col = i*NBASE + base;
+                const real_t colmult = we->x[cl] * lambda->x[cl];
+                for ( uint_fast32_t j=0 ; j<lda ; j++){
+                    newK->x[col*lda+j] += node->elt->signals->xint[j] * colmult;
+                }
+            }
+        }
+
+        /* next cluster */
+        node = node->nxt;
+        cl++;
+    }
+    // Transpose (square) matrix newK
+    transpose_inplace(newK);
+
+    return newK;
+}
+
+/**
+ * Calculates Lhs of equation to solve for \\hat{A}^t
+ * where Lhs \\hat{A}^t = Rhs.
+\verbatim
+                 _                          _
+Lhs is a matrix |      J        Vec(S_bar)   |
+                |_  Vec(S_bar)^t      wbar  _|
+\endverbatim
+ */
+MAT calculateLhs( const real_t wbar,const MAT J, const MAT Sbar, MAT lhs){
+    if( NULL==J || NULL==Sbar){ return NULL; }
+
+    // Allocate memory for lhs if necessary. One more row and column than J
+    if(NULL==lhs){
+        lhs = new_MAT(J->nrow+1,J->nrow+1);
+        if(NULL==lhs){ return NULL;}
+    }
+    const int lda = J->nrow+1;
+    const int nelt = J->nrow;
+
+    for ( int i=0 ; i<nelt ; i++){
+        // Copy in J
+        for ( int j=0 ; j<nelt ; j++){
+            lhs->x[i*lda+j] = J->x[i*nelt+j];
+        }
+        // Copy Vec(Sbar) and Vec(Sbar)^t
+        lhs->x[i*lda+nelt] = Sbar->x[i];
+        lhs->x[nelt*lda+i] = Sbar->x[i];
+    }
+
+    // wbar
+    lhs->x[lda*lda-1] = wbar;
+    return lhs;
+}
+
+/**
+ * Calculates Rhs of equation to solve for \\hat{A}^t
+ * where Lhs \\hat{A}^t = Rhs.
+\verbatim
+                 _               _
+Rhs is a matrix |      K          |
+                |_  Vec(I_bar)^t _|
+\endverbatim
+ */
+MAT calculateRhs( const MAT K, const MAT Ibar, MAT rhs){
+    if( NULL==K || NULL==Ibar ){ return NULL; }
+
+    if( NULL==rhs){
+        rhs = new_MAT(K->nrow+1,K->nrow);
+    }
+    const int nelt = K->nrow;
+    const int lda = K->nrow+1;
+
+    for ( int i=0 ; i<nelt ; i++){
+        for ( int j=0 ; j<nelt ; j++){
+            rhs->x[i*lda+j] = K->x[i*nelt+j];
+        }
+        rhs->x[i*lda+nelt] = Ibar->x[i];
+    }
+
+    return rhs;
+}
+
 /** 
  * Solve system of linear equations using Cholesky decomposition.
  * Wrapper for LAPACK routine.

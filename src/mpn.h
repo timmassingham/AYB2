@@ -46,10 +46,16 @@ MAT calculateMrhs( const MAT var, const MAT IbarT, const MAT P, const MAT Kt, re
 MAT calculatePlhs( const real_t wbar, const MAT Sbar, const MAT Mt, const MAT J, real_t * tmp, MAT lhs);
 MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT Sbar, const MAT N, const MAT K, real_t * tmp, MAT rhs);
 real_t calculateDeltaLSE(const MAT Mt, const MAT P, const MAT N, const MAT J, const MAT K, real_t * tmp);
+
+MAT calculateNewJ(const MAT lambda, const ARRAY(NUC) bases, const MAT we, const int ncycle, MAT newJ);
+//MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases,const ARRAY(int16_t) intmat, const MAT we, const int ncycle, MAT newK);
+MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases, const TILE tile, const MAT we, const int ncycle, MAT newK);
+MAT calculateLhs( const real_t wbar,const MAT J, const MAT Ibar, MAT lhs);
+MAT calculateRhs( const MAT K, const MAT Sbar, MAT rhs);
+
 int solverChol( MAT lhs, MAT rhs, real_t * tmp);
 int solverSVD(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag);
 int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag);
 int solverNNLS(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag);
-
 
 #endif /* MPN_H_ */
