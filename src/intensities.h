@@ -35,6 +35,7 @@ MAT process_intensities(const MAT intensities,
                         const MAT Minv_t, const MAT Pinv_t, const MAT N, MAT ip);
 MAT expected_intensities(const real_t lambda, const NUC * bases,
                          const MAT M, const MAT P, const MAT N, MAT e);
+MAT processNew(const struct structLU AtLU, const MAT N, const MAT intensities, MAT p);
 
 
 #endif /* INTENSITIES_H_ */

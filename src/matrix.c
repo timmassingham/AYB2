@@ -917,6 +917,33 @@ real_t normalise_MAT(MAT mat, const real_t delta_diag){
     return f;
 }
 
+/**
+ * LU decomposition of matrix.
+ * Routine returns structure rather than a matrix since pivoting information must also be transferred.
+ */
+struct structLU LUdecomposition( const MAT mat){
+    // NULL structure to be returned on error
+    struct structLU structLUnill = {NULL,NULL};
+    validate(NULL!=mat,structLUnill);
+    validate(mat->nrow==mat->ncol,structLUnill);
+    const int n = mat->nrow;
+
+    int * piv = calloc(n,sizeof(int));;
+    MAT mcopy = copy_MAT(mat);
+    if(NULL==piv || NULL==mcopy){ goto cleanup; }
+   
+    // Call LAPACK routine for LU decomposition
+    int info = 0;
+    getrf(&n,&n,mcopy->x,&n,piv,&info);
+    if(info!=0){ warnx("getrf in %s returned %d\n",__func__,info);}
+
+    return (struct structLU) { mcopy, piv};
+
+cleanup:
+    return structLUnill;
+}
+
+
 #ifdef TEST
 
 /* Create a new integer value matrix as a copy of the one supplied (real or integer).*/

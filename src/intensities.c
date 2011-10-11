@@ -23,8 +23,10 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <err.h>
 #include <string.h>
 #include "intensities.h"
+#include "lapack.h"
 #include "nuc.h"
 
 /* constants */
@@ -136,4 +138,34 @@ MAT expected_intensities(const real_t lambda, const NUC * bases,
         e->x[i] += N->x[i];
     }
     return e;
+}
+
+/**
+ * Process observed intensities into sequence space.
+ * Solves the linear system vec(I_i-N) = A vec(S_i).
+ * The input is the LU decomposition of the transpose of A.
+ */
+MAT processNew(const struct structLU AtLU, const MAT N, const MAT intensities, MAT p){
+    if (NULL==AtLU.mat || NULL==N || NULL==intensities) { return NULL;}
+
+    const int ncycle = N->ncol;
+    const int nelt = NBASE*ncycle;
+
+    // Create a new matrix for result if doesn't exist
+    if(NULL==p){
+        p = new_MAT(NBASE,ncycle);
+        if(NULL==p){ return NULL;}
+    }
+
+	// Left-hand of equation. Writen over by solution
+    for ( int i=0 ; i<nelt ; i++){
+        p->x[i] = intensities->xint[i] - N->x[i];
+    }
+
+    // Solve using LAPACK routine
+    const int inc = 1;
+    int info = 0;
+    getrs(LAPACK_TRANS,&nelt,&inc,AtLU.mat->x,&nelt,AtLU.piv,p->x,&nelt,&info);
+    if(info!=0){ warnx("getrs in %s returned %d\n",__func__,info);}
+    return p;
 }

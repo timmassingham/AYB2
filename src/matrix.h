@@ -56,6 +56,8 @@ struct _matrix_str {
 // Make future abstraction easier
 typedef struct _matrix_str * MAT;
 
+struct structLU { MAT mat; int * piv; };
+
 // standard functions
 MAT new_MAT( const int nrow, const int ncol );
 MAT new_MAT_int( const int nrow, const int ncol, const bool useint );
@@ -99,5 +101,7 @@ MAT invert_symmetric(const MAT mat);
 
 real_t xMy( const real_t * x, const MAT M, const real_t * y);
 real_t normalise_MAT(MAT mat, const real_t delta_diag);
+
+struct structLU LUdecomposition( const MAT mat);
 
 #endif /* MATRIX_H_ */
