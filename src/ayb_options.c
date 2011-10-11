@@ -79,7 +79,6 @@ enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
 static struct option Longopts[] = {
     {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 0 in header file
     {"blockstring", required_argument,  NULL, 'b'},
-    {"composition", required_argument,  NULL, 'c'},
     {"dataformat",  required_argument,  NULL, 'd'},
     {"logfile",     required_argument,  NULL, 'e'},
     {"format",      required_argument,  NULL, 'f'},
@@ -91,11 +90,10 @@ static struct option Longopts[] = {
     {"noqualout",   no_argument,        NULL, 'q'},
     {"runfolder",   no_argument,        NULL, 'r'},
     {"working",     no_argument,        NULL, 'w'},
+    {"A",           required_argument,  NULL, 'A'},
     {"M",           required_argument,  NULL, 'M'},
     {"N",           required_argument,  NULL, 'N'},
-    {"P",           required_argument,  NULL, 'P'},
     {"qualtab",     required_argument,  NULL, 'Q'},
-    {"solver",      required_argument,  NULL, 'S'},
     {"help",        no_argument,        NULL, OPT_HELP },
     {"licence",     no_argument,        NULL, OPT_LICENCE },
     {"license",     no_argument,        NULL, OPT_LICENCE },
@@ -127,7 +125,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "s:b:c:d:e:f:i:l:m:n:o:qrwM:N:P:Q:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:i:l:m:n:o:qrwA:M:N:Q:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 's':
@@ -138,14 +136,6 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
             case 'b':
                 /* pattern of data blocks */
                 if (!parse_blockopt(optarg)) {
-                    status = E_FAIL;
-                }
-                break;
-
-            case 'c':
-                /* Genome composition of reference sequence */
-                if(!set_composition(optarg)) {
-                    fprintf(stderr, "Fatal: Invalid genome composition: \'%s\'\n\n", optarg);
                     status = E_FAIL;
                 }
                 break;
@@ -217,32 +207,24 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
                 set_show_working();
                 break;
 
+            case 'A':
+                /* param A file name */
+                set_location(optarg, E_PARAMA);
+                break;
+
             case 'M':
-                /* crosstalk file name */
+                /* initial crosstalk file name */
                 set_location(optarg, E_CROSSTALK);
                 break;
 
             case 'N':
-                /* crosstalk file name */
+                /* noise file name */
                 set_location(optarg, E_NOISE);
-                break;
-
-            case 'P':
-                /* crosstalk file name */
-                set_location(optarg, E_PHASING);
                 break;
 
             case 'Q':
                 /* quality calibration conversion table file location */
                 set_location(optarg, E_QUALTAB);
-                break;
-
-            case 'S':
-                /* Which solver to use for P estimation */
-                if(!set_solver(optarg)){
-                    fprintf(stderr,"Fatal: Unrecognised solver option: \'%s\'\n\n",optarg);
-                    status = E_FAIL;
-                }
                 break;
 
             case OPT_HELP:
