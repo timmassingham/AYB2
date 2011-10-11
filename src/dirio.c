@@ -973,7 +973,7 @@ void set_location(const CSTRING path, IOTYPE idx){
             break;
         case E_CROSSTALK:
         case E_NOISE:
-        case E_PHASING:
+        case E_PARAMA:
         case E_QUALTAB:
             Matrix[idx] = copy_CSTRING(path);
             break;

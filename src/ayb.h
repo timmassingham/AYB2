@@ -62,9 +62,7 @@ int estimate_bases(AYB ayb, int blk, const bool lastiter, const bool showdebug);
 real_t estimate_MPN(AYB ayb);
 bool initialise_model(AYB ayb, const bool showdebug);
 
-bool set_composition(const char *comp_str);
 void set_show_working(void);
-bool set_solver(const char *solver_str);
 bool startup_ayb(void);
 void tidyup_ayb(void);
 
