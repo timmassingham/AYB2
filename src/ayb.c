@@ -86,6 +86,7 @@ static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Parameter A"};
 
 static MAT Matrix[E_MNP];                       ///< Predetermined matrices.
 static MAT Initial_At = NULL;                   ///< Initial parameter matrix.
+static bool FixedParam = false;                 ///< Use fixed supplied parameter matrices.
 static bool ShowWorking = false;                ///< Set to output final working values.
 
 
@@ -944,56 +945,69 @@ real_t estimate_MPN(AYB ayb){
     //timestamp("Updating weights\n",stderr);
     real_t sumLSS = update_cluster_weights(ayb);
 
-    /*  Precalculate terms for iteration */
-    //timestamp("Calculating matrices\n",stderr);
-    //timestamp("J\t",stderr);
-    MAT J = calculateNewJ(ayb->lambda,ayb->bases,ayb->we,ncycle,NULL);
-    //timestamp("K\t",stderr);
-    MAT K = calculateNewK(ayb->lambda,ayb->bases,ayb->tile,ayb->we,ncycle,NULL);
-    //timestamp("Others\n",stderr);
-    MAT Sbar = calculateSbar(ayb->lambda,ayb->we,ayb->bases,ncycle,NULL);
-    MAT Ibar = calculateIbar(ayb->tile,ayb->we,NULL);
-    real_t Wbar = calculateWbar(ayb->we);
-    real_t lambdaf = 1.;
-    real_t * tmp = calloc(ncycle*ncycle*NBASE*NBASE,sizeof(real_t));
+    MAT J = NULL, K = NULL;
+    MAT Sbar = NULL, Ibar = NULL;
+    MAT lhs = NULL, rhs = NULL;
+    real_t * tmp = NULL;
+    real_t lambdaf = 1.0;
 
-    MAT lhs = calculateLhs(Wbar, J, Sbar, NULL);
-    MAT rhs = calculateRhs(K, Ibar, NULL);
+    if (!FixedParam) {
+        /*  Precalculate terms for iteration */
+        //timestamp("Calculating matrices\n",stderr);
+        //timestamp("J\t",stderr);
+        J = calculateNewJ(ayb->lambda,ayb->bases,ayb->we,ncycle,NULL);
+        //timestamp("K\t",stderr);
+        K = calculateNewK(ayb->lambda,ayb->bases,ayb->tile,ayb->we,ncycle,NULL);
+        //timestamp("Others\n",stderr);
+        Sbar = calculateSbar(ayb->lambda,ayb->we,ayb->bases,ncycle,NULL);
+        Ibar = calculateIbar(ayb->tile,ayb->we,NULL);
+        real_t Wbar = calculateWbar(ayb->we);
+        tmp = calloc(ncycle*ncycle*NBASE*NBASE,sizeof(real_t));
     
-    if ((NULL==J) || (NULL==K) || (NULL==Sbar) || (NULL==Ibar) || (NULL==lhs) || (NULL==rhs)) { goto cleanup; }
-    /* assume ayb->At and Initial_At same size so only need to check one */
-    if ((rhs->nrow != Initial_At->nrow + 1) || (rhs->ncol != Initial_At->ncol)) { goto cleanup; }   
-    if (rhs->ncol != (ayb->N->nrow * ayb->N->ncol)) { goto cleanup; }   
-    
-    // add the solver constant 
-    // lhs -> lhs + r Id
-    // rhs -> rhs + r initialA^t
-    uint_fast32_t nrow = lhs->nrow;
-    uint_fast32_t rnrow = rhs->nrow;
-    for (uint_fast32_t i = 0; i < nrow; i++) {
-        lhs->x[i * nrow + i] += RIDGE_VAL;
-    }
-    nrow = Initial_At->nrow;
-    for (uint_fast32_t i = 0; i < Initial_At->ncol; i++) {
-        for (uint_fast32_t j = 0; j < nrow; j++) {
-            rhs->x[i * rnrow + j] += RIDGE_VAL * Initial_At->x[i * nrow + j];
+        lhs = calculateLhs(Wbar, J, Sbar, NULL);
+        rhs = calculateRhs(K, Ibar, NULL);
+
+        if ((NULL==J) || (NULL==K) || (NULL==Sbar) || (NULL==Ibar) || (NULL==lhs) || (NULL==rhs)) { goto cleanup; }
+        /* assume ayb->At and Initial_At same size so only need to check one */
+        if ((rhs->nrow != Initial_At->nrow + 1) || (rhs->ncol != Initial_At->ncol)) { goto cleanup; }
+        if (rhs->ncol != (ayb->N->nrow * ayb->N->ncol)) { goto cleanup; }
+
+        // add the solver constant
+        // lhs -> lhs + r Id
+        // rhs -> rhs + r initialA^t
+        uint_fast32_t nrow = lhs->nrow;
+        uint_fast32_t rnrow = rhs->nrow;
+        for (uint_fast32_t i = 0; i < nrow; i++) {
+            lhs->x[i * nrow + i] += RIDGE_VAL;
         }
-    }
-    
-    solverSVD(lhs, rhs, tmp, DELTA_DIAG);
-    
-    /* extract new At and N */
-    nrow = ayb->At->nrow;
-    for (uint_fast32_t i = 0; i < rhs->ncol; i++) {
-        for (uint_fast32_t j = 0; j < nrow; j++) {
-            ayb->At->x[i * nrow + j] = rhs->x[i * rnrow + j];
+        nrow = Initial_At->nrow;
+        for (uint_fast32_t i = 0; i < Initial_At->ncol; i++) {
+            for (uint_fast32_t j = 0; j < nrow; j++) {
+                rhs->x[i * rnrow + j] += RIDGE_VAL * Initial_At->x[i * nrow + j];
+            }
         }
-        ayb->N->x[i] = rhs->x[i * rnrow + rnrow - 1];
+
+        solverSVD(lhs, rhs, tmp, DELTA_DIAG);
+
+        /* extract new At and N */
+        nrow = ayb->At->nrow;
+        for (uint_fast32_t i = 0; i < rhs->ncol; i++) {
+            for (uint_fast32_t j = 0; j < nrow; j++) {
+                ayb->At->x[i * nrow + j] = rhs->x[i * rnrow + j];
+            }
+            ayb->N->x[i] = rhs->x[i * rnrow + rnrow - 1];
+        }
+
+        lambdaf = normalise_MAT(ayb->At,3e-8);
     }
 
-    real_t det = normalise_MAT(ayb->At,3e-8);
-    lambdaf *= det;
-
+    else {
+        /* keep parameters fixed; use copy of A matrix to get lambda scaling factor */
+        MAT At_copy = copy_MAT(ayb->At);
+        lambdaf = normalise_MAT(At_copy,3e-8);
+        free_MAT(At_copy);
+    }
+    
     // Scale lambdas by factor
     scale_MAT(ayb->lambda,lambdaf);
 
@@ -1133,6 +1147,23 @@ bool startup_ayb(void) {
     /* read any M, N, A */
     if (!read_matrices()) {
         return false;
+    }
+    /* check for fixed parameter matrices */
+    if (Matrix[E_NOISE] == NULL) {
+        if (Matrix[E_PARAMA] != NULL) {
+            message(E_BAD_MATRIXIN, MSG_FATAL);
+            return false;
+        }
+    }
+    else {
+        if (Matrix[E_PARAMA] == NULL) {
+            message(E_BAD_MATRIXIN, MSG_FATAL);
+            return false;
+        }
+        else {
+            FixedParam = true;
+            message(E_OPT_SELECT_SS, MSG_INFO, "Fixed parameters", "A and N");
+        }
     }
 
     /* read any quality calibration table */
