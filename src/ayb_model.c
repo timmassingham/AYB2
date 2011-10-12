@@ -458,10 +458,16 @@ RETOPT analyse_tile (const int argc, char ** const argv) {
 
             /* base calling loop */
             int res;
+            real_t resreal;
             for (int i = 0; i < NIter; i++){
                 xfprintf(xstdout, "Iteration: %d\n", i+1);
 
-                estimate_MPN(ayb);
+                resreal = estimate_MPN(ayb);
+                if (isnan(resreal)) {
+                    /* terminate processing */
+                    message(E_PROCESS_FAIL_D, MSG_ERR, i + 1);
+                    break;
+                }
 
                 /* parameters to estimate bases are block index and flag to indicate last iteration */
                 /* return is number of zero lambdas or error */

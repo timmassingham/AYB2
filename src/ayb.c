@@ -300,6 +300,31 @@ static bool read_matrices(void) {
     return found;
 }
 
+/** Set all calls to null (before terminating processing on error). */
+static void set_null_calls(AYB ayb) {
+
+    const uint32_t ncluster = ayb->ncluster;
+    const uint32_t ncycle = ayb->ncycle;
+
+    unsigned int cl = 0;
+    LIST(CLUSTER) node = ayb->tile->clusterlist;
+    while (NULL != node && cl < ncluster){
+        NUC * cl_bases = ayb->bases.elt + cl * ncycle;
+        PHREDCHAR * cl_quals = ayb->quals.elt + cl * ncycle;
+
+        /* call null base for each cycle */
+        for (uint32_t cy = 0; cy < ncycle; cy++){
+            struct basequal bq = call_base_null();
+            cl_bases[cy] = bq.base;
+            cl_quals[cy] = MIN_PHRED;// bq.qual is in quality-score space, want PHRED
+        }
+
+        /* next cluster */
+        node = node->nxt;
+        cl++;
+    }
+}
+
 /** Calculate new weights. */
 static real_t update_cluster_weights(AYB ayb){
     validate(NULL!=ayb,NAN);
@@ -318,6 +343,11 @@ static real_t update_cluster_weights(AYB ayb){
         MAT cycle_ints = node->elt->signals;
         NUC * cycle_bases = ayb->bases.elt + cl*ncycle;
         e = processNew(AtLU, ayb->N, cycle_ints, e);
+        if (NULL == e) {
+            sumLSS = NAN;
+            goto cleanup;
+        }
+
         for ( uint32_t i=0 ; i<ncycle ; i++){
             e->x[i*NBASE+cycle_bases[i]] -= ayb->lambda->x[cl];
         }
@@ -330,9 +360,6 @@ static real_t update_cluster_weights(AYB ayb){
         node = node->nxt;
         cl++;
     }
-    free_MAT(AtLU.mat);
-    xfree(AtLU.piv);
-    free_MAT(e);
 
     /* Calculate weight for each cluster */
     real_t meanLSSi = mean(ayb->we->x,ncluster);
@@ -343,6 +370,13 @@ static real_t update_cluster_weights(AYB ayb){
     }
     //xfputs("Cluster weights:\n",xstderr);
     //show_MAT(xstderr,ayb->we,8,1);
+
+/* cleanup for success and error states */
+cleanup:
+    free_MAT(AtLU.mat);
+    xfree(AtLU.piv);
+    free_MAT(e);
+
     return sumLSS;
 }
 
@@ -730,6 +764,8 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     validate(NULL != ayb, 0);
     const uint32_t ncluster = ayb->ncluster;
     const uint32_t ncycle = ayb->ncycle;
+    struct structLU AtLU = LUdecomposition(ayb->At);
+
     MAT pcl_int = NULL;                 // Shell for processed intensities
     MAT * V_full = NULL;                // Full covariance matrix (array of size 1)
     real_t * qual = NULL;
@@ -755,25 +791,6 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
     if (V_full == NULL) {
         /* set calls to null and terminate processing */
-        unsigned int cl = 0;
-
-        LIST(CLUSTER) node = ayb->tile->clusterlist;
-        while (NULL != node && cl < ncluster){
-            NUC * cl_bases = ayb->bases.elt + cl * ncycle;
-            PHREDCHAR * cl_quals = ayb->quals.elt + cl * ncycle;
-
-            /* call null base for each cycle */
-            for (uint32_t cy = 0; cy < ncycle; cy++){
-                struct basequal bq = call_base_null();
-                cl_bases[cy] = bq.base;
-                cl_quals[cy] = MIN_PHRED;// bq.qual is in quality-score space, want PHRED
-            }
-
-            /* next cluster */
-            node = node->nxt;
-            cl++;
-        }
-
         ret_count = DATA_ERR;
         goto cleanup;
     }
@@ -800,6 +817,11 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
     /* calculate restricted fitted V inverse */
 	ayb->omega = fit_omega(V_full[0], ayb->omega);
+    if (ayb->omega == NULL) {
+        /* set calls to null and terminate processing */
+        ret_count = DATA_ERR;
+        goto cleanup;
+    }
 	
 #ifndef NDEBUG
     if (showdebug) {
@@ -811,9 +833,6 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         fpout = xfclose(fpout);
     }
 #endif    	
-
-    /* process intensities then estimate lambda and call bases for each cluster */
-    struct structLU AtLU = LUdecomposition(ayb->At);
 
 #ifndef NDEBUG
     if (showdebug) {
@@ -830,8 +849,6 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         work = open_processed(ayb, blk);
     }
 
-    unsigned int cl = 0;
-
     /* Temporary storage for (real_t) quality values */
     qual = calloc(ncycle, sizeof(real_t));
     if (NULL == qual) {
@@ -839,6 +856,8 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         goto cleanup;
     }
 
+    /* process intensities then estimate lambda and call bases for each cluster */
+    unsigned int cl = 0;
     LIST(CLUSTER) node = ayb->tile->clusterlist;
     while (NULL != node && cl < ncluster){
         NUC * cl_bases = ayb->bases.elt + cl * ncycle;
@@ -913,6 +932,10 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
 /* cleanup for success and error states */
 cleanup:
+    if (ret_count == DATA_ERR) {
+        set_null_calls(ayb);
+    }
+
     if (show_processed) {
         work = close_processed(work, ayb, blk, ret_count);
         xfree(work);
@@ -944,6 +967,10 @@ real_t estimate_MPN(AYB ayb){
     /*  Calculate new weights */
     //timestamp("Updating weights\n",stderr);
     real_t sumLSS = update_cluster_weights(ayb);
+    if (isnan(sumLSS)) {
+        set_null_calls(ayb);
+        return ret;
+    }
 
     MAT J = NULL, K = NULL;
     MAT Sbar = NULL, Ibar = NULL;
@@ -1025,6 +1052,9 @@ cleanup:
 
     //xfprintf(xstderr,"Initial %e\tImprovement %e\t = %e\n",sumLSS,delta,sumLSS-delta);
     //xfprintf(xstderr,"Updated weights %e\n", update_cluster_weights(ayb));
+    if (isnan(ret)) {
+        set_null_calls(ayb);
+    }
     return ret;
 }
 
