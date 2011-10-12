@@ -325,58 +325,44 @@ static void set_null_calls(AYB ayb) {
     }
 }
 
-/** Calculate new weights. */
+/**
+ * Calculate and store the least squares error for a cluster.
+ * ip is the pre-calculated processed intensities for the given cluster.
+ */
+static void store_cluster_error(AYB ayb, MAT ip, unsigned int cl){
+    validate(NULL!=ayb,);
+    validate(NULL!=ip,);
+    validate(cl < ayb->ncluster,);
+    const uint32_t ncycle = ayb->ncycle;
+
+    ayb->we->x[cl] = 0.;
+    NUC * cycle_bases = ayb->bases.elt + cl*ncycle;
+
+    for ( uint32_t i=0 ; i<ncycle ; i++){
+        ip->x[i*NBASE+cycle_bases[i]] -= ayb->lambda->x[cl];
+    }
+    for( uint32_t idx=0 ; idx<NBASE*ncycle ; idx++){
+        ayb->we->x[cl] += ip->x[idx]*ip->x[idx];
+    }
+}
+
+/** Calculate new weights assuming least squares error already stored. */
 static real_t update_cluster_weights(AYB ayb){
     validate(NULL!=ayb,NAN);
     const uint32_t ncluster = ayb->ncluster;
-    const uint32_t ncycle   = ayb->ncycle;
     real_t sumLSS = 0.;
-
-    MAT e = NULL;
-    struct structLU AtLU = LUdecomposition(ayb->At);
-
-    /*  Calculate least squares error, using ayb->we as temporary storage */
-    unsigned int cl = 0;
-    LIST(CLUSTER) node = ayb->tile->clusterlist;
-    while (NULL != node && cl < ncluster){
-        ayb->we->x[cl] = 0.;
-        MAT cycle_ints = node->elt->signals;
-        NUC * cycle_bases = ayb->bases.elt + cl*ncycle;
-        e = processNew(AtLU, ayb->N, cycle_ints, e);
-        if (NULL == e) {
-            sumLSS = NAN;
-            goto cleanup;
-        }
-
-        for ( uint32_t i=0 ; i<ncycle ; i++){
-            e->x[i*NBASE+cycle_bases[i]] -= ayb->lambda->x[cl];
-        }
-        for( uint32_t idx=0 ; idx<NBASE*ncycle ; idx++){
-            ayb->we->x[cl] += e->x[idx]*e->x[idx];
-        }
-        sumLSS += ayb->we->x[cl];
-
-        /* next cluster */
-        node = node->nxt;
-        cl++;
-    }
 
     /* Calculate weight for each cluster */
     real_t meanLSSi = mean(ayb->we->x,ncluster);
     real_t varLSSi = variance(ayb->we->x,ncluster);
     for ( uint32_t cl=0 ; cl<ncluster ; cl++){
+        sumLSS += ayb->we->x[cl];
         const real_t d = ayb->we->x[cl]-meanLSSi;
         ayb->we->x[cl] = cauchy(d*d,varLSSi);
     }
+
     //xfputs("Cluster weights:\n",xstderr);
     //show_MAT(xstderr,ayb->we,8,1);
-
-/* cleanup for success and error states */
-cleanup:
-    free_MAT(AtLU.mat);
-    xfree(AtLU.piv);
-    free_MAT(e);
-
     return sumLSS;
 }
 
@@ -916,6 +902,9 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         /* don't do if last iteration for working values */
         if (!lastiter) {
             ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
+
+            /* store the least squares error */
+            store_cluster_error(ayb, pcl_int, cl);
         }
 
         /* next cluster */
@@ -1140,6 +1129,9 @@ bool initialise_model(AYB ayb, const bool showdebug) {
         }
         /* initial lambda */
         ayb->lambda->x[cl] = estimate_lambdaOLS(pcl_int, cl_bases);
+
+        /* store the least squares error */
+        store_cluster_error(ayb, pcl_int, cl);
 
         /* next cluster */
         node = node->nxt;
