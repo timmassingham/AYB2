@@ -261,7 +261,7 @@ int main ( int argc, char * argv[]){
     for (int ch = MAX_PHRED + 1; ch <= CHAR_MAX; ch++) {
         show_PHREDCHAR(xstdout, (char)ch);
     }
-    xfputs("\n(should all be blank)\n", xstdout);
+    xfprintf(xstdout, "\n(should all be %c)\n", MIN_PHRED);
 
     xfputs("Coerced to quality range : ", xstdout);
     for (char ch = 0; ch < MIN_PHRED; ch++) {

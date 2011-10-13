@@ -1,4 +1,4 @@
-AYB Message Log;	Created by hazelm;	08 March 2011 16:07
+AYB Message Log;	Created by hazelm;	12 October 2011 15:06
 
 Information: Log message output level: Warning
 None: All available cycles in one block selected
@@ -8,6 +8,7 @@ None: All available cycles in one block selected
 None: Blockstring option contains no datablocks
 None: No file pattern match supplied
 None: Number of model iterations incorrectly supplied
+None: Need to supply neither or both parameter matrices (A and N)
 None: Run folder option invalid with txt input format
 Fatal: Memory allocation failed during xxx1
 Fatal: Log message output level: xxx1

@@ -13,14 +13,14 @@ Stored length            : 10
 Store/write sequence     : ACGTAATGNC
 Reversed sequence        : GNCATTACGT
 
-Outside range qualchars  :                                  ... 
-(should all be blank)
+Outside range qualchars  : !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!...!
+(should all be !)
 Coerced to quality range : !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!...~
 (should all be ! or ~)
 Range of qualchars       : !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
 
 Quality character from probability:
-prob: -0.10000000, value:   0, quality:  
+prob: -0.10000000, value:   0, quality: !
 prob:  0.00000000, value:  33, quality: !
 prob:  0.50000000, value:  36, quality: $
 prob:  0.80000000, value:  40, quality: (
@@ -34,7 +34,7 @@ prob:  0.99999900, value:  93, quality: ]
 prob:  0.99999990, value: 103, quality: g
 prob:  0.99999999, value: 113, quality: q
 prob:  1.00000000, value: 126, quality: ~
-prob:  1.10000000, value:   0, quality:  
+prob:  1.10000000, value:   0, quality: !
 Quality character from probability via value:
 prob: -0.10000000, qual value:  0.00, quality: !
 prob:  0.00000000, qual value:  0.00, quality: !
