@@ -213,7 +213,7 @@ static real_t newtonObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n
  *  (-inf,0) -> (min_cut,0)
  */
 static real_t transform( real_t lam, real_t min_cut){
-    return finite(min_cut) ? (-expm1(lam)*min_cut) : lam;
+    return finite(min_cut) ? (-expm1(lam)*min_cut*(1-1e-12)) : lam;
 }
 
 /**
@@ -301,6 +301,8 @@ static real_t linemin_obj(real_t *u,const unsigned int np, const real_t * d, voi
         real_t lambda_tran = transform(lambda,min_cut);
         // Newton adjustment to Lambda
         real_t adj = newtonObj(lambda_tran,a,b,ratio,n)/dtransform(lambda_tran,min_cut);
+        /* limit adjustment */
+        if (adj > 2.0) { adj = 2.0; }
 
         // Ensure solution has improved
         // Repeatedly halve adjustment until definitely have improvement.
