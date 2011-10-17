@@ -660,6 +660,7 @@ int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag){
 }
 
 
+#ifdef FORTRAN
 /** 
  * Solve system of linear equations using non-negative least squares.
  * Wrapper for Fortran routine in s/dnnls.f.
@@ -714,6 +715,7 @@ int solverNNLS(MAT lhs, MAT rhs, real_t *tmp, const real_t delta_diag){
     return MODE;
 #endif
 }
+#endif
 
 
 #ifdef TEST
