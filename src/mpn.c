@@ -945,6 +945,7 @@ int main ( void){
     xfprintf(xstdout,"P zero solution matrix (info=%d):\n",retP);
     show_MAT(xstdout,Prhs_copy,0,0);
 
+#ifdef FORTRAN
     /* NNLS */
     Plhs_copy = copyinto_MAT(Plhs_copy, Plhs);
     Prhs_copy = copyinto_MAT(Prhs_copy, Prhs);
@@ -952,6 +953,7 @@ int main ( void){
     retP = solverNNLS(Plhs_copy, Prhs_copy, tmp, 0.0);
     xfprintf(xstdout,"P nnls solution matrix (info=%d):\n",retP);
     show_MAT(xstdout,Prhs_copy,0,0);
+#endif
 
     /* nothing freed but exiting anyway */
     return EXIT_SUCCESS;
