@@ -9,10 +9,10 @@ Illumina sequencing platform.
 
 SYNOPSIS
 --------
-*AYB* [-b blockstring] [-c composition] [-d input format] [-e log file]
+*AYB* [-b blockstring] [-d input format] [-e log file]
     [-f output format] [-i input path] [-l log level] [-m mu]
     [-n iterations] [-o output path] [-q] [-r] [-s header] [-w] 
-    [-M Crosstalk] [-N Noise] [-P Phasing] [-Q quality tab] [-S Solver]
+    [-A Parameter A] [-M Crosstalk] [-N Noise] [-Q quality tab]
     'prefix'[\+]/lane tile range ['prefix'[+]/lane tile range ...]
 
 *AYB* --help
@@ -75,6 +75,14 @@ redirected to a file in the standard way or through the 'logfile' option.
 
 OPTIONS
 -------
+*-A,  --A* <filepath>::
+	Predetermined fixed Parameter A matrix file path.
+	Format is a list of columns, one column per row with the first row 
+	containing the number of rows and columns (size 4 x ncycle by 4 x ncycle).
+	Parameter A incorporates Crosstalk and Phasing.
+	If supplied then Noise matrix file path must also be supplied.
+	If not supplied then initially set from initial Crosstalk before estimation during modelling.
+
 *-b,  --blockstring* <Rn[InCn...]> [default: all in a single block]::
 	How to group cycle data in intensity files for analysis, decoded as:
 	
@@ -82,13 +90,6 @@ OPTIONS
 	- I => Ignore 
 	- C => Concatenate onto previous block (first R must precede first C)
 	
-*-c, --composition* <proportion GC> [default: 0.5]::
-    The GC content of the material being sequenced, for use as a
-	prior when calling bases. The default setting is equivalent
-	to an equal prior on all bases.
-	The composition should be a proportion strictly between zero
-	and one.
-
 *-d,  --dataformat* <format> [default: cif]::
 	Input format (cif/txt).
 
@@ -110,28 +111,25 @@ OPTIONS
 	Adjust range of quality scores (smaller value for higher maximum quality score).
 
 *-M,  --M* <filepath>::
-	Predetermined Crosstalk matrix file path. 
+	Predetermined initial Crosstalk matrix file path.
 	Format is a list of columns, one column per row with the first row 
-	containing the number of rows and columns (size 4 x 4).
+	containing the number of rows and columns (size 4 by 4).
+	Used to initialise Parameter A matrix.
 	If not supplied then a standard set of initial values are used.
+	Ignored if fixed Parameter A and N matrices also supplied.
 
 *-n,  --niter* <num> [default: 5]::
 	Number of model iterations.
 
 *-N,  --N* <filepath>::
-	Predetermined Noise matrix file path. 
+	Predetermined fixed Noise matrix file path.
 	Format is a list of columns, one column per row with the first row 
-	containing the number of rows and columns (size 4 x ncycle).	
-	If not supplied then initially set to zero.
+	containing the number of rows and columns (size 4 by ncycle).	
+	If supplied then Parameter A matrix file path must also be supplied.
+	If not supplied then initially set to zero before estimation during modelling.
 
 *-o,  --output* <path> [default: ""]::
 	Location to create output files. Will be created if does not exist.
-
-*-P,  --P* <filepath>::
-	Predetermined Phasing matrix file path. 
-	Format is a list of columns, one column per row with the first row 
-	containing the number of rows and columns (size ncycle x ncycle).
-	If not supplied then initially set to identity.
 
 *-q,  --noqualout*::
     Do not output quality calibration table.
@@ -172,13 +170,6 @@ OPTIONS
     Use ANSI-C style bash quoting ($\'...') to allow escape sequences such as newline (\n) to be interpreted. 
     The output file name is `{filename}.runfile` (cif) or `{filename}_runfile.txt` (txt).
 
-*-S,  --solver* <solver> [default zero]::
-	Linear equation solver to use for P matrix. Options are:
-	
-    - 'ls'	least squares, allow negatives.
-    - 'zero'	least squares then set negatives to zero.
-    - 'nnls'	non-negative least squares.
-
 *-w,  --working*::
 	Output final working values. Files created are:
 	
@@ -190,9 +181,9 @@ OPTIONS
 	Format as a collection of matrices.
 	Filenames `{filename}[x].final` (cif) or `{filename}[x]_final.txt` (txt).
 	
-	Crosstalk, Noise and Phasing matrices:::
+	Parameter A and Noise matrices:::
 	Format as predetermined matrix input.
-	Filenames `{filename}[x].M/N/P` (cif) or `{filename}[x]_M/N/P.txt` (txt).	
+	Filenames `{filename}[x].A/N` (cif) or `{filename}[x]_A/N.txt` (txt).	
 
 *--help*::
 	Display this help.
@@ -237,6 +228,7 @@ What is an `N' base call?::
 What causes a sequence to be all A's with quality `!'?::
     Lambda has evaluated to zero for that cluster meaning base calls cannot be made.
     Zero lambda counts (if any) are shown in the message log.
+    In newer versions base calls are made and zero lambdas are indicated by qualities being all set to `"'.
 
 TO DO
 -----
