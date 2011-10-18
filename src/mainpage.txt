@@ -35,7 +35,7 @@ See the Makefile for the correct syntax.
 \section inputs Inputs
 Program inputs are:
 - Intensities files in cif or txt format
-- Optional initial Crosstalk (M), Noise (N), and Phasing (P) matrices in column per row format
+- Optional initial Crosstalk (M) or fixed Noise (N) and Parameter A (A) matrices in column per row format
 - Optional quality calibration table
 
 All file access for input is handled in module dirio (dirio.c).
@@ -155,6 +155,7 @@ The following utilities and libraries are required to make/run the program:
 Utilities:
 - gcc (GNU C compiler; part of GNU Compiler Collection)
 - gfortran (GNU Fortran compiler; part of GNU Compiler Collection)
+  (not required from v2.05)
 - make (GNU make utility)
 
 Libraries:
@@ -237,6 +238,7 @@ The module testing can be expanded, and the reference files updated if required,
 /**
 \page switches Program Switches
  The following program switches are available:
+ - FORTRAN - include code that uses fortran library 
  - NDEBUG - exclude debug code (set by default)
  - NFORTRAN - exclude links to fortran that requires compilation (libraries are not affected)
  - USEFLOAT - use float for calculations instead of double
