@@ -1,6 +1,23 @@
 AYB ChangeLog
 =============
 
+Version 2.05 (2011-10-18)
+-------------------------
+
+.Additions and changes
+
+- Implement improved algorithm using generalised phasing model.
+
+
+Regression issues
+~~~~~~~~~~~~~~~~~
+
+Option P (Phasing) is replaced by A (Parameter A).
+Options composition (c) and solver (S) are no longer available.
+
+The fortran library dependency has been removed.
+
+
 Version 2.04 (2011-07-22)
 -------------------------
 
