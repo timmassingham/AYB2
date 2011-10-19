@@ -8,6 +8,7 @@ The following utilities and libraries must be installed to make/run the program:
 Utilities::
 - gcc (GNU C compiler; part of GNU Compiler Collection)
 - gfortran (GNU Fortran compiler; part of GNU Compiler Collection)
+  (not required from v2.05)
 - make (GNU make utility)
 
 Libraries::
