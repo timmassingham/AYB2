@@ -29,7 +29,11 @@
 #include "utility.h"
 
 /* constants */
+
 static const int BLOCK_SIZE = 4;             ///< Same as NBASE.
+
+/** Multiplier that is almost one to ensure that lambda can never actually be equal to min_cut. */ 
+static const real_t ALMOST_ONE = 1.0 - 3.0e-8;
 
 /* members */
 /* None    */
@@ -39,7 +43,7 @@ static const int BLOCK_SIZE = 4;             ///< Same as NBASE.
 
 /**
  *  Update gamma_i using Polak and Ribiere method.
- *  gamma_i = (gradNew - gradOld) . gradNew / gradNew.gradNew
+ *  gamma_i = (gradNew - gradOld) . gradNew / gradOld.gradOld
  */
 static real_t gammaI( const real_t * gradOld, const real_t * gradNew, const unsigned int n){
     if(NULL==gradOld || NULL==gradNew){ return NAN;}
@@ -148,7 +152,7 @@ static void gradObj(const real_t *u,const unsigned int np, real_t * g, void * in
  *  scalars a, b and the vector ratio[]. See linemin_obj for details.
  */
 static real_t deltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n){
-    if(NULL==ratio || !finite(lambda) || !finite(a) || !finite(b)){ return NAN; }
+    if(NULL==ratio || !isfinite(lambda) || !isfinite(a) || !isfinite(b)){ return NAN; }
 
     real_t res = lambda*(a + b * lambda);
     for ( int i=0 ; i<n ; i++){
@@ -163,7 +167,7 @@ static real_t deltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n)
  *  scalars a, b and the vector ratio[]. See linemin_obj for details.
  */
 static real_t ddeltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n){
-    if(NULL==ratio || !finite(lambda) || !finite(a) || !finite(b)){ return NAN; }
+    if(NULL==ratio || !isfinite(lambda) || !isfinite(a) || !isfinite(b)){ return NAN; }
 
     real_t res = a + 2.0 * b * lambda;
     for ( int i=0 ; i<n ; i++){
@@ -178,7 +182,7 @@ static real_t ddeltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n
  *  scalars a, b and the vector ratio[]. See linemin_obj for details.
  */
 static real_t d2deltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n){
-    if(NULL==ratio || !finite(lambda) || !finite(a) || !finite(b)){ return NAN; }
+    if(NULL==ratio || !isfinite(lambda) || !isfinite(a) || !isfinite(b)){ return NAN; }
 
     real_t res = 2.0 * b;
     for ( int i=0 ; i<n ; i++){
@@ -195,7 +199,7 @@ static real_t d2deltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int 
  *  Slightly more efficient than calculating both separately.
  */
 static real_t newtonObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n){
-    if(NULL==ratio || !finite(lambda) || !finite(a) || !finite(b)){ return NAN; }
+    if(NULL==ratio || !isfinite(lambda) || !isfinite(a) || !isfinite(b)){ return NAN; }
 
     real_t top=0.0,bot=0.0;
     top = a + 2.0 * b * lambda;
@@ -210,18 +214,18 @@ static real_t newtonObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n
 
 /**
  *  Coordinate transform to ensure that lambda never crosses min_cut.
- *  (-inf,0) -> (min_cut,0)
+ *  (-inf,0) -> (min_cut*ALMOST_ONE,0)
  */
 static real_t transform( real_t lam, real_t min_cut){
-    return finite(min_cut) ? (-expm1(lam)*min_cut*(1-1e-12)) : lam;
+    return isfinite(min_cut) ? ALMOST_ONE*(-expm1(lam)*min_cut) : lam;
 }
 
 /**
  *  Derviative of coordinate transform to ensure that lambda never crosses min_cut.
- *  (-inf,0) -> (min_cut,0)
+ *  (-inf,0) -> (min_cut*ALMOST_ONE,0)
  */
 static real_t dtransform( real_t lamt, real_t min_cut){
-    return finite(min_cut) ? (lamt-min_cut) : 1.0;
+    return isfinite(min_cut) ? ALMOST_ONE*(lamt-min_cut) : 1.0;
 }
 
 /**
@@ -300,9 +304,11 @@ static real_t linemin_obj(real_t *u,const unsigned int np, const real_t * d, voi
         // Transformed lambda
         real_t lambda_tran = transform(lambda,min_cut);
         // Newton adjustment to Lambda
+        // (bound by 2.0 to reduce possibility of diverging to infinity).
         real_t adj = newtonObj(lambda_tran,a,b,ratio,n)/dtransform(lambda_tran,min_cut);
-        /* limit adjustment */
-        if (adj > 2.0) { adj = 2.0; }
+        if(fabs(adj)>2.0){
+            adj = (adj>0.0)?2.0:-2.0;
+        }
 
         // Ensure solution has improved
         // Repeatedly halve adjustment until definitely have improvement.
@@ -370,7 +376,7 @@ MAT fit_omega(const MAT V, MAT omega){
     if(omega==NULL){
         omega = new_MAT(n,n);
         if(NULL==omega){ return NULL; }
-        for ( int i=0 ; i<n ; i++){ omega->x[i*n+i] = 1.0/V->x[i*n+i]; }
+        for ( int i=0 ; i<n ; i++){ omega->x[i*n+i] = 1.e-5 + 1.0/(1.0e-5 + V->x[i*n+i]); }
     }
     // Get Cholesky factorisation
     cholesky(omega);
@@ -383,7 +389,7 @@ MAT fit_omega(const MAT V, MAT omega){
     MAT d = copy_MAT(grad);
 
     // Conjugate gradient optimisation
-    int max_it = 40;
+    int max_it = 400;
     real_t initObj = objective(omega->x,n*n,(void *)V);
     for ( int i=0 ; i<max_it ; i++){
         // Minimise along direction.
@@ -417,6 +423,8 @@ MAT fit_omega(const MAT V, MAT omega){
     
 #ifdef TEST
 #include <stdlib.h>
+#include <err.h>
+
 const real_t vArr[] = {
     2.063893564, 1.160316934, -0.869556069, -1.108887191, 2.258075616,
     0.068911827, -0.714806040, 0.998297497, 1.091978610, 2.086450099,
@@ -529,38 +537,57 @@ real_t omArr[] = {
 
 // Objective is 72.68812
 
-int main(void){
-    MAT V = new_MAT_from_array(16,16,vArr);
-    /*MAT Om0 = new_MAT_from_array(16,16,omArr);
-    cholesky(Om0);
-    show_MAT(xstdout,Om0,0,0);
-    fprintf(stdout,"Objective = %e\n",objective(Om0->x,16*16,(void *)V));
-
-    MAT grad = new_MAT(16,16);
-    gradObj(Om0->x,16*16,grad->x,(void *) V);
-    show_MAT(xstdout,grad,0,0);
-
-    MAT grad2 = new_MAT(16,16);
-    MAT d = copy_MAT(grad);
-    for ( int i=0 ; i<30 ; i++){
-        real_t delta = linemin_obj(Om0->x,16*16,d->x,(void *)V);
-        fprintf(stdout,"Improvement is %e\n",delta);
+int main(int argc, char * argv[]){
+    if(argc==1){
+        MAT V = new_MAT_from_array(16,16,vArr);
+        /*MAT Om0 = new_MAT_from_array(16,16,omArr);
+        cholesky(Om0);
+        show_MAT(xstdout,Om0,0,0);
         fprintf(stdout,"Objective = %e\n",objective(Om0->x,16*16,(void *)V));
-        // Update direction
-        gradObj(Om0->x,16*16,grad2->x,(void *) V);
-        real_t gi = gammaI(grad->x,grad2->x,16*16);
-        for ( int i=0 ; i<16*16 ; i++){
-            d->x[i] = grad2->x[i] + gi*d->x[i];
-            grad->x[i] = grad2->x[i];
+
+        MAT grad = new_MAT(16,16);
+        gradObj(Om0->x,16*16,grad->x,(void *) V);
+        show_MAT(xstdout,grad,0,0);
+
+        MAT grad2 = new_MAT(16,16);
+        MAT d = copy_MAT(grad);
+        for ( int i=0 ; i<30 ; i++){
+            real_t delta = linemin_obj(Om0->x,16*16,d->x,(void *)V);
+            fprintf(stdout,"Improvement is %e\n",delta);
+            fprintf(stdout,"Objective = %e\n",objective(Om0->x,16*16,(void *)V));
+            // Update direction
+            gradObj(Om0->x,16*16,grad2->x,(void *) V);
+            real_t gi = gammaI(grad->x,grad2->x,16*16);
+            for ( int i=0 ; i<16*16 ; i++){
+                d->x[i] = grad2->x[i] + gi*d->x[i];
+                grad->x[i] = grad2->x[i];
+            }
+        }*/
+
+        MAT omega = fit_omega(V,NULL);
+        MAT omegaInv = invert_symmetric(omega);
+        show_MAT(xstdout,V,0,0);
+        show_MAT(xstdout,omegaInv,0,0);
+        show_MAT(xstdout,omega,0,0);
+    } 
+
+    else {  
+        //read from file
+        FILE * fp = fopen(argv[1],"r");
+        int nr,nc;
+        fscanf(fp,"%d%d",&nr,&nc);
+        if(nr!=nc){ errx(EXIT_FAILURE,"nrow!=ncol");}
+        real_t * x = calloc(nr*nc,sizeof(real_t));
+        for ( int i=0 ; i<nr*nc ; i++){
+               fscanf(fp,REAL_FORMAT_IN,&x[i]);
         }
-    }*/
-
-    MAT omega = fit_omega(V,NULL);
-    MAT omegaInv = invert_symmetric(omega);
-    show_MAT(xstdout,V,0,0);
-    show_MAT(xstdout,omegaInv,0,0);
-    show_MAT(xstdout,omega,0,0);
-
+        MAT m = new_MAT_from_array(nr,nc,x);
+        MAT omega2 = fit_omega(m,NULL);
+        MAT omegaInv2 = invert_symmetric(omega2);
+        //show_MAT(xstdout,m,0,0);
+        //show_MAT(xstdout,omegaInv2,0,0);
+        show_MAT(xstdout,omega2,0,0);
+    }
 
     return EXIT_SUCCESS;
 }
