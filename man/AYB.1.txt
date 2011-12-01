@@ -10,7 +10,7 @@ Illumina sequencing platform.
 SYNOPSIS
 --------
 *AYB* [-b blockstring] [-d input format] [-e log file]
-    [-f output format] [-i input path] [-l log level] [-m mu]
+    [-f output format] [-g generr] [-i input path] [-l log level]
     [-n iterations] [-o output path] [-q] [-r] [-s header] [-w] 
     [-A Parameter A] [-M Crosstalk] [-N Noise] [-Q quality tab]
     'prefix'[\+]/lane tile range ['prefix'[+]/lane tile range ...]
@@ -101,14 +101,14 @@ OPTIONS
 *-f,  --format* <format> [default: fastq]::
 	Output format (fasta/fastq).
 
+*-g,  --generr* <num> [default: 38]::
+	Generalised error value (higher value for higher quality scores).
+
 *-i,  --input* <path> [default: ""]::
 	Location of input files. A 'prefix' may also contain a full or partial path.
 
 *-l,  --loglevel* <level> [default: warning]::
 	Level of message output (none/fatal/error/warning/information/debug).
-
-*-m,  --mu* <num> [default: 1.0E-5]::
-	Adjust range of quality scores (smaller value for higher maximum quality score).
 
 *-M,  --M* <filepath>::
 	Predetermined initial Crosstalk matrix file path.
