@@ -108,3 +108,35 @@ real_t estimate_lambdaWLS( const MAT p, const NUC * base, const real_t oldlambda
     real_t lambda = (denominator>0.)?(numerator / denominator):0.;
     return (lambda>0.)?lambda:0.;
 }
+
+/**
+ * Estimate lambda by least square.
+ * vec(I_i - N) = lambda_i A vec(S_i)
+ * \n Solution is y^t A s / s^tA^tAs where y = Vec(I_i - N) and s = Vec(S_i)
+ */
+real_t estimate_lambda_A ( const MAT intensity, const MAT N, const MAT At, const NUC * base){
+    if(NULL==intensity || NULL==N || NULL==At || NULL==base){ return NAN; }
+    const uint32_t ncycle = intensity->ncol;
+
+    // Calculate A vec(S_i)
+    const int lda = NBASE*ncycle;
+    real_t As[lda];
+    for ( int i=0 ; i<lda ; i++){
+        As[i] = 0.;
+        for ( int j=0 ; j<ncycle ; j++){
+            const int idx = j*NBASE+base[j];
+            As[i] += At->x[i*lda+idx];
+        }
+    }
+    // Numerator and denominator of solution
+    real_t sAAs = 0.0;
+    real_t sAy = 0.0;
+    for ( int i=0 ; i<lda ; i++){
+        sAAs += As[i]*As[i];
+        sAy += (intensity->xint[i]-N->x[i]) * As[i];
+    }
+
+    // Ensure that lambda is sufficiently positive.
+    real_t lambda = sAy/sAAs;
+    return (lambda>0.)?lambda:0.;
+}

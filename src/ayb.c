@@ -859,7 +859,8 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         }
 
         /* estimate lambda using Weighted Least Squares */
-        ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
+//        ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
+        ayb->lambda->x[cl] = estimate_lambda_A (node->elt->signals, ayb->N, ayb->At, cl_bases);
         if (ayb->lambda->x[cl] == 0.0) {
             ret_count++;
         }
@@ -901,7 +902,8 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         /* repeat estimate lambda with the new bases */
         /* don't do if last iteration for working values */
         if (!lastiter) {
-            ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
+//            ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
+            ayb->lambda->x[cl] = estimate_lambda_A (node->elt->signals, ayb->N, ayb->At, cl_bases);
 
             /* store the least squares error */
             store_cluster_error(ayb, pcl_int, cl);
@@ -1128,7 +1130,8 @@ bool initialise_model(AYB ayb, const bool showdebug) {
             cl_quals[cy] = MIN_PHRED;
         }
         /* initial lambda */
-        ayb->lambda->x[cl] = estimate_lambdaOLS(pcl_int, cl_bases);
+//        ayb->lambda->x[cl] = estimate_lambdaOLS(pcl_int, cl_bases);
+        ayb->lambda->x[cl] = estimate_lambda_A (node->elt->signals, ayb->N, ayb->At, cl_bases);
 
         /* store the least squares error */
         store_cluster_error(ayb, pcl_int, cl);

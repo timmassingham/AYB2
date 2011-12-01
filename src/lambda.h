@@ -34,5 +34,6 @@
 
 real_t estimate_lambdaOLS( const MAT p, const NUC * base);
 real_t estimate_lambdaWLS( const MAT p, const NUC * base, const real_t oldlambda, const real_t * v);
+real_t estimate_lambda_A ( const MAT intensity, const MAT N, const MAT At, const NUC * base);
 
 #endif /* LAMBDA_H_ */
