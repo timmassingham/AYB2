@@ -1,6 +1,22 @@
 AYB ChangeLog
 =============
 
+Version 2.06 (2011-12-01)
+-------------------------
+
+.Additions and changes
+
+- Implement new lambda calculation and other minor changes to improve robustness.
+
+- Implement improved quality scoring using similar algorithm to generalised phasing model.
+
+
+Regression issues
+~~~~~~~~~~~~~~~~~
+
+Quality score related option mu (m) is replaced by a generalised error value (g). 
+
+
 Version 2.05 (2011-10-18)
 -------------------------
 
