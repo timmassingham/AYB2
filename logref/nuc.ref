@@ -20,34 +20,34 @@ Coerced to quality range : !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!...~
 Range of qualchars       : !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
 
 Quality character from probability:
-prob: -0.10000000, value:   0, quality: !
+prob: -0.10000000, value:  33, quality: !
 prob:  0.00000000, value:  33, quality: !
 prob:  0.50000000, value:  36, quality: $
 prob:  0.80000000, value:  40, quality: (
 prob:  0.90000000, value:  43, quality: +
 prob:  0.95000000, value:  46, quality: .
 prob:  0.99000000, value:  53, quality: 5
-prob:  0.99900000, value:  63, quality: ?
-prob:  0.99990000, value:  73, quality: I
-prob:  0.99999000, value:  83, quality: S
-prob:  0.99999900, value:  93, quality: ]
-prob:  0.99999990, value: 103, quality: g
-prob:  0.99999999, value: 113, quality: q
+prob:  0.99500000, value:  56, quality: 8
+prob:  0.99950000, value:  66, quality: B
+prob:  0.99995000, value:  76, quality: L
+prob:  0.99999500, value:  86, quality: V
+prob:  0.99999950, value:  96, quality: `
+prob:  0.99999995, value: 106, quality: j
 prob:  1.00000000, value: 126, quality: ~
-prob:  1.10000000, value:   0, quality: !
+prob:  1.10000000, value:  33, quality: !
 Quality character from probability via value:
-prob: -0.10000000, qual value:  0.00, quality: !
+prob: -0.10000000, qual value: -0.41, quality: !
 prob:  0.00000000, qual value:  0.00, quality: !
 prob:  0.50000000, qual value:  3.01, quality: $
 prob:  0.80000000, qual value:  6.99, quality: (
 prob:  0.90000000, qual value: 10.00, quality: +
 prob:  0.95000000, qual value: 13.01, quality: .
 prob:  0.99000000, qual value: 20.00, quality: 5
-prob:  0.99900000, qual value: 30.00, quality: ?
-prob:  0.99990000, qual value: 40.00, quality: I
-prob:  0.99999000, qual value: 50.00, quality: S
-prob:  0.99999900, qual value: 60.00, quality: ]
-prob:  0.99999990, qual value: 70.00, quality: g
-prob:  0.99999999, qual value: 80.00, quality: q
+prob:  0.99500000, qual value: 23.01, quality: 8
+prob:  0.99950000, qual value: 33.01, quality: B
+prob:  0.99995000, qual value: 43.01, quality: L
+prob:  0.99999500, qual value: 53.01, quality: V
+prob:  0.99999950, qual value: 63.01, quality: `
+prob:  0.99999995, qual value: 73.01, quality: j
 prob:  1.00000000, qual value:   inf, quality: ~
-prob:  1.10000000, qual value:  0.00, quality: !
+prob:  1.10000000, qual value:   nan, quality: !
