@@ -39,11 +39,13 @@
 
 /* private functions */
 
+/*
 static bool isprob( const real_t p){
     if(p>1.0){ return false; }
     if(p<0.0){ return false; }
     return true;
 }
+*/
 
 /* public functions */
 
@@ -139,8 +141,10 @@ PHREDCHAR phredchar_from_char( const char c){
 
 /** Convert probability of error to PHRED-style character representation. */
 PHREDCHAR phredchar_from_prob( real_t p){
-    validate(isprob(p),ERR_PHRED);
-    real_t c = MIN_PHRED - 10*log1p(-p)/log(10);
+//    validate(isprob(p),ERR_PHRED);
+    real_t c = MIN_PHRED - 10.*log1p(-p)/log(10.);
+    if(isnan(c)){ c = MIN_PHRED; }              // probability > 1
+    else if(!isfinite(c)){ c = MAX_PHRED; }     // probability = 1 
     if(c<MIN_PHRED){c=MIN_PHRED;}
     if(c>MAX_PHRED){c=MAX_PHRED;}
     return (PHREDCHAR)(c+0.5);
@@ -148,16 +152,18 @@ PHREDCHAR phredchar_from_prob( real_t p){
 
 /** Convert probability of error to PHRED-style quality value. */
 real_t quality_from_prob( real_t p){
-    validate(isprob(p),ERR_PHRED);
+//    validate(isprob(p),ERR_PHRED);
 	return -10.*log1p(-p)/log(10.);
 }
 
 /** Convert PHRED-style quality value to character representation. */
 PHREDCHAR phredchar_from_quality( real_t qual){
-   real_t c  = MIN_PHRED + qual;
-   if(c<MIN_PHRED){c=MIN_PHRED;}
-   if(c>MAX_PHRED){c=MAX_PHRED;}
-   return (PHREDCHAR)(c+0.5);
+    real_t c  = MIN_PHRED + qual;
+    if(isnan(c)){ c = MIN_PHRED; }              // probability > 1
+    else if(!isfinite(c)){ c = MAX_PHRED; }     // probability = 1 
+    if(c<MIN_PHRED){c=MIN_PHRED;}
+    if(c>MAX_PHRED){c=MAX_PHRED;}
+    return (PHREDCHAR)(c+0.5);
 }
 
 
@@ -166,7 +172,7 @@ PHREDCHAR phredchar_from_quality( real_t qual){
 #include <string.h>
 #include <limits.h>
 
-static real_t probs[] = {-0.1, 0.0, 0.5, 0.8, 0.9, 0.95, 0.99, 0.999, 0.9999, 0.99999, 0.999999, 0.9999999, 0.99999999, 1.0, 1.1};
+static real_t probs[] = {-0.1, 0.0, 0.5, 0.8, 0.9, 0.95, 0.99, 0.995, 0.9995, 0.99995, 0.999995, 0.9999995, 0.99999995, 1.0, 1.1};
 
 int main ( int argc, char * argv[]){
     if(argc<2){
