@@ -90,8 +90,8 @@ static const char *MSG_TEXT[] = {
         "",                                                                     // E_END_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
         "",                                                                     // E_END_SDD
-        "%s selected: %0.2E\n",                                                 // E_OPT_SELECT_SE
-        "",                                                                     // E_END_SE
+        "%s selected: %G\n",                                                    // E_OPT_SELECT_SG
+        "",                                                                     // E_END_SG
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
         "",                                                                     // E_END_C
         "Processing failed at iteration %d; calls set to null\n",               // E_PROCESS_FAIL_D
@@ -360,6 +360,7 @@ static const char CHAR1 = 'x';
 static const int INT1 = 9;
 static const int INT2 = 99;
 static const real_t EXP1 = 1e-5;
+static const real_t FLOAT1 = 99.99;
 
 int main ( int argc, char * argv[]){
     if(argc<3){
@@ -452,11 +453,14 @@ int main ( int argc, char * argv[]){
             message(typi, sev, STRING1, INT1, INT2);
         }
         sev = (sev + 1) % MSG_NUM;
-        for (MSGTYPE typi = E_END_SDD + 1; typi < E_END_SE; typi++) {
+        for (MSGTYPE typi = E_END_SDD + 1; typi < E_END_SG; typi++) {
+            /* test a variety of numbers with g specifier */
             message(typi, sev, STRING1, EXP1);
+            message(typi, sev, STRING1, FLOAT1);
+            message(typi, sev, STRING1, (real_t) INT1);
         }
         sev = (sev + 1) % MSG_NUM;
-        for (MSGTYPE typi = E_END_SE + 1; typi < E_END_C; typi++) {
+        for (MSGTYPE typi = E_END_SG + 1; typi < E_END_C; typi++) {
             message(typi, sev, CHAR1);
         }
         sev = (sev + 1) % MSG_NUM;

@@ -31,6 +31,7 @@
 #include "utility.h"
 
 // Compensated means and variances
+real_t median( const real_t * x, const uint32_t n);
 real_t mean( const real_t * x, const uint32_t n);
 real_t variance( const real_t * x, const uint32_t n);
 real_t wmean( const real_t * w, const real_t * x, const uint32_t n);

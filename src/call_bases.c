@@ -33,7 +33,8 @@
 
 /* members */
 
-static real_t Mu = 1e-5;                        ///< Adjusts range of quality scores.
+static real_t Mu = 1e-5;                        ///< Adjusts range of quality scores (for old call_base).
+static real_t PolyQual = 38.0;                  ///< Generalised error value, adjusts level of quality scores.
 
 
 /* private functions */
@@ -47,7 +48,7 @@ static real_t Mu = 1e-5;                        ///< Adjusts range of quality sc
  * - om:       Pointer to first entry of i^th block on the diagonal of Omega; lda of Omega is NBASE*ncycle
  */
 static real_t baselike (const real_t * restrict p, const real_t lambda, const NUC b, const real_t * om, const int ncycle){
-    if (NULL==p || NULL==om || !finite(lambda) || NUC_AMBIG==b) { return NAN;}
+    if (NULL==p || NULL==om || !isfinite(lambda) || NUC_AMBIG==b) { return NAN;}
 
     const int lda = NBASE*ncycle;
     real_t like = lambda*om[b*lda+b];
@@ -67,7 +68,7 @@ static real_t baselike (const real_t * restrict p, const real_t lambda, const NU
  * - om:       Pointer to first entry of i^th block on the lower diagonal of Omega; lda of Omega is NBASE*ncycle
  */
 static real_t crosslike(const real_t * restrict p, const real_t lambda, const NUC a, const NUC b, const real_t * om, const int ncycle){
-    if (NULL==p || NULL==om || !finite(lambda) || NUC_AMBIG==a || NUC_AMBIG==b) { return NAN;}
+    if (NULL==p || NULL==om || !isfinite(lambda) || NUC_AMBIG==a || NUC_AMBIG==b) { return NAN;}
 
     const int lda = NBASE*ncycle;
     real_t like = lambda*om[a*lda+b];
@@ -175,19 +176,20 @@ struct basequal call_base( const real_t * restrict p, const real_t lambda, const
  * squared error:
 \verbatim
         (p-lambda*s)^t Omega (p-lambda*s).
-      = p^t Om p - lambda ( 2 * s^t Omega p + lambda^2 s^t Omega s )
+      = p^t Om p + lambda ( 2 * s^t Omega p + lambda^2 s^t Omega s )
                           |------------------ A -------------------|
 \endverbatim
- * Sufficient to minimise -A.
+ * Sufficient to minimise A.
  * Omega is block-tridiagonal, that is composed from 4x4 blocks, e.g.
 \verbatim
         Om_{11} Om_{21}^t 0
         Om_{21} Om_{22}   Om_{32}^t
         0       Om_{32}   Om_{33}
 \endverbatim
+ * Return value is p^t Om p + lambda * min A.
  */  
-void call_bases( const MAT p, const real_t lambda, const MAT omega, NUC * base){
-    if (NULL==base || NULL==p || NULL==omega) { return; }
+real_t call_bases( const MAT p, const real_t lambda, const MAT omega, NUC * base){
+    if (NULL==base || NULL==p || NULL==omega) { return NAN; }
 
     const int ncycle = p->ncol;
     const int lda = omega->ncol;
@@ -244,62 +246,114 @@ void call_bases( const MAT p, const real_t lambda, const MAT omega, NUC * base){
     for ( int cy=(ncycle-2) ; cy>=0 ; cy--){
         base[cy] = (NUC)array[cy*NBASE+base[cy+1]];
     }
+
+    return xMy(p->x,omega,p->x) + lambda * minstat;
 }
 
-/** Call qualities using pre-called bases. */
-void call_qualities( const MAT p, const real_t lambda, const MAT omega, NUC * base, real_t * qual){
-    if (NULL==qual || NULL==base || NULL==p || NULL==omega) { return; }
+/** 
+ * Posterior probabilities via fwds/bwds.
+ * Repeats much of call_bases.
+ */
+void call_qualities_post(const MAT p, const real_t lambda, const MAT omega, const real_t effDF, NUC * base, real_t * qual){
+	if(NULL==base || NULL==p || NULL==omega){ return; }
 
     const int ncycle = p->ncol;
     const int lda = omega->ncol;
+    const real_t polyErr = -expm1(-PolyQual/10.0 * log(10.0));
 
-    for ( int cy=0 ; cy<ncycle ; cy++){
-        real_t stat[NBASE] = {0,0,0,0};
+    // arrays contain accumulation information
+    real_t farray[4*ncycle], barray[4*ncycle];
+    // Calculate costs
+    real_t basecost[4*ncycle], crosscost[16*ncycle];
+    for ( int b=0 ; b<NBASE ; b++){
+        basecost[b] = baselike(p->x,lambda,b,omega->x,ncycle);
+    }
+    for ( int cy=1 ; cy<ncycle ; cy++){
         for ( int b=0 ; b<NBASE ; b++){
-            // Calculate residual
-            real_t res[NBASE];
+            basecost[4*cy+b] = baselike(p->x+cy*NBASE,lambda,b,omega->x+cy*NBASE*lda+cy*NBASE,ncycle);
             for ( int b2=0 ; b2<NBASE ; b2++){
-                res[b2] = p->x[cy*NBASE+b2];
-            }
-            res[b] -= lambda;
-            // Calculate res^t omega res
-            for ( int i=0 ; i<NBASE ; i++){
-                real_t acc = 0.0;
-                for ( int j=0 ; j<NBASE ; j++){
-                    acc += res[j] * omega->x[(NBASE*cy+i)*lda + (NBASE*cy+j)];
-                }
-                stat[b] += res[i] * acc;
+                crosscost[16*cy+4*b+b2] = crosslike(p->x+(cy-1)*NBASE,lambda,b,b2,omega->x+(cy-1)*NBASE*lda+cy*NBASE,ncycle);
             }
         }
+    }
 
-        // Summation of probabilities for normalisation
-        real_t maxStat = stat[(int)base[cy]];
-        real_t tot = 0.0;
+    // Forwards piece of algorithm.
+    // Initalise
+    for ( int b=0 ; b<4 ; b++){ farray[b] = 0.0; }
+    // Iteration
+    for ( int cy=1; cy<ncycle ; cy++){
         for ( int b=0 ; b<NBASE ; b++){
-            stat[b] = exp(-0.5*(stat[b]-maxStat));
-            tot += stat[b];
+            farray[4*cy+b] = HUGE_VAL;
+            // Find minimum for past calls give current call
+            for ( int prev=0 ; prev<4 ; prev++){
+                real_t callLS = basecost[4*(cy-1)+prev] + farray[4*(cy-1)+prev] + 2.0*crosscost[16*cy+4*prev+b];
+                if(callLS<farray[4*cy+b]){ farray[4*cy+b] = callLS; }
+            }
         }
-        real_t maxprob = exp(-0.5*maxStat);
-
-        real_t post_prob = 0;
-        // tot may be infinite because the pre-called base may not corrrespond to min in stat array 
-        // and a large enough negative difference causes an infinite result from exp
-        if (isfinite(tot)) {
-            // Calculate posterior probability in numerically stable fashion
-            // Note that maxp can be extremely small.
-            post_prob = (maxprob<Mu) ?
-                   // Case probabilities small compared to mu
-                   (Mu + maxprob ) / (4.0*Mu + maxprob*tot) :
-                   // Case probabilities large compared to mu
-                   (Mu/maxprob + 1.) / (4.0*Mu/maxprob + tot);
+    }
+    real_t fwdslike = HUGE_VAL;
+    for ( int b=0 ; b<4 ; b++){
+        if(basecost[(ncycle-1)*4+b]+farray[(ncycle-1)*4+b]<fwdslike){
+            fwdslike = basecost[(ncycle-1)*4+b]+farray[(ncycle-1)*4+b];
         }
-        post_prob *= 1-1e-4;
+    }
 
-        qual[cy] = quality_from_prob(post_prob);
+    // Backwards piece of algorithm.
+    // Initialise
+    for ( int b=0 ; b<4 ; b++){ barray[(ncycle-1)*4+b] = 0.0; }
+    // Iteration
+    for ( int cy=(ncycle-2) ; cy>=0 ; cy--){
+        for ( int b=0 ; b<NBASE ; b++){
+            barray[4*cy+b] = HUGE_VAL;
+            // Find minimum for future calls given current call
+            for ( int nxt=0 ; nxt<4 ; nxt++){
+                real_t callLS = basecost[4*(cy+1)+nxt] + barray[4*(cy+1)+nxt] + 2.0*crosscost[16*(cy+1)+4*b+nxt];
+                if(callLS<barray[4*cy+b]){ barray[4*cy+b] = callLS; }
+            }
+        }
+    }
+    real_t bkdslike = HUGE_VAL;
+    for ( int b=0 ; b<4 ; b++){
+        if(basecost[b]+barray[b]<bkdslike){
+            bkdslike = basecost[b]+barray[b];
+        }
+    }
+	//fprintf(stdout,"%e %e\n",fwdslike,bkdslike);
+
+    real_t pOp = xMy(p->x,omega,p->x);
+    //fprintf(stdout,"%e\n",pOp+lambda*(farray[base[0]] + barray[base[0]] + basecost[base[0]]));
+    for ( int cy=0 ; cy<ncycle ; cy++){
+        int b = base[cy];
+        real_t xmax = farray[4*cy+b] + barray[4*cy+b] + basecost[4*cy+b];
+        xmax = pOp + lambda * xmax;
+        real_t sum = 0.0;
+        for ( int b=0 ; b<4 ; b++){
+            real_t stat = farray[4*cy+b] + barray[4*cy+b] + basecost[4*cy+b];
+            stat *= lambda;
+            stat += pOp;
+            sum += exp(-0.5*(1.0+effDF)*(log1p(stat)-log1p(xmax)));
+        }
+        real_t prob = 1.0 / sum;
+        prob *= polyErr;
+        qual[cy] = quality_from_prob(prob);
     }
 }
 
-/** Return value of Mu */
+/** Return value of generalised error. */
+real_t get_generr(void) {
+    return PolyQual;
+}
+
+/** Set value for generalised error. */
+bool set_generr(const char *generr_str) {
+
+    char *endptr;
+    PolyQual = strtor(generr_str, &endptr);
+
+    return (PolyQual > 0);
+}
+
+/** Return value of Mu. */
 real_t get_mu(void) {
     return Mu;
 }

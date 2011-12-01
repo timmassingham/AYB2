@@ -53,6 +53,7 @@ struct AybT {
     MAT N;
     MAT At;
     MAT lambda;
+    MAT lss;
     MAT we, cycle_var;
     MAT omega;
 };
@@ -495,13 +496,14 @@ AYB new_AYB(const uint32_t ncycle, const uint32_t ncluster){
     ayb->N = new_MAT(NBASE,ncycle);
     ayb->At = new_MAT(NBASE*ncycle,NBASE*ncycle);
     ayb->lambda = new_MAT(ncluster,1);
+    ayb->lss = new_MAT(ncluster,1);
     ayb->we = new_MAT(ncluster,1);
     ayb->cycle_var = new_MAT(ncycle,1);
     ayb->omega = NULL;
     if( NULL==ayb->tile || NULL==ayb->bases.elt || NULL==ayb->quals.elt
 //            || NULL==ayb->M || NULL==ayb->P || NULL==ayb->N
             || NULL==ayb->N || NULL==ayb->At
-            || NULL==ayb->lambda || NULL==ayb->we || NULL==ayb->cycle_var){
+            || NULL==ayb->lambda || NULL==ayb->lss || NULL==ayb->we || NULL==ayb->cycle_var){
         goto cleanup;
     }
 
@@ -522,6 +524,7 @@ AYB free_AYB(AYB ayb){
     free_MAT(ayb->N);
     free_MAT(ayb->At);
     free_MAT(ayb->lambda);
+    free_MAT(ayb->lss);
     free_MAT(ayb->we);
     free_MAT(ayb->cycle_var);
     free_MAT(ayb->omega);
@@ -561,6 +564,9 @@ AYB copy_AYB(const AYB ayb){
     ayb_copy->lambda = copy_MAT(ayb->lambda);
     if(NULL!=ayb->lambda && NULL==ayb_copy->lambda){ goto cleanup;}
 
+    ayb_copy->lss = copy_MAT(ayb->lss);
+    if(NULL!=ayb->lss && NULL==ayb_copy->lss){ goto cleanup;}
+
     ayb_copy->we = copy_MAT(ayb->we);
     if(NULL!=ayb->we && NULL==ayb_copy->we){ goto cleanup;}
 
@@ -590,6 +596,7 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
     xfputs("omega:\n",fp); show_MAT(fp,ayb->omega,NBASE*ayb->ncycle,NBASE*ayb->ncycle);
     xfputs("lambda:\n",fp); show_MAT(fp,ayb->lambda,ayb->ncluster,1);
     if (showall) {
+        xfputs("lss:\n",fp); show_MAT(fp,ayb->lss,ayb->ncluster,1);
         xfputs("Bases:\n",fp); show_ARRAY(NUC)(fp,ayb->bases,"",ayb->ncycle*10);
         xfputc('\n',fp);
         xfputs("Quality:\n",fp); show_ARRAY(PHREDCHAR)(fp,ayb->quals,"",ayb->ncycle*10);
@@ -751,6 +758,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     const uint32_t ncluster = ayb->ncluster;
     const uint32_t ncycle = ayb->ncycle;
     struct structLU AtLU = LUdecomposition(ayb->At);
+    real_t effDF = NBASE * ncycle;
 
     MAT pcl_int = NULL;                 // Shell for processed intensities
     MAT * V_full = NULL;                // Full covariance matrix (array of size 1)
@@ -842,6 +850,12 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         goto cleanup;
     }
 
+    /* Calculate the median value of the lss array before updating any of the entries */
+    /* (only used on last iteration ) */
+    if (lastiter) {
+        effDF = median(ayb->lss->x, ncluster);
+    }
+
     /* process intensities then estimate lambda and call bases for each cluster */
     unsigned int cl = 0;
     LIST(CLUSTER) node = ayb->tile->clusterlist;
@@ -879,10 +893,10 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
         /* call bases and qualities for all cycles */
         /* qualities only needed on last iteration */
-        call_bases(pcl_int, ayb->lambda->x[cl], ayb->omega, cl_bases);
+        ayb->lss->x[cl] = call_bases(pcl_int, ayb->lambda->x[cl], ayb->omega, cl_bases);
 
         if (lastiter) {
-            call_qualities(pcl_int, ayb->lambda->x[cl], ayb->omega, cl_bases, qual);
+            call_qualities_post(pcl_int, ayb->lambda->x[cl], ayb->omega, effDF, cl_bases, qual);
 
             if (ayb->lambda->x[cl] != 0.0) {
                 /* adjust quality values; first and Last bases of read are special cases */
@@ -1082,11 +1096,13 @@ bool initialise_model(AYB ayb, const bool showdebug) {
     transpose_inplace(Initial_At);
     copyinto_MAT(ayb->At, Initial_At);
 
+    /* Initialise call bases return values to nbase * ncycle */
+    set_MAT(ayb->lss, NBASE * ayb->ncycle);
+
     /* Initial weights and cycles are all equal. Arbitrarily one */
     set_MAT(ayb->we, 1.0);
     set_MAT(ayb->cycle_var, 1.0);
 
-    /* process intensities then call initial bases and lambda for each cluster */
     MAT pcl_int = NULL;                     // Shell for processed intensities
     struct structLU AtLU = LUdecomposition(ayb->At);
     bool ret = true;
@@ -1098,6 +1114,7 @@ bool initialise_model(AYB ayb, const bool showdebug) {
     }
 #endif
 
+    /* process intensities then call initial bases and lambda for each cluster */
     unsigned int cl = 0;
     LIST(CLUSTER) node = ayb->tile->clusterlist;
     while (NULL != node && cl < ayb->ncluster){
@@ -1167,7 +1184,7 @@ void set_show_working(void) {
  */
 bool startup_ayb(void) {
 
-    message(E_OPT_SELECT_SE, MSG_INFO, "Mu value", get_mu());
+    message(E_OPT_SELECT_SG, MSG_INFO, "Generalised error value", get_generr());
 
     /* read any M, N, A */
     if (!read_matrices()) {
