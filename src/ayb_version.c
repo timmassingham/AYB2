@@ -30,12 +30,13 @@
 /* constants */
 
 /** Program Version. */
-static const float VERSION = 2.05;      // Improve modelling algorithms
+static const float VERSION = 2.06;      // Improve quality scoring
 /** Version release date. */
-static const unsigned int VERSION_DATE = 20111018;
+static const unsigned int VERSION_DATE = 20111201;
 
 /* keep a history */
-// Version 2.04     20110722    Memory use reduction and sim output changes
+// Version 2.05;    20111018    Improve modelling algorithms
+// Version 2.04;    20110722    Memory use reduction and sim output changes
 // Version 2.03;    20110510    Model refactor and automated testing
 // Version 2.02;    20110217    Quality calibration file now values to use
 // Version 2.01;    20110121    Quality calibration file and cif run-folder
