@@ -461,6 +461,7 @@ RETOPT analyse_tile (const int argc, char ** const argv) {
             real_t resreal;
             for (int i = 0; i < NIter; i++){
                 xfprintf(xstdout, "Iteration: %d\n", i+1);
+                xfprintf(xstderr, "Iteration: %d\n", i+1);
 
                 resreal = estimate_MPN(ayb);
                 if (isnan(resreal)) {
