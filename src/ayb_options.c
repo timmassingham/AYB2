@@ -80,11 +80,12 @@ static struct option Longopts[] = {
     {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 0 in header file
     {"blockstring", required_argument,  NULL, 'b'},
     {"dataformat",  required_argument,  NULL, 'd'},
+    {"generr",      required_argument,  NULL, 'g'},
     {"logfile",     required_argument,  NULL, 'e'},
     {"format",      required_argument,  NULL, 'f'},
     {"input",       required_argument,  NULL, 'i'},
     {"loglevel",    required_argument,  NULL, 'l'},
-    {"mu"   ,       required_argument,  NULL, 'm'},
+    {"mu",          required_argument,  NULL, 'm'},
     {"niter",       required_argument,  NULL, 'n'},
     {"output",      required_argument,  NULL, 'o'},
     {"noqualout",   no_argument,        NULL, 'q'},
@@ -125,7 +126,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:i:l:m:n:o:qrwA:M:N:Q:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:l:m:n:o:qrwA:M:N:Q:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 's':
@@ -157,6 +158,14 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
                 /* output format */
                 if (!set_output_format(optarg)) {
                     fprintf(stderr, "Fatal: Unrecognised output format option: \'%s\'\n\n", optarg);
+                    status = E_FAIL;
+                }
+                break;
+
+            case 'g':
+                /* new quality calculation */
+                if (!set_generr(optarg)) {
+                    fprintf(stderr, "Fatal: Generalised error must be a positive value; \'%s\' supplied\n\n", optarg);
                     status = E_FAIL;
                 }
                 break;
