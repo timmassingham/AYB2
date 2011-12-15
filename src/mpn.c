@@ -23,6 +23,7 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <omp.h>
 #include <math.h>
 #include <strings.h>
 #include "lapack.h"
@@ -457,35 +458,70 @@ MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT Sbar, const MAT N, co
  * J is the matrix \\sum_i we_i lambda_i lambda_i Vec(S_i) Vec(S_i)^t.
  */
 MAT calculateNewJ(const MAT lambda, const ARRAY(NUC) bases, const MAT we, const int ncycle, MAT newJ){
-   if(NULL==lambda || NULL==bases.elt || NULL==we){ return NULL;}
+    if(NULL==lambda || NULL==bases.elt || NULL==we){ return NULL;}
 
-   // Allocate memory if necessary and initialise to zero
-   if(NULL==newJ){
-      newJ = new_MAT(ncycle*NBASE,ncycle*NBASE);
-      if(NULL==newJ){ return NULL; }
-   }
-   memset(newJ->x, 0, newJ->nrow*newJ->ncol*sizeof(real_t));
+    const uint_fast32_t lda = ncycle * NBASE;
+    const uint_fast32_t ncluster = we->nrow;
 
-   const uint_fast32_t lda = ncycle * NBASE;
-   const uint_fast32_t ncluster = we->nrow;
-   for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
-      const real_t eltmult = we->x[cl] * lambda->x[cl] * lambda->x[cl];
-      for ( uint_fast32_t i=0 ; i<ncycle ; i++){
-         const uint_fast32_t base = bases.elt[cl*ncycle+i];
-         if(!isambig(base)){
-             const uint_fast32_t idx1 = i*NBASE+base;
-             for ( uint_fast32_t j=0 ; j<ncycle ; j++){
-                const uint_fast32_t base2 = bases.elt[cl*ncycle+j];
-                if(!isambig(base2)){
-                    const uint_fast32_t idx2 = j*NBASE+base2;
-                    newJ->x[idx1*lda+idx2] += eltmult;
+    // Allocate memory if necessary and initialise to zero
+    if(NULL==newJ){
+        newJ = new_MAT(lda,lda);
+        if(NULL==newJ){ return NULL; }
+    }
+    memset(newJ->x, 0, newJ->nrow*newJ->ncol*sizeof(real_t));
+
+    // declare variables for multi-threading
+    int_fast32_t cl;
+    real_t eltmult;
+    uint_fast32_t i, j, idx1, idx2, base, base2;
+    int th_id;                              // thread number
+    const int ncpu = omp_get_max_threads();
+    MAT J[ncpu];
+    for ( int i=0 ; i<ncpu ; i++) {
+        J[i] = new_MAT(lda,lda);
+        if (NULL==J[i]) { goto cleanup; }
+    }
+    
+    // multi-threaded loop
+    #pragma omp parallel for \
+        default(shared) private(th_id,cl,eltmult,i,j,idx1,idx2,base,base2)
+
+    for ( cl=0 ; cl<ncluster ; cl++){
+        th_id = omp_get_thread_num();
+        eltmult = we->x[cl] * lambda->x[cl] * lambda->x[cl];
+        for ( i=0 ; i<ncycle ; i++){
+            base = bases.elt[cl*ncycle+i];
+            if (!isambig(base)){
+                idx1 = i*NBASE+base;
+                for ( j=0 ; j<ncycle ; j++){
+                    base2 = bases.elt[cl*ncycle+j];
+                    if (!isambig(base2)){
+                        idx2 = j*NBASE+base2;
+                        J[th_id]->x[idx1*lda+idx2] += eltmult;
+                    }
                 }
-             }
-         }
-      }
-   }
+            }
+        }
+    }
 
-   return newJ;
+    // Accumulate from multi-thread 
+    for ( int i=0 ; i<ncpu ; i++){
+        if (NULL!=J[i]){
+            for ( int j=0 ; j<lda*lda ; j++){
+                newJ->x[j] += J[i]->x[j];
+            }
+            free_MAT(J[i]);
+        }
+    }
+
+    return newJ;
+    
+cleanup:
+    for ( int i=0 ; i<ncpu ; i++) {
+        free_MAT(J[i]);
+    }
+    free_MAT(newJ);
+    return NULL;    
 }
 
 /**
@@ -496,38 +532,77 @@ MAT calculateNewJ(const MAT lambda, const ARRAY(NUC) bases, const MAT we, const 
 MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases, const TILE tile, const MAT we, const int ncycle, MAT newK){
     if(NULL==lambda || NULL==bases.elt || NULL==tile || NULL==we){ return NULL;}
 
+    const uint_fast32_t lda = ncycle * NBASE;
+    unsigned int ncluster = tile->ncluster;
+
     // Allocate memory if necessary and initialise to zero
     if(NULL==newK){
-        newK = new_MAT(ncycle*NBASE,ncycle*NBASE);
+        newK = new_MAT(lda,lda);
         if(NULL==newK){ return NULL; }
     }
     memset(newK->x, 0, newK->nrow*newK->ncol*sizeof(real_t));
 
+
+    // declare variables for multi-threading
+    LIST(CLUSTER) * nodearry = NULL;
+    int_fast32_t cl;
+    uint_fast32_t i, j, col, base;
+    real_t colmult;
+    int th_id;                              // thread number
+    const int ncpu = omp_get_max_threads();
+    MAT K[ncpu];
+    for ( int i=0 ; i<ncpu ; i++) {
+        K[i] = new_MAT(lda,lda);
+        if (NULL==K[i]) { goto cleanup; }
+    }
+
+    // make an array of list pointers for multi-threading
+    nodearry = array_from_LIST(CLUSTER)(tile->clusterlist, &ncluster);
+    if (NULL==nodearry) { goto cleanup; }
+
+    // multi-threaded loop
+    #pragma omp parallel for \
+        default(shared) private(th_id,cl,i,j,col,base,colmult)
+
 	// Calculate transpose
-    const uint_fast32_t ncluster = tile->ncluster;
-    const uint_fast32_t lda = ncycle * NBASE;
-    uint_fast32_t cl = 0;
-    LIST(CLUSTER) node = tile->clusterlist;
-    while (NULL != node && cl < ncluster){
-        for ( uint_fast32_t i=0 ; i<ncycle ; i++){
-            const uint_fast32_t base = bases.elt[cl*ncycle+i];
+    for ( cl=0 ; cl<ncluster ; cl++){
+        th_id = omp_get_thread_num();
+        for ( i=0 ; i<ncycle ; i++){
+            base = bases.elt[cl*ncycle+i];
             if(!isambig(base)){
-                const uint_fast32_t col = i*NBASE + base;
-                const real_t colmult = we->x[cl] * lambda->x[cl];
-                for ( uint_fast32_t j=0 ; j<lda ; j++){
-                    newK->x[col*lda+j] += node->elt->signals->xint[j] * colmult;
+                col = i*NBASE + base;
+                colmult = we->x[cl] * lambda->x[cl];
+                for ( j=0 ; j<lda ; j++){
+                    K[th_id]->x[col*lda+j] += nodearry[cl]->elt->signals->xint[j] * colmult;
                 }
             }
         }
-
-        /* next cluster */
-        node = node->nxt;
-        cl++;
     }
+
+    free_array_LIST(CLUSTER)(nodearry);
+    
+    // Accumulate from multi-thread 
+    for ( int i=0 ; i<ncpu ; i++){
+        if (NULL!=K[i]){
+            for ( int j=0 ; j<lda*lda ; j++){
+                newK->x[j] += K[i]->x[j];
+            }
+            free_MAT(K[i]);
+        }
+    }
+
     // Transpose (square) matrix newK
     transpose_inplace(newK);
 
     return newK;
+
+cleanup:
+    free_array_LIST(CLUSTER)(nodearry);
+    for ( int i=0 ; i<ncpu ; i++) {
+        free_MAT(K[i]);
+    }
+    free_MAT(newK);
+    return NULL;    
 }
 
 /**

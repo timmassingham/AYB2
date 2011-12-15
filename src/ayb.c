@@ -25,6 +25,7 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <omp.h>
 #include <math.h>
 #include "ayb.h"
 #include "call_bases.h"
@@ -606,54 +607,88 @@ void show_AYB_quals(XFILE * fp, const AYB ayb, const uint32_t cl) {
  */
 MAT calculate_covariance(AYB ayb){
 
-    const uint32_t ncluster = ayb->ncluster;
+    validate(NULL != ayb, NULL);
+    unsigned int ncluster = ayb->ncluster;
     const uint32_t ncycle = ayb->ncycle;
 
-    MAT V = NULL;                       // memory allocated in accumulate
-    MAT pcl_int = NULL;                 // Shell for processed intensities
-
-    struct structLU AtLU = LUdecomposition(ayb->At);
-
+    MAT Vsum = NULL;                    // memory allocated in multi-thread accumulate
     real_t wesum = 0.;
     bool ok = true;
 
-    unsigned int cl = 0;
-    LIST(CLUSTER) node = ayb->tile->clusterlist;
-    while (NULL != node && cl < ncluster){
-        const NUC * cl_bases = ayb->bases.elt + cl * ncycle;
-        pcl_int = processNew(AtLU, ayb->N, node->elt->signals, pcl_int);
-        if (NULL == pcl_int) { 
-            ok = false; 
-            goto cleanup; 
-        }
+    struct structLU AtLU = LUdecomposition(ayb->At);
 
-        /* add this cluster values */
-        V = accumulate_all_covariance(ayb->we->x[cl], pcl_int, ayb->lambda->x[cl], cl_bases, V);
-        if (NULL == V) { 
-            ok = false; 
-            goto cleanup; 
-        }
-
-        /* sum denominator */
-        wesum += ayb->we->x[cl];
-
-        /* next cluster */
-        node = node->nxt;
-        cl++;
+    /* declare variables for multi-threading */
+    LIST(CLUSTER) * nodearry = NULL;
+    int_fast32_t cl;
+    NUC * cl_bases = NULL;
+    int th_id;                              // thread number
+    const int ncpu = omp_get_max_threads();
+    MAT pcl_int[ncpu];                      // Shell for processed intensities
+    MAT V[ncpu];                            // memory allocated in accumulate
+    for (int i = 0; i < ncpu; i++) {
+        pcl_int[i] = NULL;
+        V[i] = NULL;
+    }
+    
+    /* make an array of list pointers for multi-threading */
+    nodearry = array_from_LIST(CLUSTER)(ayb->tile->clusterlist, &ncluster);
+    if (NULL==nodearry) { 
+        ok = false;
+        goto cleanup; 
     }
 
-    /* scale sum of squares to make covariance */
-    scale_MAT(V, 1.0/wesum);
+    /* multi-threaded loop */
+    #pragma omp parallel for \
+        default(shared) private(th_id, cl, cl_bases)
+
+    for (cl = 0; cl < ncluster; cl++){
+        th_id = omp_get_thread_num();
+
+        cl_bases = ayb->bases.elt + cl * ncycle;
+        pcl_int[th_id] = processNew(AtLU, ayb->N, nodearry[cl]->elt->signals, pcl_int[th_id]);
+        if (NULL == pcl_int[th_id]) {
+            ok = false;
+        }
+        else {
+
+            /* add this cluster values */
+            V[th_id] = accumulate_all_covariance(ayb->we->x[cl], pcl_int[th_id], ayb->lambda->x[cl], cl_bases, V[th_id]);
+            if (NULL == V[th_id]) { 
+                ok = false; 
+            }
+
+            /* sum denominator */
+            wesum += ayb->we->x[cl];
+        }
+    }
+
+    if (ok) {
+        /* Accumulate from multi-thread */ 
+        const int lda = V[0]->nrow;
+        Vsum = new_MAT(lda, lda);
+        for (int i = 0; i < ncpu; i++) {
+            for (int j = 0; j < lda * lda; j++) {
+                Vsum->x[j] += V[i]->x[j];
+            }
+        }
+
+        /* scale sum of squares to make covariance */
+        scale_MAT(Vsum, 1.0/wesum);
+    }
 
 cleanup:
     if (!ok) {  
-        V = free_MAT(V);
+        Vsum = free_MAT(Vsum);
     }
     
-    free_MAT(pcl_int);
+    free_array_LIST(CLUSTER)(nodearry);
+    for (int i = 0; i < ncpu; i++) {
+        free_MAT(pcl_int[i]);
+        free_MAT(V[i]);
+    }
     free_MAT(AtLU.mat);
     xfree(AtLU.piv);
-    return V;
+    return Vsum;
 }
 
 /**
@@ -664,17 +699,26 @@ cleanup:
 int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showdebug) {
 
     validate(NULL != ayb, 0);
-    const uint32_t ncluster = ayb->ncluster;
+    unsigned int ncluster = ayb->ncluster;
     const uint32_t ncycle = ayb->ncycle;
-    struct structLU AtLU = LUdecomposition(ayb->At);
-    real_t effDF = NBASE * ncycle;
 
-    MAT pcl_int = NULL;                 // Shell for processed intensities
     MAT V_full = NULL;                  // Full covariance matrix
-    real_t * qual = NULL;
+    WORKPTR work = NULL;
+    real_t effDF = NBASE * ncycle;
     int ret_count = 0;
     bool show_processed = (ShowWorking && lastiter);
-    WORKPTR work = NULL;
+
+    struct structLU AtLU = LUdecomposition(ayb->At);
+
+    /* declare multi-threading variables required before any goto */
+    LIST(CLUSTER) * nodearry = NULL;
+    const int ncpu = omp_get_max_threads();
+    MAT pcl_int[ncpu];                      // Shell for processed intensities
+    for (int i = 0; i < ncpu; i++) {
+        pcl_int[i] = NULL;
+    }
+    int zero_lam[ncpu];
+    memset(zero_lam, 0, ncpu * sizeof(int));
 
 #ifndef NDEBUG
     XFILE *fpi2 = NULL;
@@ -747,52 +791,55 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     }
 #endif
 
-    /* output processed intensities if requested and final iteration */
-    if (show_processed) {
-        work = open_processed(ayb, blk);
-    }
-
-    /* Temporary storage for (real_t) quality values */
-    qual = calloc(ncycle, sizeof(real_t));
-    if (NULL == qual) {
-        ret_count = DATA_ERR;
-        goto cleanup;
-    }
-
     /* Calculate the median value of the lss array before updating any of the entries */
     /* (only used on last iteration ) */
     if (lastiter) {
         effDF = median(ayb->lss->x, ncluster);
     }
 
+    /* declare variables for multi-threading */
+    int_fast32_t cl;
+    uint_fast32_t cy;
+    NUC * cl_bases = NULL;
+    PHREDCHAR * cl_quals = NULL;
+    int th_id;                              // thread number
+    
+    /* make an array of list pointers for multi-threading */
+    nodearry = array_from_LIST(CLUSTER)(ayb->tile->clusterlist, &ncluster);
+    if (NULL == nodearry) { 
+        /* set calls to null and terminate processing */
+        ret_count = DATA_ERR;
+        goto cleanup; 
+    }
+
+    /* multi-threaded loop */
+    #pragma omp parallel for \
+        default(shared) private(th_id, cl, cy, cl_bases, cl_quals)
+
     /* process intensities then estimate lambda and call bases for each cluster */
-    unsigned int cl = 0;
-    LIST(CLUSTER) node = ayb->tile->clusterlist;
-    while (NULL != node && cl < ncluster){
-        NUC * cl_bases = ayb->bases.elt + cl * ncycle;
-        PHREDCHAR * cl_quals = ayb->quals.elt + cl * ncycle;
-        pcl_int = processNew(AtLU, ayb->N, node->elt->signals, pcl_int);
-        if (NULL == pcl_int) {
+    for (cl = 0; cl < ncluster; cl++){
+        th_id = omp_get_thread_num();
+
+        cl_bases = ayb->bases.elt + cl * ncycle;
+        cl_quals = ayb->quals.elt + cl * ncycle;
+        pcl_int[th_id] = processNew(AtLU, ayb->N, nodearry[cl]->elt->signals, pcl_int[th_id]);
+        if (NULL == pcl_int[th_id]) {
             ret_count = DATA_ERR;
-            goto cleanup;
         }
+        else {
 
-        if (show_processed) {
-            write_processed(work, ayb, node->elt, cl, pcl_int);
-        }
-
-        /* estimate lambda using Weighted Least Squares */
-//        ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
-        ayb->lambda->x[cl] = estimate_lambda_A (node->elt->signals, ayb->N, ayb->At, cl_bases);
-        if (ayb->lambda->x[cl] == 0.0) {
-            ret_count++;
-        }
-
+            /* estimate lambda using Weighted Least Squares */
+//            ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
+            ayb->lambda->x[cl] = estimate_lambda_A (nodearry[cl]->elt->signals, ayb->N, ayb->At, cl_bases);
+            if (ayb->lambda->x[cl] == 0.0) {
+                zero_lam[th_id]++;
+            }
+        
 #ifndef NDEBUG
     if (showdebug) {
         if (!xfisnull(fpi2)) {
             xfprintf(fpi2, "cluster: %u\n", cl + 1);
-            show_MAT(fpi2, pcl_int, pcl_int->nrow, pcl_int->ncol);
+            show_MAT(fpi2, pcl_int[th_id], pcl_int[th_id]->nrow, pcl_int[th_id]->ncol);
         }
         if (!xfisnull(fplam)) {
             xfprintf(fplam, "%u: %#12.6f\n", cl + 1, ayb->lambda->x[cl]);
@@ -800,41 +847,62 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     }
 #endif
 
-        /* call bases and qualities for all cycles */
-        /* qualities only needed on last iteration */
-        ayb->lss->x[cl] = call_bases(pcl_int, ayb->lambda->x[cl], ayb->omega, cl_bases);
+            /* call bases and qualities for all cycles */
+            /* qualities only needed on last iteration */
+            ayb->lss->x[cl] = call_bases(pcl_int[th_id], ayb->lambda->x[cl], ayb->omega, cl_bases);
 
-        if (lastiter) {
-            call_qualities_post(pcl_int, ayb->lambda->x[cl], ayb->omega, effDF, cl_bases, qual);
+            if (lastiter) {
+                real_t qual[ncycle];                // thread private storage for (real_t) quality values
+                call_qualities_post(pcl_int[th_id], ayb->lambda->x[cl], ayb->omega, effDF, cl_bases, qual);
 
-            if (ayb->lambda->x[cl] != 0.0) {
-                /* adjust quality values; first and Last bases of read are special cases */
-                qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
-                for (uint32_t cy=1; cy<(ncycle-1); cy++) {
-                    qual[cy] = adjust_quality(qual[cy], cl_bases[cy-1], cl_bases[cy], cl_bases[cy+1]);
+                if (ayb->lambda->x[cl] != 0.0) {
+                    /* adjust quality values; first and Last bases of read are special cases */
+                    qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
+                    for (cy=1; cy<(ncycle-1); cy++) {
+                        qual[cy] = adjust_quality(qual[cy], cl_bases[cy-1], cl_bases[cy], cl_bases[cy+1]);
+                    }
+                    qual[ncycle-1] = adjust_last_quality(qual[ncycle-1], cl_bases[ncycle-2], cl_bases[ncycle-1]);
                 }
-                qual[ncycle-1] = adjust_last_quality(qual[ncycle-1], cl_bases[ncycle-2], cl_bases[ncycle-1]);
+
+                /* convert qualities to phred char */
+                for ( cy=0 ; cy<ncycle ; cy++){
+                    cl_quals[cy] = phredchar_from_quality(qual[cy]);
+                }
             }
 
-            /* convert qualities to phred char */
-            for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-                cl_quals[cy] = phredchar_from_quality(qual[cy]);
+            /* repeat estimate lambda with the new bases */
+            /* don't do if last iteration for working values */
+            if (!lastiter) {
+//                ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
+                ayb->lambda->x[cl] = estimate_lambda_A (nodearry[cl]->elt->signals, ayb->N, ayb->At, cl_bases);
+
+                /* store the least squares error */
+                store_cluster_error(ayb, pcl_int[th_id], cl);
+            }
+        }
+    }
+
+    /* Accumulate from multi-thread */ 
+    if (ret_count != DATA_ERR) {
+        for (int i = 0; i < ncpu; i++) {
+            ret_count += zero_lam[i];
+        }
+    }
+
+    /* output processed intensities if requested and final iteration */
+    if (show_processed) {
+        work = open_processed(ayb, blk);
+
+        for (cl = 0; cl < ncluster; cl++){
+            /* processed output must be done outide of multi-thread so need to process intensities again */
+            pcl_int[0] = processNew(AtLU, ayb->N, nodearry[cl]->elt->signals, pcl_int[0]);
+            if (NULL != pcl_int[0]) {
+                write_processed(work, ayb, nodearry[cl]->elt, cl, pcl_int[0]);
             }
         }
 
-        /* repeat estimate lambda with the new bases */
-        /* don't do if last iteration for working values */
-        if (!lastiter) {
-//            ayb->lambda->x[cl] = estimate_lambdaWLS(pcl_int, cl_bases, ayb->lambda->x[cl], ayb->cycle_var->x);
-            ayb->lambda->x[cl] = estimate_lambda_A (node->elt->signals, ayb->N, ayb->At, cl_bases);
-
-            /* store the least squares error */
-            store_cluster_error(ayb, pcl_int, cl);
-        }
-
-        /* next cluster */
-        node = node->nxt;
-        cl++;
+        work = close_processed(work, ayb, blk, ret_count);
+        xfree(work);
     }
 
 #ifndef NDEBUG
@@ -850,15 +918,12 @@ cleanup:
         set_null_calls(ayb);
     }
 
-    if (show_processed) {
-        work = close_processed(work, ayb, blk, ret_count);
-        xfree(work);
+    free_array_LIST(CLUSTER)(nodearry);
+    for (int i = 0; i < ncpu; i++) {
+        free_MAT(pcl_int[i]);
     }
-
-    xfree(qual);
     free_MAT(AtLU.mat);
     xfree(AtLU.piv);
-    free_MAT(pcl_int);
     free_MAT(V_full);
     return ret_count;
 }
@@ -975,6 +1040,9 @@ cleanup:
  */
 bool initialise_model(AYB ayb, const bool showdebug) {
 
+    validate(NULL != ayb, false);
+    const int lda = NBASE * ayb->ncycle;
+
     /* initial M, N, A */
     MAT M = new_MAT(NBASE, NBASE);
     M = init_matrix(M, E_CROSSTALK, NULL);
@@ -983,7 +1051,6 @@ bool initialise_model(AYB ayb, const bool showdebug) {
         return false;
     }
 
-    const uint32_t lda = NBASE * ayb->ncycle;
     Initial_At = new_MAT(lda, lda);
     Initial_At = init_matrix(Initial_At, E_PARAMA, M);
     free_MAT(M);
@@ -1009,7 +1076,6 @@ bool initialise_model(AYB ayb, const bool showdebug) {
     set_MAT(ayb->we, 1.0);
     set_MAT(ayb->cycle_var, 1.0);
 
-    MAT pcl_int = NULL;                     // Shell for processed intensities
     struct structLU AtLU = LUdecomposition(ayb->At);
     bool ret = true;
 
@@ -1020,48 +1086,70 @@ bool initialise_model(AYB ayb, const bool showdebug) {
     }
 #endif
 
+    /* declare variables for multi-threading */
+    LIST(CLUSTER) * nodearry = NULL;
+    unsigned int ncluster = ayb->ncluster;
+    int_fast32_t cl;
+    uint_fast32_t cy;
+    NUC * cl_bases = NULL;
+    PHREDCHAR * cl_quals = NULL;
+    int th_id;                              // thread number
+    const int ncpu = omp_get_max_threads();
+    MAT pcl_int[ncpu];                      // Shell for processed intensities
+    for (int i = 0; i < ncpu; i++) {
+        pcl_int[i] = NULL;
+    }
+    
+    /* make an array of list pointers for multi-threading */
+    nodearry = array_from_LIST(CLUSTER)(ayb->tile->clusterlist, &ncluster);
+    if (NULL==nodearry) { 
+        ret = false;
+        goto cleanup; 
+    }
+
+    /* multi-threaded loop */
+    #pragma omp parallel for \
+        default(shared) private(th_id, cl, cy, cl_bases, cl_quals)
+
     /* process intensities then call initial bases and lambda for each cluster */
-    unsigned int cl = 0;
-    LIST(CLUSTER) node = ayb->tile->clusterlist;
-    while (NULL != node && cl < ayb->ncluster){
-        pcl_int = processNew(AtLU, ayb->N, node->elt->signals, pcl_int);
-        if (NULL == pcl_int) {
+    for (cl = 0; cl < ncluster; cl++){
+        th_id = omp_get_thread_num();
+
+        cl_bases = ayb->bases.elt + cl * ayb->ncycle;
+        cl_quals = ayb->quals.elt + cl * ayb->ncycle;
+        pcl_int[th_id] = processNew(AtLU, ayb->N, nodearry[cl]->elt->signals, pcl_int[th_id]);
+        if (NULL == pcl_int[th_id]) {
             ret = false;
-            goto cleanup;
         }
+        else {
 
 #ifndef NDEBUG
     if (showdebug) {
         if (!xfisnull(fpout)) {
             xfprintf(fpout, "cluster: %u\n", cl + 1);
-            show_MAT(fpout, pcl_int, pcl_int->nrow, pcl_int->ncol);
+            show_MAT(fpout, pcl_int[th_id], pcl_int[th_id]->nrow, pcl_int[th_id]->ncol);
         }
     }
 #endif
 
-        /* call initial bases for each cycle */
-        NUC * cl_bases = ayb->bases.elt + cl * ayb->ncycle;
-        PHREDCHAR * cl_quals = ayb->quals.elt + cl * ayb->ncycle;
-        for ( uint32_t cy = 0; cy < ayb->ncycle; cy++){
-            /* deal differently with missing data */
-            if (nodata(node->elt->signals->xint + cy * NBASE, NBASE)) {
-                cl_bases[cy] = call_base_nodata();
+            /* call initial bases for each cycle */
+            for ( cy = 0; cy < ayb->ncycle; cy++){
+                /* deal differently with missing data */
+                if (nodata(nodearry[cl]->elt->signals->xint + cy * NBASE, NBASE)) {
+                    cl_bases[cy] = call_base_nodata();
+                }
+                else {
+                    cl_bases[cy] = call_base_simple(pcl_int[th_id]->x + cy * NBASE);
+                }
+                cl_quals[cy] = MIN_PHRED;
             }
-            else {
-                cl_bases[cy] = call_base_simple(pcl_int->x + cy * NBASE);
-            }
-            cl_quals[cy] = MIN_PHRED;
+            /* initial lambda */
+//            ayb->lambda->x[cl] = estimate_lambdaOLS(pcl_int, cl_bases);
+            ayb->lambda->x[cl] = estimate_lambda_A (nodearry[cl]->elt->signals, ayb->N, ayb->At, cl_bases);
+
+            /* store the least squares error */
+            store_cluster_error(ayb, pcl_int[th_id], cl);
         }
-        /* initial lambda */
-//        ayb->lambda->x[cl] = estimate_lambdaOLS(pcl_int, cl_bases);
-        ayb->lambda->x[cl] = estimate_lambda_A (node->elt->signals, ayb->N, ayb->At, cl_bases);
-
-        /* store the least squares error */
-        store_cluster_error(ayb, pcl_int, cl);
-
-        /* next cluster */
-        node = node->nxt;
-        cl++;
     }
 
 #ifndef NDEBUG
@@ -1070,8 +1158,12 @@ bool initialise_model(AYB ayb, const bool showdebug) {
     }
 #endif
 
+/* cleanup for success and error states */
 cleanup:
-    free_MAT(pcl_int);
+    free_array_LIST(CLUSTER)(nodearry);
+    for (int i = 0; i < ncpu; i++) {
+        free_MAT(pcl_int[i]);
+    }
     free_MAT(AtLU.mat);
     xfree(AtLU.piv);
     return ret;
