@@ -36,6 +36,8 @@
 	#define rcons_LIST(A)   rcons_list_ ## A
 	#define show_LIST(A)    show_list_ ## A
 	#define length_LIST(A)  length_list_ ## A
+	#define array_from_LIST(A)  array_from_list_ ## A
+	#define free_array_LIST(A)  free_array_list_ ## A
 #endif
 
 // List structure containing element
@@ -270,4 +272,32 @@ static inline struct X(_list_) ** X(split_list_)( unsigned int (*f)(const X(), c
     }
     return listarray;
 }
-                                                  
+
+// Create an array of list pointers (used in multi-threading)
+// Get length from list if zero supplied; return array length created
+static inline struct X(_list_) ** X(array_from_list_)( struct X(_list_) * list, unsigned int *nelt){
+    if(NULL==list){ return NULL;}
+    if(0==*nelt){*nelt = X(length_list_)(list);}
+    if(0==*nelt){return NULL;}
+    struct X(_list_) ** listarray = calloc(*nelt,sizeof(*listarray));
+    if(NULL==listarray){return NULL;}
+
+    unsigned int i=0;
+    struct X(_list_) * node = list;
+    while( NULL!=node && i<*nelt){
+        listarray[i++] = node;
+        node = node->nxt;
+    }
+    if(i<*nelt){
+        listarray = realloc(listarray,i*sizeof(*listarray));
+        *nelt = i;
+    }
+    return listarray;
+}
+
+// Free a list array
+static inline void X(free_array_list_)(struct X(_list_) ** listarray){
+    if(NULL==listarray){ return;}
+    free(listarray);
+}
+

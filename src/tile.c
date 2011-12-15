@@ -662,7 +662,27 @@ int main ( int argc, char * argv[]){
     tile_ary = coerce_TILE_from_array(ncluster, ncycle, x);
     show_TILE(xstdout, tile_ary, 10);
     /* do not free tile_ary as it points to arry */
+
+    xfputs("Create list pointer array\n", xstdout);
+    unsigned int nelt = ncluster - 1;
+    LIST(CLUSTER) * list_ary = array_from_list_CLUSTER(tile_ary->clusterlist, &nelt);
+    xfprintf(xstdout, "Number found for list array asking for too few: %u (available %u)\n", nelt, ncluster);
+    free_array_list_CLUSTER(list_ary);
+
+    nelt = ncluster + 1;
+    list_ary = array_from_list_CLUSTER(tile_ary->clusterlist, &nelt);
+    xfprintf(xstdout, "Number found for list array asking for too many: %u (available %u)\n", nelt, ncluster);
+    free_array_list_CLUSTER(list_ary);
     
+    nelt = 0;
+    list_ary = array_from_list_CLUSTER(tile_ary->clusterlist, &nelt);
+    xfprintf(xstdout, "Number found for list array asking for all: %u (available %u)\n", nelt, ncluster);
+    for ( int i=0 ; i<nelt ; i++) {
+        xfprintf(xstdout, "Index %d: ", i);
+        show_CLUSTER(xstdout, list_ary[i]->elt);
+    }
+    free_array_list_CLUSTER(list_ary);
+
     fputs("Filter list\n",stdout);
     LIST(CLUSTER) filteredlist = filter_list_CLUSTER(pick_spot,tile1->clusterlist,(void *)bds);
     show_LIST(CLUSTER)(xstdout,filteredlist,10);
