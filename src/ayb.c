@@ -99,9 +99,9 @@ static bool ShowWorking = false;                ///< Set to output final working
  * - p:        Matrix of processed intensities
  * - lambda:   Brightness of cluster
  * - base:     Current base call
- * - V:        Array of covariance matrices of size 1; single element used for accumulation
+ * - V:        Covariance matrix used for accumulation
  */
-static MAT * accumulate_all_covariance( const real_t we, const MAT p, const real_t lambda, const NUC * base, MAT * V) {
+static MAT  accumulate_all_covariance( const real_t we, const MAT p, const real_t lambda, const NUC * base, MAT V) {
     validate(NULL!=p, NULL);
     validate(NBASE==p->nrow, NULL);
     validate(lambda>=0.0, NULL);
@@ -110,15 +110,9 @@ static MAT * accumulate_all_covariance( const real_t we, const MAT p, const real
     const int lda = ncycle * NBASE;
 
     // Allocate memory for V if necessary
-    // for compatibility of return value with normal accumulate use an array of size 1
-    if ( NULL==V ){
-        V = calloc(1, sizeof(*V));
-        if(NULL==V) {return NULL;}
-        V[0] = new_MAT(lda, lda);
-        if(NULL==V[0]) {
-            xfree(V);
-            return NULL;
-        }
+    if (NULL==V) {
+        V = new_MAT(lda, lda);
+        if (NULL==V) { return NULL; }
     }
 
     // Perform accululation. V += R R^t
@@ -128,77 +122,16 @@ static MAT * accumulate_all_covariance( const real_t we, const MAT p, const real
             p->x[cy * NBASE + base[cy]] -= lambda;
         }
     }
-    syr(LAPACK_LOWER, &lda, &we, p->x, LAPACK_UNIT, V[0]->x, &lda);
+    syr(LAPACK_LOWER, &lda, &we, p->x, LAPACK_UNIT, V->x, &lda);
 
     // V is lower triangular
     for (int i = 0; i < lda; i++){
         for (int j = 0; j < i; j++){
-            V[0]->x[i * lda + j] = V[0]->x[j * lda + i];
+            V->x[i * lda + j] = V->x[j * lda + i];
         }
     }
 
     return V;
-}
-
-/**
- * Accumulate required variances (inner summation of variance calculation).
- * Note: If V is NULL, the required memory is allocated.
- * - p:        Matrix of processed intensities
- * - lambda:   Brightness of cluster
- * - base:     Current base call
- * - V:        Array of covariance matrices into which accumulation occurs
- */
-static MAT * accumulate_covariance( const real_t we, const MAT p, const real_t lambda, const NUC * base, MAT * V){
-    validate(NULL!=p,NULL);
-    validate(NBASE==p->nrow,NULL);
-    validate(lambda>=0.,NULL);
-
-    const uint32_t ncycle = p->ncol;
-    // Allocate memory for V if necessary
-    if ( NULL==V ){
-        V = calloc(ncycle+1,sizeof(*V));
-        if(NULL==V){ return NULL;}
-        for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
-            V[cycle] = new_MAT(NBASE,NBASE);
-            if(NULL==V[cycle]){ goto cleanup;}
-        }
-    }
-    // Perform accululation. V += R R^t
-    // Note: R = P - \lambda I_b, where I_b is unit vector with b'th elt = 1
-    //  so R R^t = P P^t - \lambda I_b P^t
-    //                   - \lambda P I_b^t + \lambda^2 I_b I_b^2
-    for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
-        const int cybase = base[cycle];
-        // P P^t
-        for ( uint32_t i=0 ; i<NBASE ; i++){
-            for ( uint32_t j=0 ; j<NBASE ; j++){
-                V[cycle]->x[i*NBASE+j] += we * p->x[cycle*NBASE+i] * p->x[cycle*NBASE+j];
-            }
-        }
-
-        if (isambig(cybase)) { continue;}
-
-        // \lambda I_b P^t and \lambda P I_b^t
-        for ( uint32_t i=0 ; i<NBASE ; i++){
-            V[cycle]->x[cybase*NBASE+i] -= we * lambda * p->x[cycle*NBASE+i];
-            V[cycle]->x[i*NBASE+cybase] -= we * lambda * p->x[cycle*NBASE+i];
-        }
-        // \lambda^2 I_b I_b^t
-        V[cycle]->x[cybase*NBASE+cybase] += we * lambda*lambda;
-    }
-    // Create residuals
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        if (!isambig(base[cy])) { p->x[cy*NBASE+base[cy]] -= lambda;}
-    }
-
-    return V;
-
-cleanup:
-    for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
-        free_MAT(V[cycle]);
-    }
-    xfree(V);
-    return NULL;
 }
 
 /**
@@ -666,43 +599,40 @@ void show_AYB_quals(XFILE * fp, const AYB ayb, const uint32_t cl) {
 }
 
 
-/*
- * Routines to calculate covariance of errors, using the "fast approach".
- * Working with processed intensities.
- */
-
 /**
  * Calculate covariance of (processed) residuals.
- * Returns a pointer to array of matrices, one per cycle
- * or array of size one for full covariance matrix if requested.
+ * Uses the "fast approach", working with processed intensities.
+ * Returns full covariance matrix.
  */
-MAT * calculate_covariance(AYB ayb, bool all){
+MAT calculate_covariance(AYB ayb){
 
     const uint32_t ncluster = ayb->ncluster;
     const uint32_t ncycle = ayb->ncycle;
 
-    MAT * V = NULL;                     // memory allocated in accumulate
+    MAT V = NULL;                       // memory allocated in accumulate
     MAT pcl_int = NULL;                 // Shell for processed intensities
 
     struct structLU AtLU = LUdecomposition(ayb->At);
 
     real_t wesum = 0.;
+    bool ok = true;
 
     unsigned int cl = 0;
     LIST(CLUSTER) node = ayb->tile->clusterlist;
     while (NULL != node && cl < ncluster){
         const NUC * cl_bases = ayb->bases.elt + cl * ncycle;
         pcl_int = processNew(AtLU, ayb->N, node->elt->signals, pcl_int);
-        if (NULL == pcl_int) { goto cleanup; }
+        if (NULL == pcl_int) { 
+            ok = false; 
+            goto cleanup; 
+        }
 
         /* add this cluster values */
-        if (all) {
-            V = accumulate_all_covariance(ayb->we->x[cl], pcl_int, ayb->lambda->x[cl], cl_bases, V);
+        V = accumulate_all_covariance(ayb->we->x[cl], pcl_int, ayb->lambda->x[cl], cl_bases, V);
+        if (NULL == V) { 
+            ok = false; 
+            goto cleanup; 
         }
-        else {
-            V = accumulate_covariance(ayb->we->x[cl], pcl_int, ayb->lambda->x[cl], cl_bases, V);
-        }
-        if (NULL == V) { goto cleanup; }
 
         /* sum denominator */
         wesum += ayb->we->x[cl];
@@ -712,39 +642,18 @@ MAT * calculate_covariance(AYB ayb, bool all){
         cl++;
     }
 
-    pcl_int = free_MAT(pcl_int);
-    free_MAT(AtLU.mat);
-    xfree(AtLU.piv);
-
     /* scale sum of squares to make covariance */
-    if (all) {
-        if (NULL == V || NULL == V[0]) { goto cleanup; }
-        scale_MAT(V[0], 1.0/wesum);
-    }
-    else {
-        for ( uint32_t cy = 0; cy < ncycle; cy++){
-            if (NULL == V || NULL == V[cy]) { goto cleanup; }
-            /* add a diagonal offset to help with bad data */
-            for ( uint32_t i = 0; i < NBASE; i++){
-                V[cy]->x[i * NBASE + i] += 1.0;
-            }
-            scale_MAT(V[cy], 1.0/wesum);
-        }
-    }
-    return V;
+    scale_MAT(V, 1.0/wesum);
 
 cleanup:
-    if (NULL != V) {
-        const uint32_t nc =  all ? 1 : ncycle;
-        for (uint32_t cy = 0; cy < nc; cy++) {
-            free_MAT(V[cy]);
-        }
-        xfree(V);
+    if (!ok) {  
+        V = free_MAT(V);
     }
+    
     free_MAT(pcl_int);
     free_MAT(AtLU.mat);
     xfree(AtLU.piv);
-    return NULL;
+    return V;
 }
 
 /**
@@ -761,7 +670,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     real_t effDF = NBASE * ncycle;
 
     MAT pcl_int = NULL;                 // Shell for processed intensities
-    MAT * V_full = NULL;                // Full covariance matrix (array of size 1)
+    MAT V_full = NULL;                  // Full covariance matrix
     real_t * qual = NULL;
     int ret_count = 0;
     bool show_processed = (ShowWorking && lastiter);
@@ -781,7 +690,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 #endif
 
     /* calculate full covariance */
-    V_full = calculate_covariance(ayb, true);
+    V_full = calculate_covariance(ayb);
 
     if (V_full == NULL) {
         /* set calls to null and terminate processing */
@@ -794,7 +703,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         fpout = open_output("covfull");
         if (!xfisnull(fpout)) {
             xfputs("covariance full:\n", fpout);
-            show_MAT(fpout, V_full[0], 0, 0);
+            show_MAT(fpout, V_full, 0, 0);
         }
         fpout = xfclose(fpout);
     }
@@ -805,12 +714,12 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         ayb->cycle_var->x[cy] = 0.;
         for (uint32_t b = 0; b < NBASE; b++){
             uint32_t offset = cy * NBASE + b;
-            ayb->cycle_var->x[cy] += V_full[0]->x[offset * ncycle * NBASE + offset];
+            ayb->cycle_var->x[cy] += V_full->x[offset * ncycle * NBASE + offset];
         }
     }
 
     /* calculate restricted fitted V inverse */
-	ayb->omega = fit_omega(V_full[0], ayb->omega);
+	ayb->omega = fit_omega(V_full, ayb->omega);
     if (ayb->omega == NULL) {
         /* set calls to null and terminate processing */
         ret_count = DATA_ERR;
@@ -947,13 +856,10 @@ cleanup:
     }
 
     xfree(qual);
-    free_MAT(pcl_int);
     free_MAT(AtLU.mat);
     xfree(AtLU.piv);
-    if (NULL != V_full) {
-        free_MAT(V_full[0]);
-        xfree(V_full);
-    }
+    free_MAT(pcl_int);
+    free_MAT(V_full);
     return ret_count;
 }
 

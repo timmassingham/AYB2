@@ -358,15 +358,14 @@ static void output_simdata(AYB ayb, const int argc, char ** const argv, const in
     xfree(lambdas);
 
     /* calculate and output all covariance */
-    MAT * V = calculate_covariance(ayb, true);
+    MAT V = calculate_covariance(ayb);
     
     if (V == NULL) {
         message(E_NOCREATE_S, MSG_ERR, "full covariance");
     }
     else {
-        show_MAT_rownum(fpsim, V[0], 0, 0, false);
-        free_MAT(V[0]);
-        xfree(V);
+        show_MAT_rownum(fpsim, V, 0, 0, false);
+        free_MAT(V);
     }
 
     xfclose(fpsim);
