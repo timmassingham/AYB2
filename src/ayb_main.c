@@ -26,6 +26,7 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -123,6 +124,12 @@ int main(int argc, char **argv) {
         ret = EXIT_FAILURE;
         goto cleanup;
     }
+
+    /* set the number of threads */
+    int rthread = get_nthread();
+    omp_set_num_threads(rthread);
+    int sthread = omp_get_max_threads();
+    message(E_THREAD_DD, MSG_INFO, sthread, rthread);
 
     const CSTRING input_path = get_input_path();
     const unsigned int totalcycle = get_totalcycle();

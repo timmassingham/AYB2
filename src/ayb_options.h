@@ -40,6 +40,7 @@ typedef enum OptIndexT {E_SIMDATA = 0} OPTINDEX;
 /* function prototypes */
 
 RETOPT read_options(const int argc, char ** const argv, int *nextarg);
+int get_nthread(void);
 bool match_option(const char *string, const OPTINDEX index);
 
 #endif /* AYB_OPTIONS_H_ */

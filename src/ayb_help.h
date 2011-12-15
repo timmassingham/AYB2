@@ -25,6 +25,7 @@
 "\t\t\t\t(none/fatal/error/warning/information/debug)\n"
 "  -n  --niter <num>\t\tNumber of model iterations [default: 5]\n"
 "  -o  --output <path>\t\tLocation to create output files [default: \"\"]\n"
+"  -p  --parallel <num>\t\tMultiple threads speeds up run time [default: 1]\n"
 "  -q  --noqualout\t\tDo not output quality calibration table\n"
 "  -r  --runfolder\t\tRead cif files from a run-folder\n"
 "\tPrefix is replaced by lane tile (range) with format LnTn (Ln-nTn-n)\n"

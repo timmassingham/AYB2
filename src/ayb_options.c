@@ -38,9 +38,6 @@
 #include "qual_table.h"
 
 
-/* constants */
-/* none */
-
 /* private functions that output bulk text */
 
 /** Print help information. Includes text from ayb_help.h. */
@@ -69,8 +66,12 @@ void print_usage(FILE *fp) {
 }
 
 
-/* members */
+/* constants */
 /* none */
+
+/* members */
+static int NThread = 1;
+
 
 /** Options with no short form. */
 enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
@@ -88,6 +89,7 @@ static struct option Longopts[] = {
     {"mu",          required_argument,  NULL, 'm'},
     {"niter",       required_argument,  NULL, 'n'},
     {"output",      required_argument,  NULL, 'o'},
+    {"parallel",    required_argument,  NULL, 'p'},
     {"noqualout",   no_argument,        NULL, 'q'},
     {"runfolder",   no_argument,        NULL, 'r'},
     {"working",     no_argument,        NULL, 'w'},
@@ -109,6 +111,22 @@ static struct option Longopts[] = {
 static void init_options(void) {
 }
 
+/** 
+ * Set the requested number of parallel threads.
+ * Do not allow to be invalid.
+ */
+static void set_nthread(const char *niter_str) {
+
+    char *endptr;
+    int nthr = strtoul(niter_str, &endptr, 0);
+    if (nthr > 0) {
+        NThread = nthr;
+    }
+    else {
+        fprintf(stderr, "Warning: Invalid number of threads (\'%s\') supplied; defaulting to %d\n", niter_str, NThread);
+    }
+}
+
 
 /* public functions */
 
@@ -126,7 +144,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:l:m:n:o:qrwA:M:N:Q:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:l:m:n:o:p:qrwA:M:N:Q:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 's':
@@ -192,13 +210,18 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
                 break;
 
             case 'n':
-                /* number of cycles */
+                /* number of base call iterations */
                 set_niter(optarg);
                 break;
 
             case 'o':
                 /* output file location */
                 set_location(optarg, E_OUTPUT);
+                break;
+
+            case 'p':
+                /* requested number of parallel threads */
+                set_nthread(optarg);
                 break;
 
             case 'q':
@@ -263,6 +286,12 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* return index to non-option arguments */
     *nextarg = optind;
     return status;
+}
+
+/** Return the requested number of parallel threads. */
+int get_nthread(void) {
+
+    return NThread;
 }
 
 /**

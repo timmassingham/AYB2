@@ -85,7 +85,7 @@ static const char *MSG_TEXT[] = {
         "",                                                                     // E_END_SS
         "%s contains invalid character: \'%c\'\n",                              // E_BAD_CHAR_SC
         "",                                                                     // E_END_SC
-        "Input file pattern match: \'%s\'; %d files found\n",                   // E_PATTERN_MATCH_SD
+        "Input file pattern match: \'%s\'; %d file(s) found\n",                 // E_PATTERN_MATCH_SD
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
         "",                                                                     // E_END_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
@@ -97,6 +97,7 @@ static const char *MSG_TEXT[] = {
         "Processing failed at iteration %d; calls set to null\n",               // E_PROCESS_FAIL_D
         "Insufficient cycles for model; %d selected or found\n",                // E_CYCLESIZE_D
         "",                                                                     // E_END_D
+        "Using %d thread(s) (%d requested)\n",                                  // E_THREAD_DD
         "Input file contains fewer cycles than requested; %d instead of %d\n",  // E_CYCLESIZE_DD
         "Tile data size: %d clusters of %d cycles\n",                           // E_TILESIZE_DD
         "Failed to initialise model for block %d, %d cycles\n",                 // E_INIT_FAIL_DD

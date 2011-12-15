@@ -4,7 +4,7 @@ BINDIR = ../bin
 MANDIR = ../man
 CC = gcc
 FC = gfortran
-CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -std=gnu99
+CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -std=gnu99 -fopenmp
 LDFLAGS =  -lz -lbz2 -llapack
 INCFLAGS = 
 DEFINES = -D_BSD_SOURCE
