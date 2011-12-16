@@ -11,7 +11,7 @@ SYNOPSIS
 --------
 *AYB* [-b blockstring] [-d input format] [-e log file]
     [-f output format] [-g generr] [-i input path] [-l log level]
-    [-n iterations] [-o output path] [-q] [-r] [-s header] [-w] 
+    [-n iterations] [-o output path] [-p threads] [-q] [-r] [-s header] [-w] 
     [-A Parameter A] [-M Crosstalk] [-N Noise] [-Q quality tab]
     'prefix'[\+]/lane tile range ['prefix'[+]/lane tile range ...]
 
@@ -130,6 +130,10 @@ OPTIONS
 
 *-o,  --output* <path> [default: ""]::
 	Location to create output files. Will be created if does not exist.
+
+*-p,  --parallel* <num> [default: 1]::
+	Request multiple threads to speed up run time.
+	Requesting more than available does not help performance.
 
 *-q,  --noqualout*::
     Do not output quality calibration table.
