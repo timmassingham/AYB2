@@ -1,6 +1,15 @@
 AYB ChangeLog
 =============
 
+Version 2.07 (2011-12-16)
+-------------------------
+
+.Additions and changes
+
+- New 'parallel' option to run with multiple threads if multiple cores are available. 
+  Can speed up the run time.
+
+
 Version 2.06 (2011-12-01)
 -------------------------
 
