@@ -553,10 +553,17 @@ void read_intensities_folder(const char *root, const LANETILE lanetile, unsigned
 }
 
 /** Set the number of base call iterations. */
-void set_niter(const char *niter_str) {
+void set_niter(const char *n_str) {
 
     char *endptr;
-    NIter = strtoul(niter_str, &endptr, 0);
+    long n = strtol(n_str, &endptr, 0);
+    if (n > 0) {
+        NIter = n;
+    }
+    else {
+        /* validity check done in startup */
+        NIter = 0;
+    }
 }
 
 /**

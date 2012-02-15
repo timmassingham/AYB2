@@ -115,15 +115,15 @@ static void init_options(void) {
  * Set the requested number of parallel threads.
  * Do not allow to be invalid.
  */
-static void set_nthread(const char *niter_str) {
+static void set_nthread(const char *n_str) {
 
     char *endptr;
-    int nthr = strtoul(niter_str, &endptr, 0);
-    if (nthr > 0) {
-        NThread = nthr;
+    long n = strtol(n_str, &endptr, 0);
+    if (n > 0) {
+        NThread = n;
     }
     else {
-        fprintf(stderr, "Warning: Invalid number of threads (\'%s\') supplied; defaulting to %d\n", niter_str, NThread);
+        fprintf(stderr, "Warning: Invalid number of threads (\'%s\') supplied; defaulting to %d\n", n_str, NThread);
     }
 }
 
