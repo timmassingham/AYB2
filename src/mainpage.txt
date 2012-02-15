@@ -270,9 +270,9 @@ Test groups have an associated 3 letter suffix as follows:
 - blk: Cif input, multiple blocks
 - cif: Cif input, default block, all output
 - fol: Cif run-folder input
-- gcs: Cif input, composition, mu and solver in
-- mat: Cif input, blockstring=cycles, predetermined matrices and qualtab input
+- mat: Cif input, blockstring=cycles, fixed matrices and qualtab input
 - mul: Cif input, niter in, fasta output, multiple prefix, prefix as prefix, partial path, stderr redirect
+- par: Cif input, generr in, run multi-threaded
 - txt: Txt input, default block, all output, debug logging
 - zip: Zip txt input, blockstring=cycles
 
