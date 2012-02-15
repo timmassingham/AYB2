@@ -612,7 +612,7 @@ MAT calculate_covariance(AYB ayb){
     const uint32_t ncycle = ayb->ncycle;
 
     MAT Vsum = NULL;                    // memory allocated in multi-thread accumulate
-    real_t wesum = 0.;
+    real_t wesum = 0.0;
     bool ok = true;
 
     struct structLU AtLU = LUdecomposition(ayb->At);
@@ -625,9 +625,11 @@ MAT calculate_covariance(AYB ayb){
     const int ncpu = omp_get_max_threads();
     MAT pcl_int[ncpu];                      // Shell for processed intensities
     MAT V[ncpu];                            // memory allocated in accumulate
+    real_t wei[ncpu];                       // accumulate by thread determines sum order
     for (int i = 0; i < ncpu; i++) {
         pcl_int[i] = NULL;
         V[i] = NULL;
+        wei[i] = 0.0;
     }
     
     /* make an array of list pointers for multi-threading */
@@ -658,22 +660,28 @@ MAT calculate_covariance(AYB ayb){
             }
 
             /* sum denominator */
-            wesum += ayb->we->x[cl];
+            wei[th_id] += ayb->we->x[cl];
         }
     }
-
+    
     if (ok) {
         /* Accumulate from multi-thread */ 
         const int lda = V[0]->nrow;
         Vsum = new_MAT(lda, lda);
-        for (int i = 0; i < ncpu; i++) {
-            for (int j = 0; j < lda * lda; j++) {
-                Vsum->x[j] += V[i]->x[j];
-            }
+        if (NULL == Vsum) {
+            ok = false;
         }
+        else {
+            for (int i = 0; i < ncpu; i++) {
+                for (int j = 0; j < lda * lda; j++) {
+                    Vsum->x[j] += V[i]->x[j];
+                }
+                wesum += wei[i];
+            }
 
-        /* scale sum of squares to make covariance */
-        scale_MAT(Vsum, 1.0/wesum);
+            /* scale sum of squares to make covariance */
+            scale_MAT(Vsum, 1.0/wesum);
+        }
     }
 
 cleanup:
