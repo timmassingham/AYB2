@@ -5,7 +5,7 @@ MANDIR = ../man
 CC = gcc
 FC = gfortran
 CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -std=gnu99 -fopenmp
-LDFLAGS =  -lz -lbz2 -llapack
+LDFLAGS =  -lm -lz -lbz2 -lblas -llapack
 INCFLAGS = 
 DEFINES = -D_BSD_SOURCE
 objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o ayb.o calibration.o call_bases.o \
