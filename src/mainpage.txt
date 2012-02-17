@@ -37,13 +37,15 @@ Program inputs are:
 - Intensities files in cif or txt format
 - Optional initial Crosstalk (M) or fixed Noise (N) and Parameter A (A) matrices in column per row format
 - Optional quality calibration table
+- Optional spike-in data
 
 All file access for input is handled in module dirio (dirio.c).
 
 \section outputs Outputs
 Program outputs are:
 - Base Call Sequence file in fasta or fastq format
-- Quality calibration table
+- Optional quality calibration table
+- Optional quality counts from spike-in data
 - Optional final working values
 - Optional simulation data files
 
