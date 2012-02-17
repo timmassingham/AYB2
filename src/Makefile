@@ -10,12 +10,12 @@ INCFLAGS =
 DEFINES = -D_BSD_SOURCE
 objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o ayb.o calibration.o call_bases.o \
            cif.o cluster.o conjugate.o datablock.o dirio.o handler.o intensities.o lambda.o matrix.o \
-           message.o mixnormal.o mpn.o nuc.o qual_table.o statistics.o tile.o utility.o weibull.o xio.o
+           message.o mixnormal.o mpn.o nuc.o qual_table.o spikein.o statistics.o tile.o utility.o weibull.o xio.o
 
 AYB: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ $(LDFLAGS) $(objects)
 	
-test: test-cluster test-matrix test-message test-mixnormal test-mpn test-nuc test-tile test-xio
+test: test-cluster test-matrix test-message test-mixnormal test-mpn test-nuc test-spikein test-tile test-xio
 
 test-cluster: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects))
@@ -37,6 +37,9 @@ test-mpn: $(objects)
 
 test-nuc: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST nuc.c $(filter-out nuc.o ayb_main.o,$(objects))
+
+test-spikein: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST spikein.c $(filter-out spikein.o ayb_main.o,$(objects))
 
 test-tile: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects))
