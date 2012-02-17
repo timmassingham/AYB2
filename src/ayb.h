@@ -58,11 +58,12 @@ void show_AYB_bases(XFILE * fp, const AYB ayb, const uint32_t cl);
 void show_AYB_quals(XFILE * fp, const AYB ayb, const uint32_t cl);
 
 MAT calculate_covariance(AYB ayb);
-int estimate_bases(AYB ayb, int blk, const bool lastiter, const bool showdebug);
+int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showdebug);
 real_t estimate_MPN(AYB ayb);
-bool initialise_model(AYB ayb, const bool showdebug);
+bool initialise_model(AYB ayb, const int blk, const bool showdebug);
 
 void set_show_working(void);
+void set_spike_calib(void);
 bool startup_ayb(void);
 void tidyup_ayb(void);
 

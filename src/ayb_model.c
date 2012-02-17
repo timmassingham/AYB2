@@ -186,6 +186,7 @@ static RETOPT output_results (const AYB ayb, const int blk) {
     const uint32_t ncluster = get_AYB_ncluster(ayb);
 
     for (uint32_t cl = 0; cl < ncluster; cl++){
+        /* convert from 0-based cluster loop to 1-based for file */
         xfprintf(fpout, "%ccluster_%u\n", OUT_SYMBOL[OutputFormat], cl + 1);
         show_AYB_bases(fpout, ayb, cl);
         /* quality score */
@@ -441,7 +442,7 @@ RETOPT analyse_tile (const int argc, char ** const argv) {
         ayb = replace_AYB_tile(ayb, tileblock[blk]);
 
         /* set initial model values */
-        if (initialise_model(ayb, ShowDebug)) {
+        if (initialise_model(ayb, (numblock > 1) ? blk : BLK_SINGLE, ShowDebug)) {
             message(E_PROCESS_DD, MSG_INFO, blk + 1, get_AYB_ncycle(ayb));
 
 #ifndef NDEBUG
@@ -498,7 +499,6 @@ RETOPT analyse_tile (const int argc, char ** const argv) {
 
         else {
             message(E_INIT_FAIL_DD, MSG_ERR, blk + 1, get_AYB_ncycle(ayb));
-            status = E_FAIL;
         }
 
         /* free the structure ready for next */

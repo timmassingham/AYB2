@@ -40,6 +40,7 @@
 #include "mpn.h"
 #include "nuc.h"
 #include "qual_table.h"
+#include "spikein.h"
 #include "statistics.h"
 
 
@@ -57,7 +58,16 @@ struct AybT {
     MAT lss;
     MAT we, cycle_var;
     MAT omega;
+    bool *spiked;
 };
+
+/** Structure for spike-in quality counts. */
+struct QSpikeT {
+    uint32_t obs;
+    uint32_t diff;
+};
+
+typedef struct QSpikeT * QSPIKEPTR;
 
 /** Structure for output of final working values. */
 struct WorkT {
@@ -90,6 +100,9 @@ static MAT Matrix[E_MNP];                       ///< Predetermined matrices.
 static MAT Initial_At = NULL;                   ///< Initial parameter matrix.
 static bool FixedParam = false;                 ///< Use fixed supplied parameter matrices.
 static bool ShowWorking = false;                ///< Set to output final working values.
+static bool SpikeIn = false;                    ///< Use spike-in data.
+static bool SpikeFound = false;                 ///< Spike-in data found for this tile block.
+static bool SpikeCalib = false;                 ///< Calibrate qualities using spike-in data.
 
 
 /* private functions */
@@ -133,6 +146,66 @@ static MAT  accumulate_all_covariance( const real_t we, const MAT p, const real_
     }
 
     return V;
+}
+
+/** Calibrate qualities using spike-in data.
+ *     if Qp = predicted quality, Nerrs = number different, Nobs = number total 
+ * \n and Qa = actual quality (to find) then:
+ * \n Pp = 10 ^ (-Qp/10)
+ * \n Pa = (Nerrs + Pp)/(Nobs + 1)
+ * \n Qa = -10 * log10(Pa)
+ */
+static void calibrate_by_spikein(AYB ayb, const int blk, QSPIKEPTR qspike) {
+
+    validate(NULL != ayb, );
+    validate(NULL != qspike, );
+    
+    /* calculate actual quality for each predicted */
+    int qact[MAX_QUALITY + 1];
+    for (int q = 0; q <= MAX_QUALITY; q++) {
+        real_t pp = pow(10, -(real_t)q/10);
+        real_t pa = (qspike[q].diff + pp) / (qspike[q].obs + 1);
+        real_t qa = -10 * log10(pa);
+        qact[q] = (int)(qa + 0.5);
+    }
+
+    if (SpikeCalib) {
+        /* replace existing phred chars with calibrated quality ones */
+        const uint32_t ncluster = ayb->ncluster;
+        const uint32_t ncycle = ayb->ncycle;
+
+        for (uint32_t cl = 0; cl < ncluster; cl++) {
+            PHREDCHAR * cl_quals = ayb->quals.elt + cl * ncycle;
+            for (uint32_t cy = 0; cy < ncycle; cy++){
+                int q = qualint_from_phredchar(cl_quals[cy]);
+                cl_quals[cy] = phredchar_from_quality(qact[q]);
+            }
+        }    
+    }
+    else {
+        /* output counts to a file */
+        XFILE *fp = NULL;
+        fp = open_output_blk("qspike", blk);
+        if (!xfisnull(fp)) {
+            for (int q = 0; q <= MAX_QUALITY; q++) {
+                xfprintf(fp, "%d\t%d\t%d\n", q, qspike[q].diff, qspike[q].obs);
+            }
+        }
+        fp = xfclose(fp);
+    }
+}
+
+/** Calibrate qualities using calibration tables. */
+static void calibrate_by_table(const uint32_t ncycle, const real_t lambda, NUC * cl_bases, real_t * qual) {            
+
+    if (lambda != 0.0) {
+        /* adjust quality values; first and Last bases of read are special cases */
+        qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
+        for (uint32_t cy=1; cy<(ncycle-1); cy++) {
+            qual[cy] = adjust_quality(qual[cy], cl_bases[cy-1], cl_bases[cy], cl_bases[cy+1]);
+        }
+        qual[ncycle-1] = adjust_last_quality(qual[ncycle-1], cl_bases[ncycle-2], cl_bases[ncycle-1]);
+    }
 }
 
 /**
@@ -233,6 +306,45 @@ static bool read_matrices(void) {
     }
 
     return found;
+}
+
+/** 
+ * Read in any spike-in data. 
+ * For each spike-in cluster store bases and flag to indicate a spike-in cluster.
+ * Issues a warning message if a cluster number is out of range.
+ */
+static void read_spikein_data(AYB ayb, const int blk) {
+    
+    SpikeFound = false;
+    if (!SpikeIn) { return; }
+    validate(NULL != ayb, );
+    if (!read_spikein_file(ayb->ncycle, blk)) { return; }
+
+    SpikeFound = true;
+    const uint32_t ncluster = ayb->ncluster;
+    const uint32_t ncycle = ayb->ncycle;
+
+    SPIKEIN spikein = get_next_spikein();
+    while (spikein != NULL) {
+        /* store the bases for the given cluster */
+        uint32_t cl = spikein->knum;
+        if (cl < ncluster) {
+            NUC * cl_bases = ayb->bases.elt + cl * ncycle;
+            for (uint32_t cy = 0; cy < ncycle; cy++){
+                cl_bases[cy] = spikein->kbases.elt[cy];
+            }
+
+            /* set the spike-in cluster flag */
+            ayb->spiked[cl] = true;
+        }
+        else {
+            message(E_BAD_CLUSTER_SD, MSG_WARN, "spike-in file", cl + 1);
+        }
+        spikein = get_next_spikein();
+    }
+
+    /* don't reference the spike-in list again */
+    tidyup_spikein();
 }
 
 /** Set all calls to null (before terminating processing on error). */
@@ -355,7 +467,7 @@ static void write_processed(WORKPTR work, const AYB ayb, const CLUSTER cluster, 
 }
 
 /** Output final model values. */
-static void output_final(const AYB ayb, const int blk) {
+static void output_final(const AYB ayb, const real_t effDF, const int blk) {
     XFILE *fpfin = NULL;
 
     /* final model values */
@@ -363,6 +475,7 @@ static void output_final(const AYB ayb, const int blk) {
     if (!xfisnull(fpfin)) {
         show_AYB(fpfin, ayb, false);
     }
+    xfprintf(fpfin, "effDF: %#0.2f\n", effDF);
     xfclose(fpfin);
 
     /* final N, A in input format */
@@ -386,7 +499,7 @@ static void output_final(const AYB ayb, const int blk) {
  * Output is done here for cif and final model.
  * If status is error then just free resources.
  */
-static WORKPTR close_processed(WORKPTR work, const AYB ayb, const int blk, const int status) {
+static WORKPTR close_processed(WORKPTR work, const AYB ayb, const real_t effDF, const int blk, const int status) {
 
     if (status != DATA_ERR) {
         switch (get_input_format()) {
@@ -404,7 +517,7 @@ static WORKPTR close_processed(WORKPTR work, const AYB ayb, const int blk, const
         }
 
         /* final model values */
-        output_final(ayb, blk);
+        output_final(ayb, effDF, blk);
     }
 
     free_cif(work->cif);
@@ -434,10 +547,12 @@ AYB new_AYB(const uint32_t ncycle, const uint32_t ncluster){
     ayb->we = new_MAT(ncluster,1);
     ayb->cycle_var = new_MAT(ncycle,1);
     ayb->omega = NULL;
+    ayb->spiked = calloc(ncluster, sizeof(bool));
+    
     if( NULL==ayb->tile || NULL==ayb->bases.elt || NULL==ayb->quals.elt
 //            || NULL==ayb->M || NULL==ayb->P || NULL==ayb->N
             || NULL==ayb->N || NULL==ayb->At
-            || NULL==ayb->lambda || NULL==ayb->lss || NULL==ayb->we || NULL==ayb->cycle_var){
+            || NULL==ayb->lambda || NULL==ayb->lss || NULL==ayb->we || NULL==ayb->cycle_var || NULL==ayb->spiked){
         goto cleanup;
     }
 
@@ -462,6 +577,7 @@ AYB free_AYB(AYB ayb){
     free_MAT(ayb->we);
     free_MAT(ayb->cycle_var);
     free_MAT(ayb->omega);
+    xfree(ayb->spiked);
     xfree(ayb);
     return NULL;
 }
@@ -509,6 +625,10 @@ AYB copy_AYB(const AYB ayb){
 
     ayb_copy->omega = copy_MAT(ayb->omega);
     if(NULL!=ayb->omega && NULL==ayb_copy->omega){ goto cleanup;}
+    
+    ayb->spiked = calloc(ayb->ncluster, sizeof(bool));
+    if(NULL==ayb_copy->spiked){ goto cleanup;}
+    memcpy(ayb_copy->spiked, ayb->spiked, ayb->ncluster * sizeof(bool));
 
     return ayb_copy;
 
@@ -531,6 +651,11 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
     xfputs("lambda:\n",fp); show_MAT(fp,ayb->lambda,ayb->ncluster,1);
     if (showall) {
         xfputs("lss:\n",fp); show_MAT(fp,ayb->lss,ayb->ncluster,1);
+        xfputs("spike-in:\n",fp);
+        for (uint32_t cl=0; cl<ayb->ncluster; cl++){
+            xfputc(ayb->spiked[cl] ?'1':'0',fp);
+        }
+        xfputc('\n',fp); xfputc('\n',fp);
         xfputs("Bases:\n",fp); show_ARRAY(NUC)(fp,ayb->bases,"",ayb->ncycle*10);
         xfputc('\n',fp);
         xfputs("Quality:\n",fp); show_ARRAY(PHREDCHAR)(fp,ayb->quals,"",ayb->ncycle*10);
@@ -608,7 +733,7 @@ void show_AYB_quals(XFILE * fp, const AYB ayb, const uint32_t cl) {
 MAT calculate_covariance(AYB ayb){
 
     validate(NULL != ayb, NULL);
-    unsigned int ncluster = ayb->ncluster;
+    unsigned int ncluster = ayb->ncluster;  // need unsigned int for array_from_LIST
     const uint32_t ncycle = ayb->ncycle;
 
     MAT Vsum = NULL;                    // memory allocated in multi-thread accumulate
@@ -707,10 +832,11 @@ cleanup:
 int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showdebug) {
 
     validate(NULL != ayb, 0);
-    unsigned int ncluster = ayb->ncluster;
+    unsigned int ncluster = ayb->ncluster;  // need unsigned int for array_from_LIST
     const uint32_t ncycle = ayb->ncycle;
 
     MAT V_full = NULL;                  // Full covariance matrix
+    QSPIKEPTR qspike = NULL;
     WORKPTR work = NULL;
     real_t effDF = NBASE * ncycle;
     int ret_count = 0;
@@ -799,10 +925,15 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     }
 #endif
 
-    /* Calculate the median value of the lss array before updating any of the entries */
-    /* (only used on last iteration ) */
     if (lastiter) {
+        /* Calculate the median value of the lss array before updating any of the entries */
+        /* (only used on last iteration ) */
         effDF = median(ayb->lss->x, ncluster);
+
+        if (SpikeIn) {
+            /* storage for spike-in quality counts */
+            qspike = calloc(MAX_QUALITY + 1, sizeof(*qspike));
+        }
     }
 
     /* declare variables for multi-threading */
@@ -855,21 +986,42 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     }
 #endif
 
-            /* call bases and qualities for all cycles */
-            /* qualities only needed on last iteration */
-            ayb->lss->x[cl] = call_bases(pcl_int[th_id], ayb->lambda->x[cl], ayb->omega, cl_bases);
+            /* call bases for all cycles */
+            NUC sp_bases[ncycle];                   // thread private storage for copy of spike-in sequence
 
+            /* only calculate lss for spike-in data clusters unless last iteration */
+            if (!lastiter && ayb->spiked[cl]) {
+                ayb->lss->x[cl] = calculate_lss(pcl_int[th_id], ayb->lambda->x[cl], ayb->omega, cl_bases);
+            }
+            else {
+                if (ayb->spiked[cl]) {
+                    /* save spiked-in sequence for diff counts */ 
+                    memcpy(sp_bases, cl_bases, ncycle * sizeof(NUC));
+                }
+                ayb->lss->x[cl] = call_bases(pcl_int[th_id], ayb->lambda->x[cl], ayb->omega, cl_bases);
+            }
+            
+            /* call qualities, only needed on last iteration */
             if (lastiter) {
                 real_t qual[ncycle];                // thread private storage for (real_t) quality values
                 call_qualities_post(pcl_int[th_id], ayb->lambda->x[cl], ayb->omega, effDF, cl_bases, qual);
 
-                if (ayb->lambda->x[cl] != 0.0) {
-                    /* adjust quality values; first and Last bases of read are special cases */
-                    qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
-                    for (cy=1; cy<(ncycle-1); cy++) {
-                        qual[cy] = adjust_quality(qual[cy], cl_bases[cy-1], cl_bases[cy], cl_bases[cy+1]);
+                if (SpikeIn) {
+                    if (ayb->spiked[cl]) {
+                        /* add obs/diffs to counts */
+                        for (cy = 0; cy < ncycle; cy++) {
+                            int q = qualint_from_quality(qual[cy]);
+                            qspike[q].obs++;
+                            if (cl_bases[cy] != sp_bases[cy]) {
+                                qspike[q].diff++;
+                            }
+                        }
                     }
-                    qual[ncycle-1] = adjust_last_quality(qual[ncycle-1], cl_bases[ncycle-2], cl_bases[ncycle-1]);
+                }
+                
+                else {
+                    /* calibrate using calibration tables */
+                    calibrate_by_table(ncycle, ayb->lambda->x[cl], cl_bases, qual); 
                 }
 
                 /* convert qualities to phred char */
@@ -890,11 +1042,16 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         }
     }
 
-    /* Accumulate from multi-thread */ 
+    /* accumulate from multi-thread */ 
     if (ret_count != DATA_ERR) {
         for (int i = 0; i < ncpu; i++) {
             ret_count += zero_lam[i];
         }
+    }
+
+    /* calibrate using spike-in data */
+    if (lastiter && SpikeFound) {
+        calibrate_by_spikein(ayb, blk, qspike);
     }
 
     /* output processed intensities if requested and final iteration */
@@ -909,7 +1066,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
             }
         }
 
-        work = close_processed(work, ayb, blk, ret_count);
+        work = close_processed(work, ayb, effDF, blk, ret_count);
         xfree(work);
     }
 
@@ -933,6 +1090,7 @@ cleanup:
     free_MAT(AtLU.mat);
     xfree(AtLU.piv);
     free_MAT(V_full);
+    xfree(qspike);
     return ret_count;
 }
 
@@ -1046,9 +1204,10 @@ cleanup:
  * Set initial values for the model.
  * Returns false if one of the initial matrices is wrong dimension or process intensities fails.
  */
-bool initialise_model(AYB ayb, const bool showdebug) {
+bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
 
     validate(NULL != ayb, false);
+    unsigned int ncluster = ayb->ncluster;  // need unsigned int for array_from_LIST
     const int lda = NBASE * ayb->ncycle;
 
     /* initial M, N, A */
@@ -1084,6 +1243,9 @@ bool initialise_model(AYB ayb, const bool showdebug) {
     set_MAT(ayb->we, 1.0);
     set_MAT(ayb->cycle_var, 1.0);
 
+    /* read in and store any spike-in data */
+    read_spikein_data(ayb, blk);
+
     struct structLU AtLU = LUdecomposition(ayb->At);
     bool ret = true;
 
@@ -1096,7 +1258,6 @@ bool initialise_model(AYB ayb, const bool showdebug) {
 
     /* declare variables for multi-threading */
     LIST(CLUSTER) * nodearry = NULL;
-    unsigned int ncluster = ayb->ncluster;
     int_fast32_t cl;
     uint_fast32_t cy;
     NUC * cl_bases = NULL;
@@ -1142,12 +1303,17 @@ bool initialise_model(AYB ayb, const bool showdebug) {
 
             /* call initial bases for each cycle */
             for ( cy = 0; cy < ayb->ncycle; cy++){
-                /* deal differently with missing data */
-                if (nodata(nodearry[cl]->elt->signals->xint + cy * NBASE, NBASE)) {
-                    cl_bases[cy] = call_base_nodata();
-                }
-                else {
-                    cl_bases[cy] = call_base_simple(pcl_int[th_id]->x + cy * NBASE);
+
+                /* skip any spike-in data clusters */
+                if (!ayb->spiked[cl]) {
+                
+                    /* deal differently with missing data */
+                    if (nodata(nodearry[cl]->elt->signals->xint + cy * NBASE, NBASE)) {
+                        cl_bases[cy] = call_base_nodata();
+                    }
+                    else {
+                        cl_bases[cy] = call_base_simple(pcl_int[th_id]->x + cy * NBASE);
+                    }
                 }
                 cl_quals[cy] = MIN_PHRED;
             }
@@ -1183,12 +1349,34 @@ void set_show_working(void) {
     ShowWorking = true;
 }
 
+/** Set spike-in data calibration flag. */
+void set_spike_calib(void) {
+
+    SpikeCalib = true;
+}
+
 /**
  * Start up; call at program start after options.
  * Issues option info messages.
  * Returns true if any M, N, P matrix and quality table reads are successful.
  */
 bool startup_ayb(void) {
+
+    /* check if spike-in data configured */
+    SpikeIn = spike_in();
+    if (SpikeIn) {
+        if (SpikeCalib) {    
+            message(E_QUALCALIB_S, MSG_INFO, "spike-in data");
+        }
+        else {
+            message(E_QUALCALIB_S, MSG_INFO, "post-processing with spike-in data");
+        }
+        /* no quality calibration table output */
+        set_noqualout();
+    }
+    else {
+        message(E_QUALCALIB_S, MSG_INFO, "calibration table");
+    }    
 
     message(E_OPT_SELECT_SG, MSG_INFO, "Generalised error value", get_generr());
 
