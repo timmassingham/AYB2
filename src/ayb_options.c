@@ -85,6 +85,7 @@ static struct option Longopts[] = {
     {"logfile",     required_argument,  NULL, 'e'},
     {"format",      required_argument,  NULL, 'f'},
     {"input",       required_argument,  NULL, 'i'},
+    {"spikeuse",    no_argument,        NULL, 'k'},
     {"loglevel",    required_argument,  NULL, 'l'},
     {"mu",          required_argument,  NULL, 'm'},
     {"niter",       required_argument,  NULL, 'n'},
@@ -94,6 +95,7 @@ static struct option Longopts[] = {
     {"runfolder",   no_argument,        NULL, 'r'},
     {"working",     no_argument,        NULL, 'w'},
     {"A",           required_argument,  NULL, 'A'},
+    {"spikein",     required_argument,  NULL, 'K'},
     {"M",           required_argument,  NULL, 'M'},
     {"N",           required_argument,  NULL, 'N'},
     {"qualtab",     required_argument,  NULL, 'Q'},
@@ -144,7 +146,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:l:m:n:o:p:qrwA:M:N:Q:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:kl:m:n:o:p:qrwA:K:M:N:Q:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 's':
@@ -191,6 +193,11 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
             case 'i':
                 /* input file location */
                 set_location(optarg, E_INPUT);
+                break;
+
+            case 'k':
+                /* spike-in data calibration flag */
+                set_spike_calib();
                 break;
 
             case 'l':
@@ -242,6 +249,11 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
             case 'A':
                 /* param A file name */
                 set_location(optarg, E_PARAMA);
+                break;
+
+            case 'K':
+                /* location of spike-in data */
+                set_location(optarg, E_SPIKEIN);
                 break;
 
             case 'M':
