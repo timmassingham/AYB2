@@ -12,11 +12,11 @@
  * If cif input from a run-folder is selected (by program option) then the prefix is replaced by
  * a lane and tile range string of the form Ln[-n]Tn[-n].
  * Each request for the next input returns the next lane and tile in the range.
- * A virtual input filename s_L_TTTT is created.
+ * A virtual intensities filename s_L_TTTT is created.
  *
- * Predetermined input matrix files are also opened here.
+ * Other files such as predetermined input matrix and spike-in data files are also opened here.
  * 
- * Output file names are generated from the input file name by replacing the 'tag' with a new one.
+ * Output file names are generated from the intensities file name by replacing the 'tag' with a new one.
  * The tag is the file suffix for cif files or between the last delimiter and the first dot for txt files. 
  * Any txt compression suffix is also removed as output is always uncompressed.
  * An attempt is made to create output directories if they do not exist.
@@ -77,6 +77,7 @@ static const char *INFORM_TEXT[] = {"TXT", "CIF"};
 static const char *INFORM_MESS_TEXT[] = {"standard illumina txt", "cif"};
 static const char *INTEN_TAG[] = {"int", ""};           ///< Fixed Intensities file tags.
 static const char *INTEN_SUF[] = {"txt", "cif"};        ///< Fixed Intensities file suffixes.
+static const char *SPIKEIN_TAG = "spike";               ///< Spike-in file tag.
 
 static const char *LTMESS_TEXT = "Lane tile string";    ///< Lane Tile parameter name for messages.
 
@@ -95,6 +96,7 @@ typedef enum DirOptT {E_ISDIR, E_NODIR, E_NOEXIST} DIROPT;
 static INFORM Input_Format = E_CIF;             ///< Selected input format.
 static CSTRING Input_Path = NULL;               ///< Input path, default or program argument.
 static CSTRING Output_Path = NULL;              ///< Output path, default or program argument.
+static CSTRING Spikearg_Path = NULL;            ///< Spike-in path, program argument.
 static CSTRING IntenSubstr = NULL;              ///< Substring an intensities file must contain.
 /**
  * File pattern match. Currently a prefix or the whole part of the filename before the substring.
@@ -103,6 +105,7 @@ static CSTRING IntenSubstr = NULL;              ///< Substring an intensities fi
 static CSTRING Pattern = NULL;
 static CSTRING Pattern_Path = NULL;             ///< Input path and any pattern path parts.
 static size_t Pattern_Len = 0;                  ///< Length of pattern match, program exits if not > 0.
+static CSTRING Spikein_Path;                    ///< Spike-in path to use.
 static CSTRING Matrix[E_NMATRIX];               ///< Predetermined matrix input file locations.
 
 static struct dirent **Dir_List = NULL;         ///< The pattern matched directory list.
@@ -114,7 +117,9 @@ static LANETILE LTMin = {0, 0};                 ///< Selected minimum run-folder
 static LANETILE LTMax = {0, 0};                 ///< Selected maximum run-folder lane and tile.
 static LANETILE LTCurrent = {0, 0};             ///< Current run-folder lane and tile.
 
-static CSTRING Current = NULL;                  ///< Current input file, used to create output filename.
+static CSTRING Current = NULL;                  ///< Current intensities file, used to create other filenames.
+static CSTRING Last_Input = NULL;               ///< Last non-intensities input file opened.
+static CSTRING Last_Spikein = NULL;             ///< Last spike-in file opened.
 
 
 /* private functions */
@@ -488,9 +493,9 @@ static CSTRING name_only(const CSTRING filepath) {
  * Create a new file name by replacing the part between the last delimiter and the first dot with a new tag.
  * Add a block suffix to the name if non-negative blk supplied.
  * Also removes any compression suffix.
- * Used for standard illumina (txt) outputs.
+ * Used for standard illumina (txt) outputs and additional inputs.
  */
-static CSTRING output_name_body(const CSTRING oldname, const CSTRING tag, int blk) {
+static CSTRING new_name_body(const CSTRING oldname, const CSTRING tag, int blk) {
 
     if ((oldname == NULL) || (tag == NULL)) {return NULL;}
 
@@ -516,7 +521,7 @@ static CSTRING output_name_body(const CSTRING oldname, const CSTRING tag, int bl
     newname = new_CSTRING(oldlen - (pdot - pdlm - 1) + taglen + ((blk >= 0)?1:0));
 
     if (newname == NULL) {
-        message(E_NOMEM_S, MSG_FATAL, " output name creation");
+        message(E_NOMEM_S, MSG_FATAL, " new name creation");
     }
     else {
         /* copy the component parts to the new name */
@@ -553,9 +558,9 @@ static CSTRING output_name_body(const CSTRING oldname, const CSTRING tag, int bl
 /**
  * Create a new file name by replacing the suffix with a new tag.
  * Add a block suffix to the body if non-negative blk supplied.
- * Used for cif and program outputs.
+ * Used for cif and program outputs and additional inputs.
  */
-static CSTRING output_name_suffix(const CSTRING oldname, const CSTRING tag, int blk) {
+static CSTRING new_name_suffix(const CSTRING oldname, const CSTRING tag, int blk) {
 
     if ((oldname == NULL) || (tag == NULL)) {return NULL;}
 
@@ -574,7 +579,7 @@ static CSTRING output_name_suffix(const CSTRING oldname, const CSTRING tag, int 
     newname = new_CSTRING(pdot - oldname + taglen + 1 + ((blk >= 0)?1:0));
 
     if (newname == NULL) {
-        message(E_NOMEM_S, MSG_FATAL, " output name creation");
+        message(E_NOMEM_S, MSG_FATAL, " new name creation");
     }
     else {
         /* copy the component parts to the new name */
@@ -597,6 +602,61 @@ static CSTRING output_name_suffix(const CSTRING oldname, const CSTRING tag, int 
 
 //    message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, newname);
     return newname;
+}
+
+/**
+ * Open an input file corresponding to current intensities file with supplied location and tag.
+ * A non-negative blk indicates a block suffix should be added to the name.
+ * BLK_SINGLE indicates no block suffix.
+ * Return the file handle or NULL if failed to open.
+ */
+static XFILE * open_input_blk(const CSTRING location, const CSTRING tag, int blk) {
+    CSTRING filename = NULL;
+    CSTRING filepath = NULL;
+    XFILE *fp = NULL;
+
+    if (Current == NULL) {
+        /* use the tag on its own */
+        filename = copy_CSTRING(tag);
+    }
+    else {
+        /* create input file name from current intensities name */
+        switch (Input_Format) {
+            case E_TXT:
+                filename = new_name_body(Current, tag, blk);
+                break;
+
+            case E_CIF:
+                filename = new_name_suffix(Current, tag, blk);
+                break;
+
+            default: ;
+        }
+    }
+
+    if (filename != NULL) {
+        if (full_path(location, filename, &filepath)) {
+            fp = xfopen(filepath, XFILE_UNKNOWN, "r" );
+
+            if (xfisnull(fp)) {
+                message(E_OPEN_FAIL_SS, MSG_ERR, "Input", filepath);
+                fp = xfclose(fp);
+            }
+            else {
+                message(E_INPUT_FOUND_SS, MSG_INFO, tag, filename);
+            }
+        }
+    }
+    
+    if (fp != NULL) {
+        Last_Input = free_CSTRING(Last_Input);
+        Last_Input = copy_CSTRING(filename);
+    }
+
+    free_CSTRING(filename);
+    free_CSTRING(filepath);
+    
+    return fp;
 }
 
 /**
@@ -663,6 +723,41 @@ static bool set_lanetile(const CSTRING lanetilestr) {
     return ok;
 }
 
+/**
+ * Set the spikein file location. May be full path or relative to input path.
+ * Returns true if path supplied and exists.
+ */
+static bool set_spikein(void) {
+
+    if (Spikearg_Path == NULL) { return false; }
+    
+    if (Spikearg_Path[0] == PATH_DELIM) {
+        /* full path given, use as is */
+        Spikein_Path = copy_CSTRING(Spikearg_Path);
+    }
+    else {
+        /* path relative to general input */
+        size_t inputlen = strlen(Input_Path);
+        size_t spikelen = strlen(Spikearg_Path);
+        Spikein_Path = new_CSTRING(inputlen + spikelen + strlen(PATH_DELIMSTR));
+        strcpy(Spikein_Path, Input_Path);
+        if (Spikein_Path[inputlen - 1] != PATH_DELIM) {
+            strcat(Spikein_Path, PATH_DELIMSTR);
+        }
+        strncat(Spikein_Path, Spikearg_Path, spikelen);
+    }
+    message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, Spikein_Path);
+
+    /* check specified path exists */
+    if (check_dir(Spikein_Path) != E_ISDIR) {
+        message(E_BAD_DIR_SS, MSG_FATAL, "spike-in data", Spikein_Path);
+        return false;
+    }
+    else {
+        return true;
+    }
+}
+
 
 /* public functions */
 
@@ -688,7 +783,7 @@ bool check_outdir(const CSTRING dirname, const char *type_str) {
     return true;
 }
 
-/** Return the name of the current input file. */
+/** Return the name of the current intensities file. */
 CSTRING get_current_file(void) {
 
     if (Current == NULL) {
@@ -709,6 +804,17 @@ INFORM get_input_format(void) {
 CSTRING get_input_path(void) {
 
     return Input_Path;
+}
+
+/** Return the name of the last opened spike-in file. */
+CSTRING get_last_spikein(void) {
+
+    if (Last_Spikein == NULL) {
+        return "";
+    }
+    else {
+        return Last_Spikein;
+    }
 }
 
 /**
@@ -785,14 +891,14 @@ XFILE * open_matrix(IOTYPE idx) {
     }
     else {
         if (full_path(Input_Path, Matrix[idx], &filepath)) {
-           fp =  xfopen(filepath, XFILE_UNKNOWN, "r" );
+           fp = xfopen(filepath, XFILE_UNKNOWN, "r" );
 
            if (xfisnull(fp)) {
                message(E_OPEN_FAIL_SS, MSG_ERR, "Input matrix", filepath);
                fp = xfclose(fp);
            }
            else {
-               message(E_INPUT_FOUND_S, MSG_INFO, Matrix[idx] );
+               message(E_INPUT_FOUND_SS, MSG_INFO, "matrix", Matrix[idx] );
            }
         }
         free_CSTRING(filepath);
@@ -823,14 +929,14 @@ XFILE * open_next(XFILE *fplast) {
 
         /* make a full path name */
         if (full_path(Pattern_Path, Current, &filepath)) {
-           fp =  xfopen(filepath, XFILE_UNKNOWN, "r" );
+           fp = xfopen(filepath, XFILE_UNKNOWN, "r" );
 
            if (xfisnull(fp)) {
                message(E_OPEN_FAIL_SS, MSG_ERR, "Input", filepath);
                fp =xfclose(fp);
            }
            else {
-               message(E_INPUT_FOUND_S, MSG_INFO, Current );
+               message(E_INPUT_FOUND_SS, MSG_INFO, "intensities", Current );
            }
         }
         free_CSTRING(filepath);
@@ -848,7 +954,7 @@ XFILE * open_output(const CSTRING tag) {
 }
 
 /**
- * Open an output file corresponding to current input file with supplied tag.
+ * Open an output file corresponding to current intensities file with supplied tag.
  * A non-negative blk indicates a block suffix should be added to the name.
  * BLK_SINGLE indicates no block suffix.
  * BLK_APPEND indicates open in append mode.
@@ -865,14 +971,14 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
         filename = copy_CSTRING(tag);
     }
     else {
-        /* create output file name from current input */
+        /* create output file name from current intensities */
         switch (Input_Format) {
             case E_TXT:
-                filename = output_name_body(Current, tag, blk);
+                filename = new_name_body(Current, tag, blk);
                 break;
 
             case E_CIF:
-                filename = output_name_suffix(Current, tag, blk);
+                filename = new_name_suffix(Current, tag, blk);
                 break;
 
             default: ;
@@ -914,7 +1020,7 @@ XFILE * open_run_output(const CSTRING tag) {
 
     if (logname != NULL) {
         /* create new name from log name */
-        filename = output_name_suffix(logname, tag, BLK_SINGLE);
+        filename = new_name_suffix(logname, tag, BLK_SINGLE);
 
         if (filename != NULL) {
             if (full_path(Output_Path, filename, &filepath)) {
@@ -936,6 +1042,22 @@ XFILE * open_run_output(const CSTRING tag) {
     free_CSTRING(logname);
 
     return fp;
+}
+
+/** Open a spike-in data file if any. */
+XFILE * open_spikein(int blk) {
+    
+    if (Spikein_Path == NULL) {
+        return NULL;
+    }
+    else {
+        free_CSTRING(Last_Spikein);
+        XFILE *fp = open_input_blk(Spikein_Path, (CSTRING)SPIKEIN_TAG, blk);
+        if (fp != NULL) {
+            Last_Spikein = copy_CSTRING(Last_Input);
+        }
+        return fp;
+    }
 }
 
 /** Return if run-folder selected. */
@@ -970,6 +1092,9 @@ void set_location(const CSTRING path, IOTYPE idx){
             break;
         case E_OUTPUT:
             Output_Path = copy_CSTRING(path);
+            break;
+        case E_SPIKEIN:
+            Spikearg_Path = copy_CSTRING(path);
             break;
         case E_CROSSTALK:
         case E_NOISE:
@@ -1033,6 +1158,11 @@ void set_run_folder(void) {
     RunFolder = true;
 }
 
+/** Return if spike-in data selected. */
+bool spike_in(void) {
+    return (Spikein_Path != NULL);
+}
+
 /**
  * Start up; call at program start after options.
  * Checks input and output directories exists and creates the match substring.
@@ -1061,7 +1191,7 @@ bool startup_dirio(void) {
     /* create the input filename match substring */
     make_substring();
 
-    message(E_INPUT_DIR_S, MSG_INFO, Input_Path);
+    message(E_INPUT_DIR_SS, MSG_INFO, "Input", Input_Path);
     message(E_OPT_SELECT_SS, MSG_INFO, "Input format" ,INFORM_MESS_TEXT[Input_Format]);
 
     /* check for run-folder */
@@ -1072,6 +1202,17 @@ bool startup_dirio(void) {
         else {
             /* invalid with txt */
             message(E_BAD_RUNOPT, MSG_FATAL);
+            return false;
+        }
+    }
+
+    /* check for spike-in data */
+    if (Spikearg_Path != NULL) {
+        if (set_spikein()) {
+            message(E_INPUT_DIR_SS, MSG_INFO, "Spike-in data", Spikein_Path);
+        }
+        else {
+            /* error message already given */
             return false;
         }
     }
@@ -1090,6 +1231,10 @@ void tidyup_dirio(void) {
     Input_Path = free_CSTRING(Input_Path);
     Output_Path = free_CSTRING(Output_Path);
     IntenSubstr = free_CSTRING(IntenSubstr);
+    Spikearg_Path = free_CSTRING(Spikearg_Path);
+    Spikein_Path = free_CSTRING(Spikein_Path);
+    Last_Input = free_CSTRING(Last_Input);
+    Last_Spikein = free_CSTRING(Last_Spikein);
     for (IOTYPE idx = (IOTYPE)0; idx < E_NMATRIX; idx++) {
         Matrix[idx] = free_CSTRING(Matrix[idx]);
     }

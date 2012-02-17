@@ -62,9 +62,8 @@ static const char *MSG_TEXT[] = {
         "",                                                                     // E_END_NONE
         "Memory allocation failed during %s\n",                                 // E_NOMEM_S
         "Log message output level: %s\n",                                       // E_MSG_LEVEL_S
-        "Input from directory: %s\n",                                           // E_INPUT_DIR_S
         "Output to directory: %s\n",                                            // E_OUTPUT_DIR_S
-        "Input file found: %s\n",                                               // E_INPUT_FOUND_S
+        "Quality calibration by %s selected\n",                                 // E_QUALCALIB_S
         "No filename supplied in pattern: \'%s\'\n",                            // E_NOPATTERN_FILE_S
         "Failed to read input file: %s\n",                                      // E_BAD_INPUT_S
         "Failed to create data blocks for input file: %s\n",                    // E_DATABLOCK_FAIL_S
@@ -72,6 +71,8 @@ static const char *MSG_TEXT[] = {
         "Failed to create %s\n",                                                // E_NOCREATE_S
         "Zero lambdas per iteration: %s\n",                                     // E_ZERO_LAMBDA_S
         "",                                                                     // E_END_S
+        "%s from directory: %s\n",                                              // E_INPUT_DIR_SS
+        "Input %s file found: %s\n",                                            // E_INPUT_FOUND_SS
         "Supplied %s location parameter \'%s\' is not a directory\n",           // E_BAD_DIR_SS
         "Failed to create new %s directory \'%s\'\n",                           // E_NOCREATE_DIR_SS
         "Created new %s directory: %s\n",                                       // E_CREATED_DIR_SS
@@ -87,6 +88,7 @@ static const char *MSG_TEXT[] = {
         "",                                                                     // E_END_SC
         "Input file pattern match: \'%s\'; %d file(s) found\n",                 // E_PATTERN_MATCH_SD
         "Number of %s selected: %d\n",                                          // E_OPT_SELECT_SD
+        "Invalid cluster number in %s: %d\n",                                   // E_BAD_CLUSTER_SD
         "",                                                                     // E_END_SD
         "%s matrix wrong size, need dimension %d not %d\n",                     // E_MATRIXINIT_SDD
         "",                                                                     // E_END_SDD

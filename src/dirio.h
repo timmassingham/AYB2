@@ -44,7 +44,7 @@ typedef enum InFormT {E_TXT, E_CIF, E_INFORM_NUM} INFORM;
  * Types of file location information. Also used as index into predetermined input matrices.
  * E_NMATRIX indicates total number of such matrices, and E_MNP the modelling ones.
  */
-typedef enum IOTypeT {E_CROSSTALK, E_NOISE, E_PARAMA, E_QUALTAB, E_INPUT, E_OUTPUT, E_MNP = 3, E_NMATRIX = 4} IOTYPE;
+typedef enum IOTypeT {E_CROSSTALK, E_NOISE, E_PARAMA, E_QUALTAB, E_SPIKEIN, E_INPUT, E_OUTPUT, E_MNP = 3, E_NMATRIX = 4} IOTYPE;
 
 /**
  * Open output file special block options.
@@ -62,21 +62,24 @@ bool check_outdir(const CSTRING dirname, const char * type_str);
 CSTRING get_current_file(void);
 INFORM get_input_format(void);
 CSTRING get_input_path(void);
+CSTRING get_last_spikein(void);
 LANETILE get_next_lanetile(void);
 bool lanetile_isnull(const LANETILE lanetile);
 bool matrix_from_file(IOTYPE idx);
 
 XFILE * open_matrix(IOTYPE mode);
 XFILE * open_next(XFILE *fplast);
-XFILE * open_output(CSTRING tag);
-XFILE * open_output_blk(CSTRING tag, int blk);
+XFILE * open_output(const CSTRING tag);
+XFILE * open_output_blk(const CSTRING tag, int blk);
 XFILE * open_run_output(const CSTRING tag);
+XFILE * open_spikein(int blk);
 
 bool run_folder(void);
 bool set_input_format(const char *inform_str);
 void set_location(const CSTRING path, IOTYPE mode);
 bool set_pattern(const CSTRING pattern);
 void set_run_folder(void);
+bool spike_in(void);
 
 bool startup_dirio(void);
 void tidyup_dirio(void);
