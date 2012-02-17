@@ -166,13 +166,30 @@ PHREDCHAR phredchar_from_quality( real_t qual){
     return (PHREDCHAR)(c+0.5);
 }
 
+/** Convert PHRED-style quality value to nearest valid integer. */
+int qualint_from_quality( real_t qual){
+    if(isnan(qual)){ qual = MIN_QUALITY; }              // probability > 1
+    else if(!isfinite(qual)){ qual = MAX_QUALITY; }     // probability = 1 
+    if(qual<MIN_QUALITY){ qual = MIN_QUALITY; }
+    if(qual>MAX_QUALITY){ qual = MAX_QUALITY; }
+    return (int)(qual+0.5);
+}
+
+/** Convert character representation to PHRED-style quality integer value. */
+int qualint_from_phredchar( const PHREDCHAR pc){
+    int qual = (int)pc - MIN_PHRED;
+    if(qual<MIN_QUALITY){ qual = MIN_QUALITY; }
+    if(qual>MAX_QUALITY){ qual = MAX_QUALITY; }    
+    return qual;
+}
+
 
 #ifdef TEST
 #include <err.h>
 #include <string.h>
 #include <limits.h>
 
-static real_t probs[] = {-0.1, 0.0, 0.5, 0.8, 0.9, 0.95, 0.99, 0.995, 0.9995, 0.99995, 0.999995, 0.9999995, 0.99999995, 1.0, 1.1};
+static real_t probs[] = {-0.1, 0.0, 0.5, 0.8, 0.9, 0.955333, 0.99, 0.993, 0.9994, 0.99995, 0.999996, 0.9999997, 0.99999998, 1.0, 1.1};
 
 int main ( int argc, char * argv[]){
     if(argc<2){
@@ -207,7 +224,7 @@ int main ( int argc, char * argv[]){
         }
         xfputc('\n', xstdout);
         /* skip end of line */
-        int c = xfgetc(fp);
+        xfgetc(fp);
         
         xfputs("Read in valid qualchar   : ", xstdout);
         PHREDCHAR pc;
@@ -217,7 +234,7 @@ int main ( int argc, char * argv[]){
         }
         xfputc('\n', xstdout);
         /* skip end of line */
-        c = xfgetc(fp);
+        xfgetc(fp);
               
         xfputs("Read in invalid qualchar : ", xstdout);
         for (int i = 0; i < len[2]; i++) {
@@ -285,24 +302,27 @@ int main ( int argc, char * argv[]){
     }
     xfputs("\n\n", xstdout);
     
-    xfputs("Quality character from probability:\n", xstdout);
+    xfputs("Quality character from probability and qualint from qualchar:\n", xstdout);
     int nprob = sizeof(probs) / sizeof(real_t);
     PHREDCHAR pc;
+    int q;
     for (int i = 0; i < nprob; i++) {
         pc = phredchar_from_prob(probs[i]);
-        xfprintf(xstdout, "prob: % 10.8f, value: %3d, quality: ", probs[i], pc);
+        q = qualint_from_phredchar(pc);
+        xfprintf(xstdout, "prob: % 10.8f, value: %3d, qualchar: ", probs[i], pc);
         show_PHREDCHAR(xstdout, pc);
-        xfputc('\n', xstdout);
+        xfprintf(xstdout, ", qualint: %2d\n", q);
     }
 
-    xfputs("Quality character from probability via value:\n", xstdout);
+    xfputs("Quality character from probability via value and qualint from value:\n", xstdout);
     real_t val;
     for (int i = 0; i < nprob; i++) {
         val = quality_from_prob(probs[i]);
         pc = phredchar_from_quality(val);
-        xfprintf(xstdout, "prob: % 10.8f, qual value: %5.2f, quality: ", probs[i], val);
+        q = qualint_from_quality(val);
+        xfprintf(xstdout, "prob: % 10.8f, qual value: %7.4f, qualchar: ", probs[i], val);
         show_PHREDCHAR(xstdout, pc);
-        xfputc('\n', xstdout);
+        xfprintf(xstdout, ", qualint: %2d\n", q);
     }
 
     return EXIT_SUCCESS;

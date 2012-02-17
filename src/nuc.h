@@ -47,6 +47,7 @@ typedef char PHREDCHAR;
 #define ERR_PHRED   0
 
 #define MIN_QUALITY 0.0                         ///< Minimum quality indicates unable to compute.
+#define MAX_QUALITY MAX_PHRED - MIN_PHRED       ///< Maximum quality to produce unique phred.
 
 /* standard functions */
 void show_NUC(XFILE * fp, const NUC nuc);
@@ -86,5 +87,7 @@ PHREDCHAR phredchar_from_char( const char c)  __attribute__((const));
 PHREDCHAR phredchar_from_prob( const real_t p)  __attribute__((const));
 real_t quality_from_prob(const real_t p) __attribute__((const));
 PHREDCHAR phredchar_from_quality( real_t qual) __attribute__((const));
+int qualint_from_quality( real_t qual) __attribute__((const));
+int qualint_from_phredchar( const PHREDCHAR pc) __attribute__((const));
 
 #endif /* NUC_H_ */

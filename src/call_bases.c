@@ -251,6 +251,27 @@ real_t call_bases( const MAT p, const real_t lambda, const MAT omega, NUC * base
 }
 
 /** 
+ * Calculate the call_bases return value for a supplied sequence. 
+ * See call_bases for algorithm. 
+ */
+real_t calculate_lss(const MAT p, const real_t lambda, const MAT omega, const NUC * base) {
+    if (NULL==base || NULL==p || NULL==omega) { return NAN; }
+
+    const int ncycle = p->ncol;
+    const int lda = omega->ncol;
+
+	real_t res = 0.0;
+    for ( int cy=0; cy<ncycle ; cy++){
+		res += baselike(p->x+cy*NBASE,lambda,base[cy],omega->x+cy*NBASE*lda+cy*NBASE,ncycle);
+	}
+    for ( int cy=1; cy<ncycle ; cy++){
+		res += 2.0*crosslike(p->x+(cy-1)*NBASE,lambda,base[cy-1],base[cy],omega->x+(cy-1)*NBASE*lda+cy*NBASE,ncycle);
+	}
+	
+	return xMy(p->x,omega,p->x) + lambda * res;
+}
+
+/** 
  * Posterior probabilities via fwds/bwds.
  * Repeats much of call_bases.
  */

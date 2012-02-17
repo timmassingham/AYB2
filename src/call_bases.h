@@ -39,6 +39,7 @@ NUC call_base_nodata(void);
 struct basequal call_base_null(void);
 struct basequal call_base( const real_t * restrict p, const real_t lambda, const real_t * restrict penalty, const MAT omega);
 real_t call_bases( const MAT p, const real_t lambda, const MAT omega, NUC * base);
+real_t calculate_lss(const MAT p, const real_t lambda, const MAT omega, const NUC * base);
 void call_qualities_post(const MAT p, const real_t lambda, const MAT omega, const real_t effDF, NUC * base, real_t * qual);
 
 real_t get_generr(void);
