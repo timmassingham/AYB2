@@ -1,0 +1,45 @@
+Read null file
+Return value null, ok
+Write null file
+No result, ok
+Write empty spike-in list
+Read empty spike-in file
+Return value null, ok
+Get next from empty spike-in list
+Return value null, ok
+Free empty spike-in list
+Return value null, ok
+(Writing invalid spike-in data to file)
+Read spike-in with missing tab
+Return value null and error, ok
+Read spike-in with invalid cluster number
+Return value null and error, ok
+Read spike-in with invalid base
+Return value null and error, ok
+Read spike-in file with not enough cycles
+Return value null, ok
+Read spike-in file
+Write spike-in file
+**Diff input/output files to check result
+Get next, first in list
+101	GATTAAGAGCTACGTGGAAA
+Get next, next in list
+255	GTTGGTGCGGTGGGGAAGGG
+Copy spikein
+255	GTTGGTGCGGTGGGGAAGGG
+Write fewer spike-in blocks
+101	GATTAAGAGCTACGTGGAAA
+255	GTTGGTGCGGTGGGGAAGGG
+Write more spike-in blocks
+101	GATTAAGAGCTACGTGGAAA
+255	GTTGGTGCGGTGGGGAAGGG
+512	GAGGGTTAAAGTTTGGTGGG
+1501	GGGGGAGAGGCAAGAGCGAT
+1999	GAGGGGGGGGGAGGGAGGGG
+7654	GTAATAATAGCGAAAAGGAC
+10842	GGTGTTTAGGGGGGGGGAAG
+18353	GATAAGGTGCTTGATGGGGG
+22999	GATGGGGAACGGTGTGTCGA
+33071	GAAGGGAGGTGGGAGGGTGG
+Free spike-in list
+Return value null, ok
