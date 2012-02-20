@@ -19,35 +19,35 @@ Coerced to quality range : !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!...~
 (should all be ! or ~)
 Range of qualchars       : !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
 
-Quality character from probability:
-prob: -0.10000000, value:  33, quality: !
-prob:  0.00000000, value:  33, quality: !
-prob:  0.50000000, value:  36, quality: $
-prob:  0.80000000, value:  40, quality: (
-prob:  0.90000000, value:  43, quality: +
-prob:  0.95000000, value:  46, quality: .
-prob:  0.99000000, value:  53, quality: 5
-prob:  0.99500000, value:  56, quality: 8
-prob:  0.99950000, value:  66, quality: B
-prob:  0.99995000, value:  76, quality: L
-prob:  0.99999500, value:  86, quality: V
-prob:  0.99999950, value:  96, quality: `
-prob:  0.99999995, value: 106, quality: j
-prob:  1.00000000, value: 126, quality: ~
-prob:  1.10000000, value:  33, quality: !
-Quality character from probability via value:
-prob: -0.10000000, qual value: -0.41, quality: !
-prob:  0.00000000, qual value:  0.00, quality: !
-prob:  0.50000000, qual value:  3.01, quality: $
-prob:  0.80000000, qual value:  6.99, quality: (
-prob:  0.90000000, qual value: 10.00, quality: +
-prob:  0.95000000, qual value: 13.01, quality: .
-prob:  0.99000000, qual value: 20.00, quality: 5
-prob:  0.99500000, qual value: 23.01, quality: 8
-prob:  0.99950000, qual value: 33.01, quality: B
-prob:  0.99995000, qual value: 43.01, quality: L
-prob:  0.99999500, qual value: 53.01, quality: V
-prob:  0.99999950, qual value: 63.01, quality: `
-prob:  0.99999995, qual value: 73.01, quality: j
-prob:  1.00000000, qual value:   inf, quality: ~
-prob:  1.10000000, qual value:   nan, quality: !
+Quality character from probability and qualint from qualchar:
+prob: -0.10000000, value:  33, qualchar: !, qualint:  0
+prob:  0.00000000, value:  33, qualchar: !, qualint:  0
+prob:  0.50000000, value:  36, qualchar: $, qualint:  3
+prob:  0.80000000, value:  40, qualchar: (, qualint:  7
+prob:  0.90000000, value:  43, qualchar: +, qualint: 10
+prob:  0.95533300, value:  47, qualchar: /, qualint: 14
+prob:  0.99000000, value:  53, qualchar: 5, qualint: 20
+prob:  0.99300000, value:  55, qualchar: 7, qualint: 22
+prob:  0.99940000, value:  65, qualchar: A, qualint: 32
+prob:  0.99995000, value:  76, qualchar: L, qualint: 43
+prob:  0.99999600, value:  87, qualchar: W, qualint: 54
+prob:  0.99999970, value:  98, qualchar: b, qualint: 65
+prob:  0.99999998, value: 110, qualchar: n, qualint: 77
+prob:  1.00000000, value: 126, qualchar: ~, qualint: 93
+prob:  1.10000000, value:  33, qualchar: !, qualint:  0
+Quality character from probability via value and qualint from value:
+prob: -0.10000000, qual value: -0.4139, qualchar: !, qualint:  0
+prob:  0.00000000, qual value:  0.0000, qualchar: !, qualint:  0
+prob:  0.50000000, qual value:  3.0103, qualchar: $, qualint:  3
+prob:  0.80000000, qual value:  6.9897, qualchar: (, qualint:  7
+prob:  0.90000000, qual value: 10.0000, qualchar: +, qualint: 10
+prob:  0.95533300, qual value: 13.5001, qualchar: /, qualint: 14
+prob:  0.99000000, qual value: 20.0000, qualchar: 5, qualint: 20
+prob:  0.99300000, qual value: 21.5490, qualchar: 7, qualint: 22
+prob:  0.99940000, qual value: 32.2185, qualchar: A, qualint: 32
+prob:  0.99995000, qual value: 43.0103, qualchar: L, qualint: 43
+prob:  0.99999600, qual value: 53.9794, qualchar: W, qualint: 54
+prob:  0.99999970, qual value: 65.2288, qualchar: b, qualint: 65
+prob:  0.99999998, qual value: 76.9897, qualchar: n, qualint: 77
+prob:  1.00000000, qual value:     inf, qualchar: ~, qualint: 93
+prob:  1.10000000, qual value:     nan, qualchar: !, qualint:  0

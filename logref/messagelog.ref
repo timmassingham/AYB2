@@ -1,4 +1,4 @@
-AYB Message Log;	Created by hazelm;	14 December 2011 16:21
+AYB Message Log;	Created by hazelm;	16 February 2012 15:56
 
 Information: Log message output level: Warning
 None: All available cycles in one block selected
@@ -12,15 +12,16 @@ None: Need to supply neither or both parameter matrices (A and N)
 None: Run folder option invalid with txt input format
 Fatal: Memory allocation failed during xxx1
 Fatal: Log message output level: xxx1
-Fatal: Input from directory: xxx1
 Fatal: Output to directory: xxx1
-Fatal: Input file found: xxx1
+Fatal: Quality calibration by xxx1 selected
 Fatal: No filename supplied in pattern: 'xxx1'
 Fatal: Failed to read input file: xxx1
 Fatal: Failed to create data blocks for input file: xxx1
 Fatal: Failed to initialise xxx1 matrix
 Fatal: Failed to create xxx1
 Fatal: Zero lambdas per iteration: xxx1
+Error: xxx1 from directory: xxx2
+Error: Input xxx1 file found: xxx2
 Error: Supplied xxx1 location parameter 'xxx2' is not a directory
 Error: Failed to create new xxx1 directory 'xxx2'
 Error: Created new xxx1 directory: xxx2
@@ -34,6 +35,7 @@ Error: xxx1 contains invalid numeric: 'xxx2'
 Information: xxx1 contains invalid character: 'x'
 Warning: Input file pattern match: 'xxx1'; 9 file(s) found
 Warning: Number of xxx1 selected: 9
+Warning: Invalid cluster number in xxx1: 9
 Debug: xxx1 matrix wrong size, need dimension 9 not 99
 None: xxx1 selected: 1E-05
 None: xxx1 selected: 99.99

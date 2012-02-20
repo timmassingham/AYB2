@@ -7,11 +7,16 @@ Fatal: Supplied message location parameter 'nodir.txt' is not a directory
 Information: Created new message directory: newdir
 Fatal: Message file failed to open: newdir/nomake.log
 Fatal: Failed to create new message directory 'newdir/nomakedir'
-AYB Message Log;	Created by hazelm;	24 May 2011 10:30
+AYB Message Log;	Created by hazelm;	16 February 2012 15:56
 
 Information: Log message output level: Warning
 Warning: Unrecognised nucleotide 'X'; returning NUC_AMBIG
 Warning: Unrecognised nucleotide 'X'; returning NUC_AMBIG
+Error: Read spike-in error; file not tab separated
+Error: Read spike-in error; invalid cluster number
+Warning: Unrecognised nucleotide 'X'; returning NUC_AMBIG
+Error: Read spike-in error; invalid base
+Error: Read spike-in error; insufficient cycles
 test-tile: read_known_TILE is for demonstration and is not fully functional.
 test-tile: Intensity file contains more data than requested: additional 39 cycles.
 test-tile: Failed to read cif tile.

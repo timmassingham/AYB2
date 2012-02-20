@@ -13,6 +13,7 @@ LOGEXT=log
 REFEXT=ref
 ERRFILE=msgerr
 NC=6
+NC2=20
 ININT=test100_int.txt
 INCIF=s_2_0001.cif
 INFOLDER=/nfs/research2/goldman/NextGen/Data/sample-runfolder
@@ -27,6 +28,8 @@ NITER=20
 INMIXVAL=test100_lambdas.txt
 INSEQ=ACGTaatgXc
 INSEQPHRED=nuc_phred.txt
+INSPIKE=spike_in.txt
+OUTSPIKE=spike_out.txt
 INTOK=xio_in.txt
 OUTXIO=xio_out
 SEP=ow
@@ -103,6 +106,14 @@ echo "Testing $MODULE"
 $BIN/test-$MODULE $INSEQ $INDIR/$INSEQPHRED >$OUTDIR/$MODULE.$LOGEXT  2>>$OUTDIR/$ERRFILE.$LOGEXT
 diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT 
 
+MODULE=spikein
+echo "Testing $MODULE"
+# arguments ncycle infilename outfilename
+$BIN/test-$MODULE $NC2 $INDIR/$INSPIKE $OUTDIR/$OUTSPIKE >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
+diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
+# cpmpare outfile to infile - will be identical if ncycle matches infile
+diff -q -s $INDIR/$INSPIKE $OUTDIR/$OUTSPIKE
+
 MODULE=tile
 echo "Testing $MODULE"
 # arguments ncycle _int.txt_filename [cif_filename run-folder lane_tile_range]
@@ -113,7 +124,7 @@ diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
 
 MODULE=xio
 echo "Testing $MODULE"
-# arguments separator filename
+# arguments separator infilename outfilename
 $BIN/test-$MODULE $SEP $INDIR/$INTOK $OUTDIR/$OUTXIO >$OUTDIR/$MODULE.$LOGEXT 2>>$OUTDIR/$ERRFILE.$LOGEXT
 diff -q -s $OUTDIR/$MODULE.$LOGEXT $REFDIR/$MODULE.$REFEXT
 
