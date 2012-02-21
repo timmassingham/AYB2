@@ -30,11 +30,12 @@
 /* constants */
 
 /** Program Version. */
-static const float VERSION = 2.07;      // Option to run with multiple threads
+static const float VERSION = 2.08;      // Use spike-in data, update system test
 /** Version release date. */
-static const unsigned int VERSION_DATE = 20111216;
+static const unsigned int VERSION_DATE = 20120221;
 
 /* keep a history */
+// Version 2.07;    20111216    Option to run with multiple threads
 // Version 2.06;    20111201    Improve quality scoring
 // Version 2.05;    20111018    Improve modelling algorithms
 // Version 2.04;    20110722    Memory use reduction and sim output changes
