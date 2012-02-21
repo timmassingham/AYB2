@@ -9,10 +9,10 @@ Illumina sequencing platform.
 
 SYNOPSIS
 --------
-*AYB* [-b blockstring] [-d input format] [-e log file]
-    [-f output format] [-g generr] [-i input path] [-l log level]
-    [-n iterations] [-o output path] [-p threads] [-q] [-r] [-s header] [-w] 
-    [-A Parameter A] [-M Crosstalk] [-N Noise] [-Q quality tab]
+*AYB* [-b blockstring] [-d input format] [-e log file] [-f output format] 
+    [-g generr] [-i input path] [-k] [-l log level] [-n iterations]
+    [-o output path] [-p threads] [-q] [-r] [-s header] [-w] 
+    [-A Parameter A] [-K spike-in path] [-M Crosstalk] [-N Noise] [-Q quality tab]
     'prefix'[\+]/lane tile range ['prefix'[+]/lane tile range ...]
 
 *AYB* --help
@@ -106,6 +106,20 @@ OPTIONS
 
 *-i,  --input* <path> [default: ""]::
 	Location of input files. A 'prefix' may also contain a full or partial path.
+
+*-k,  --spikeuse*::
+    The spike-in data is used to calibrate the quality scores 
+    and the quality counts output file is not produced.
+	Ignored if the 'spikein' option is not selected.
+
+*-K,  --spikein* <path>::
+    Location of spike-in data files. 
+    Format is tab delimited with a cluster number and sequence on each line.
+    The spike-in data is used to produce a table of counts of differences and observed 
+    for each quality value that can be used to calibrate quality scores. 
+    These are output as a tab delimited file with name 
+    `{filename}[x].qspike` (cif) or `{filename}[x]_qspike.txt` (txt).
+    Quality scores are output without calibration unless the 'spikeuse' option is selected.
 
 *-l,  --loglevel* <level> [default: warning]::
 	Level of message output (none/fatal/error/warning/information/debug).
@@ -216,13 +230,16 @@ AYB will issue an error message and go on to the next prefix (or lane tile range
 - There are no intensities files matching a prefix.
 - An intensities file does not contain enough cycles for the specified blockstring.
 - A lane tile range contains a syntax error.
-- A predetermined input matrix is the wrong size.
-- The program runs out of memory to process.
 
 AYB will issue an error message and go on to the next intensities file (or lane tile) if:
 
 - An intensities file cannot be read.
 - A run-folder lane tile does not exist.
+
+AYB will issue an error message and go on to the next block if:
+
+- A predetermined input matrix is the wrong size.
+- The program runs out of memory to process.
 
 FAQ
 ~~~
@@ -236,7 +253,7 @@ What causes a sequence to be all A's with quality `!'?::
 
 TO DO
 -----
-Quality scores are calibrated to be in line with empirical observations using a table. 
+Quality scores can be calibrated to be in line with empirical observations using a table. 
 A default table is supplied and a description of how to adjust the table for local observations is to follow.
 
 AUTHOR
