@@ -76,7 +76,7 @@ Return value xfgets null, ok; string: aswas
 Return value xfgetln null and zero, ok
 Return value xfread zero, ok
 Write to open for read file, xfputc, xfputs, xfprintf, xfwrite
-Values returned: -1, -2, -2, 0
+Values returned: -1, -1, -1, 0
 Open new file for write, unknown mode, suffix: txt.gz
 Write with null data pointer, xfputs, xfprintf, xfwrite
 Values returned: -1, -1, 0
