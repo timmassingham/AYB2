@@ -1,6 +1,22 @@
 AYB ChangeLog
 =============
 
+Version 2.08 (2012-02-21)
+-------------------------
+
+.Additions and changes
+
+- New 'spikein' (K) option to use spike-in data to improve base calling and calibrate qualities.
+  Additional option 'spikeuse' (k) to select between calibration before sequence output 
+  or new output table of differences and observed qualities counts (default).
+
+.Bug fixes
+
+- Output was not determinate when run with multiple threads.
+
+- Supplying a negative value for an integer program option could cause an exception. 
+
+
 Version 2.07 (2011-12-16)
 -------------------------
 
