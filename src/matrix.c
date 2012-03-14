@@ -145,12 +145,12 @@ MAT copy_MAT( const MAT mat){
     return newmat;
 }
 
-void show_MAT ( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol){
+void show_MAT ( XFILE * fp, const MAT mat, const uint_fast32_t mrow, const uint_fast32_t mcol){
     /* original default was with rownum */
     show_MAT_rownum( fp, mat, mrow, mcol, true);
 }
 
-void show_MAT_rownum( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol, bool rownum) {
+void show_MAT_rownum( XFILE * fp, const MAT mat, const uint_fast32_t mrow, const uint_fast32_t mcol, bool rownum) {
     if(NULL==fp){ return;}
     if(NULL==mat){ return;}
 
@@ -159,14 +159,14 @@ void show_MAT_rownum( XFILE * fp, const MAT mat, const uint32_t mrow, const uint
 #else
     char fmt[] = " %#12.6f";
 #endif
-    const uint32_t nrow = mat->nrow;
-    const uint32_t ncol = mat->ncol;
+    const uint_fast32_t nrow = mat->nrow;
+    const uint_fast32_t ncol = mat->ncol;
 #ifdef NDEBUG
-    const uint32_t maxrow = (mrow!=0 && mrow<nrow)?mrow:nrow;
-    const uint32_t maxcol = (mcol!=0 && mcol<ncol)?mcol:ncol;
+    const uint_fast32_t maxrow = (mrow!=0 && mrow<nrow)?mrow:nrow;
+    const uint_fast32_t maxcol = (mcol!=0 && mcol<ncol)?mcol:ncol;
 #else
-    const uint32_t maxrow = nrow;
-    const uint32_t maxcol = ncol;
+    const uint_fast32_t maxrow = nrow;
+    const uint_fast32_t maxcol = ncol;
 #endif
     for( int row=0 ; row<maxrow ; row++){
         if (rownum) {
@@ -189,7 +189,7 @@ void show_MAT_rownum( XFILE * fp, const MAT mat, const uint32_t mrow, const uint
 /**
  * Create a new real value matrix from a supplied real array.
  */
-MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x){
+MAT new_MAT_from_array( const uint_fast32_t nrow, const uint_fast32_t ncol, const real_t * x){
     if(NULL==x){ return NULL;}
     MAT mat = new_MAT(nrow,ncol);
     if(NULL==mat){return NULL;}
@@ -201,7 +201,7 @@ MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t *
  * Create a matrix from a supplied real array.
  * Resultant matrix references supplied array values directly so only free top structure.
  */
-MAT coerce_MAT_from_array(const uint32_t nrow, const uint32_t ncol, real_t * x){
+MAT coerce_MAT_from_array(const uint_fast32_t nrow, const uint_fast32_t ncol, real_t * x){
     assert(NULL!=x);
     MAT mat = malloc(sizeof(*mat));
     if(NULL==mat){ return NULL; }
@@ -216,7 +216,7 @@ MAT coerce_MAT_from_array(const uint32_t nrow, const uint32_t ncol, real_t * x){
  * Create a matrix from a supplied integer array.
  * Resultant matrix references supplied array values directly so only free top structure.
  */
-MAT coerce_MAT_from_intarray(const uint32_t nrow, const uint32_t ncol, int_t * x){
+MAT coerce_MAT_from_intarray(const uint_fast32_t nrow, const uint_fast32_t ncol, int_t * x){
     assert(NULL!=x);
     MAT mat = malloc(sizeof(*mat));
     if(NULL==mat){ return NULL; }
@@ -339,8 +339,8 @@ MAT append_columns(MAT matout, const MAT matin, int colstart, int colend) {
 /** Set all elements in a supplied real value matrix to the specified value. */
 MAT set_MAT( MAT mat, const real_t x){
     if(NULL==mat){ return NULL;}
-    const uint32_t nelt = mat->nrow * mat->ncol;
-    for ( uint32_t i=0 ; i<nelt ; i++){
+    const uint_fast32_t nelt = mat->nrow * mat->ncol;
+    for ( uint_fast32_t i=0 ; i<nelt ; i++){
         mat->x[i] = x;
     }
     return mat;
@@ -654,9 +654,9 @@ MAT vectranspose ( const MAT mat, const unsigned int p ){
 MAT symmeteriseL2U( MAT mat){
     validate(NULL!=mat,NULL);
     validate(mat->nrow==mat->ncol,NULL);
-    const uint32_t n = mat->ncol;
-    for ( uint32_t col=0 ; col<n ; col++){
-        for ( uint32_t row=col ; row<n ; row++){
+    const uint_fast32_t n = mat->ncol;
+    for ( uint_fast32_t col=0 ; col<n ; col++){
+        for ( uint_fast32_t row=col ; row<n ; row++){
             mat->x[row*n+col] = mat->x[col*n+row];
         }
     }
@@ -714,9 +714,9 @@ MAT trim_MAT( MAT mat, const int mrow, const int mcol, const bool forwards){
     validate(mrow<=mat->nrow,NULL);
     validate(mcol<=mat->ncol,NULL);
     if(forwards==false){ errx(EXIT_FAILURE,"Forwards==false not implemented in %s (%s:%d)\n",__func__,__FILE__,__LINE__);}
-    for ( uint32_t col=0 ; col<mcol ; col++){
-        uint32_t midx = col*mrow;
-        uint32_t nidx = col*mat->nrow;
+    for ( uint_fast32_t col=0 ; col<mcol ; col++){
+        uint_fast32_t midx = col*mrow;
+        uint_fast32_t nidx = col*mat->nrow;
         if (mat->useint) {
             memmove(mat->xint+midx,mat->xint+nidx,mrow*sizeof(int_t));
         }
@@ -738,16 +738,16 @@ MAT * block_diagonal_MAT( const MAT mat, const int n){
     // Create memory
     MAT * mats = calloc(nelts,sizeof(*mats));
     if(NULL==mats){ goto cleanup; }
-    for ( uint32_t i=0 ; i<nelts ; i++){
+    for ( uint_fast32_t i=0 ; i<nelts ; i++){
         mats[i] = new_MAT(n,n);
         if(NULL==mats[i]){ goto cleanup;}
     }
     // Copy into diagonals
-    for ( uint32_t i=0 ; i<nelts ; i++){
-        for ( uint32_t col=0 ; col<n ; col++){
-            const uint32_t oldcol = i*n+col;
-            for ( uint32_t row=0 ; row<n ; row++){
-                const uint32_t oldrow = i*n+row;
+    for ( uint_fast32_t i=0 ; i<nelts ; i++){
+        for ( uint_fast32_t col=0 ; col<n ; col++){
+            const uint_fast32_t oldcol = i*n+col;
+            for ( uint_fast32_t row=0 ; row<n ; row++){
+                const uint_fast32_t oldrow = i*n+row;
                 mats[i]->x[col*n+row] = mat->x[oldcol*mat->nrow+oldrow];
             }
         }
@@ -756,7 +756,7 @@ MAT * block_diagonal_MAT( const MAT mat, const int n){
 
 cleanup:
     if(NULL!=mats){
-        for ( uint32_t i=0 ; i<nelts ; i++){
+        for ( uint_fast32_t i=0 ; i<nelts ; i++){
             free_MAT(mats[i]);
         }
     }
@@ -766,8 +766,8 @@ cleanup:
 
 MAT scale_MAT(MAT mat, const real_t f){
     validate(NULL!=mat,NULL);
-    const uint32_t nelt = mat->ncol * mat->nrow;
-    for ( uint32_t elt=0 ; elt<nelt ; elt++){
+    const uint_fast32_t nelt = mat->ncol * mat->nrow;
+    for ( uint_fast32_t elt=0 ; elt<nelt ; elt++){
             mat->x[elt] *= f;
     }
     return mat;
@@ -776,12 +776,12 @@ MAT scale_MAT(MAT mat, const real_t f){
 /** Return the transpose of a supplied square matrix, replacing the original. */
 MAT transpose_inplace( MAT mat){
     validate(NULL!=mat,NULL);
-    const uint32_t ncol = mat->ncol;
-    const uint32_t nrow = mat->nrow;
+    const uint_fast32_t ncol = mat->ncol;
+    const uint_fast32_t nrow = mat->nrow;
     validate(ncol==nrow,NULL);
 
-    for ( uint32_t col=0 ; col<ncol ; col++){
-        for ( uint32_t row=0 ; row<col ; row++){
+    for ( uint_fast32_t col=0 ; col<ncol ; col++){
+        for ( uint_fast32_t row=0 ; row<col ; row++){
             real_t x = mat->x[col*nrow + row];
             mat->x[col*nrow + row] = mat->x[row*ncol + col];
             mat->x[row*ncol + col] = x;
@@ -797,8 +797,8 @@ MAT transpose( const MAT mat){
     validate(NULL!=mat,NULL);
     MAT tmat = new_MAT(mat->ncol,mat->nrow);
     validate(NULL!=tmat,NULL);
-    for ( uint32_t col=0 ; col<mat->ncol ; col++){
-        for ( uint32_t row=0 ; row<mat->nrow ; row++){
+    for ( uint_fast32_t col=0 ; col<mat->ncol ; col++){
+        for ( uint_fast32_t row=0 ; row<mat->nrow ; row++){
             tmat->x[row*mat->ncol+col] = mat->x[col*mat->nrow+row];
         }
     }
@@ -876,13 +876,13 @@ real_t xMy( const real_t * x, const MAT M, const real_t * y){
     validate(NULL!=x,NAN);
     validate(NULL!=M,NAN);
     validate(NULL!=y,NAN);
-    const uint32_t ncol = M->ncol;
-    const uint32_t nrow = M->nrow;
+    const uint_fast32_t ncol = M->ncol;
+    const uint_fast32_t nrow = M->nrow;
 
     real_t res = 0.;
-    for ( uint32_t col=0 ; col<ncol ; col++){
+    for ( uint_fast32_t col=0 ; col<ncol ; col++){
         real_t rowtot = 0.;
-        for ( uint32_t row=0 ; row<nrow ; row++){
+        for ( uint_fast32_t row=0 ; row<nrow ; row++){
             rowtot += x[row] * M->x[col*nrow+row];
         }
         res += rowtot * y[col];
@@ -897,7 +897,7 @@ real_t normalise_MAT(MAT mat, const real_t delta_diag){
     int piv[n];
 
     if(0.0!=delta_diag){
-        for ( uint32_t i=0 ; i<n ; i++){
+        for ( uint_fast32_t i=0 ; i<n ; i++){
             mat->x[i*n+i] += delta_diag;
         }
     }
@@ -907,7 +907,7 @@ real_t normalise_MAT(MAT mat, const real_t delta_diag){
     getrf(&n,&n,mcopy->x,&n,piv,&info);
 
     real_t logdet = 0.;
-    for ( uint32_t i=0 ; i<n ; i++){
+    for ( uint_fast32_t i=0 ; i<n ; i++){
         logdet += log(fabs(mcopy->x[i*n+i]));
     }
     free_MAT(mcopy);

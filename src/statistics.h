@@ -31,20 +31,20 @@
 #include "utility.h"
 
 // Compensated means and variances
-real_t median( const real_t * x, const uint32_t n);
-real_t mean( const real_t * x, const uint32_t n);
-real_t variance( const real_t * x, const uint32_t n);
-real_t wmean( const real_t * w, const real_t * x, const uint32_t n);
-real_t wvariance( const real_t * w, const real_t * x, const uint32_t n);
+real_t median( const real_t * x, const uint_fast32_t n);
+real_t mean( const real_t * x, const uint_fast32_t n);
+real_t variance( const real_t * x, const uint_fast32_t n);
+real_t wmean( const real_t * w, const real_t * x, const uint_fast32_t n);
+real_t wvariance( const real_t * w, const real_t * x, const uint_fast32_t n);
 
 // Linear regression
-real_t * linearRegression( const real_t * x, const real_t * y, const uint32_t n, real_t *res);
-real_t * linearResiduals( const real_t * x, const real_t * y, const real_t * param, const uint32_t nobs, real_t * resid);
-real_t * wLinearRegression( const real_t * w, const real_t * x, const real_t * y, const uint32_t n, real_t * res);
+real_t * linearRegression( const real_t * x, const real_t * y, const uint_fast32_t n, real_t *res);
+real_t * linearResiduals( const real_t * x, const real_t * y, const real_t * param, const uint_fast32_t nobs, real_t * resid);
+real_t * wLinearRegression( const real_t * w, const real_t * x, const real_t * y, const uint_fast32_t n, real_t * res);
 
 // Iteratively Rewweighted Least Squares
 real_t __attribute__((const)) tukey_biweight( const real_t xsqr, const real_t v);
 real_t __attribute__((const)) cauchy( const real_t xsqr, const real_t v);
-real_t * iwlsLinearRegression(real_t (*f)(const real_t,const real_t), const real_t * x, const real_t * y, const uint32_t niter, const uint32_t n, real_t * res);
+real_t * iwlsLinearRegression(real_t (*f)(const real_t,const real_t), const real_t * x, const real_t * y, const uint_fast32_t niter, const uint_fast32_t n, real_t * res);
 
 #endif /* STATISTICS_H_ */

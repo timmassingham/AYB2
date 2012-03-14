@@ -119,13 +119,13 @@ int cmp_real_t ( const void * a, const void * b){
  * Returns a pair_real structure containing the fitted shape and 
  * scale.
  */
-pair_real fit_weibull ( const real_t * x_orig, const uint32_t n ){
+pair_real fit_weibull ( const real_t * x_orig, const uint_fast32_t n ){
     real_t * x_sorted = calloc(n,sizeof(real_t));
     real_t * y_sorted = calloc(n,sizeof(real_t));
     if(NULL==x_sorted || NULL==y_sorted){
         errx(EXIT_FAILURE,"Failed to allocate memory in %s (%s:%d)",__func__,__FILE__,__LINE__);
     }
-    for( uint32_t i=0 ; i<n ; i++){
+    for( uint_fast32_t i=0 ; i<n ; i++){
         x_sorted[i] = log(x_orig[i]);
         y_sorted[i] = log(-log( (n-i)/(n+1.0) ));
     }
@@ -160,14 +160,14 @@ pair_real fit_weibull ( const real_t * x_orig, const uint32_t n ){
  * Returns a pair_real structure containing the fitted shape and 
  * scale.
  */
-pair_real wfit_weibull ( const real_t * x_orig, const uint32_t n ){
+pair_real wfit_weibull ( const real_t * x_orig, const uint_fast32_t n ){
     real_t * x_sorted = calloc(n,sizeof(real_t));
     real_t * y_sorted = calloc(n,sizeof(real_t));
     real_t * w_sorted = calloc(n,sizeof(real_t));
     if(NULL==x_sorted || NULL==y_sorted || NULL==w_sorted){
         errx(EXIT_FAILURE,"Failed to allocate memory in %s (%s:%d)",__func__,__FILE__,__LINE__);
     }
-    for( uint32_t i=0 ; i<n ; i++){
+    for( uint_fast32_t i=0 ; i<n ; i++){
         x_sorted[i] = log(x_orig[i]);
         y_sorted[i] = log(-log( (n-i)/(n+1.0) ));
         /*  Calculate weight.
@@ -210,8 +210,8 @@ pair_real wfit_weibull ( const real_t * x_orig, const uint32_t n ){
 /** Test whether suffix of string matches given value.
  */
 bool hassuffix( const char * str, const char * suf ){
-    const uint32_t suf_len = strlen(suf);
-    const uint32_t str_len = strlen(str);
+    const uint_fast32_t suf_len = strlen(suf);
+    const uint_fast32_t str_len = strlen(str);
     if ( suf_len>str_len){ return false;}
     return (0==strcmp(str+(str_len-suf_len),suf));
 }
@@ -275,14 +275,14 @@ int main ( int argc, char * argv[] ){
 	// OLS fit
 	real_t loglike = 0.;
         pair_real param = fit_weibull(x,n);
-        for ( uint32_t i=0 ; i<n ; i++){
+        for ( uint_fast32_t i=0 ; i<n ; i++){
 		loglike -= dweibull(x[i],param.e1,param.e2,true);
 	}
         printf("\nOLS: shape = %f  scale = %f  loglike = %f\n",param.e1,param.e2,loglike);
 	// WLS fit
         loglike = 0.;
 	param = wfit_weibull(x,n);
-        for ( uint32_t i=0 ; i<n ; i++){
+        for ( uint_fast32_t i=0 ; i<n ; i++){
                 loglike -= dweibull(x[i],param.e1,param.e2,true);
         }
         printf("WLS: shape = %f  scale = %f  loglike = %f\n",param.e1,param.e2,loglike);

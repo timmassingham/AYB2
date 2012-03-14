@@ -63,13 +63,13 @@ MAT new_MAT( const int nrow, const int ncol );
 MAT new_MAT_int( const int nrow, const int ncol, const bool useint );
 MAT free_MAT( MAT mat );
 MAT copy_MAT( const MAT mat);
-void show_MAT( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol);
-void show_MAT_rownum( XFILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol, bool rownum);
+void show_MAT( XFILE * fp, const MAT mat, const uint_fast32_t mrow, const uint_fast32_t mcol);
+void show_MAT_rownum( XFILE * fp, const MAT mat, const uint_fast32_t mrow, const uint_fast32_t mcol, bool rownum);
 
 // standard variations
-MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x);
-MAT coerce_MAT_from_array(const uint32_t nrow, const uint32_t ncol, real_t * x);
-MAT coerce_MAT_from_intarray(const uint32_t nrow, const uint32_t ncol, int_t * x);
+MAT new_MAT_from_array( const uint_fast32_t nrow, const uint_fast32_t ncol, const real_t * x);
+MAT coerce_MAT_from_array(const uint_fast32_t nrow, const uint_fast32_t ncol, real_t * x);
+MAT coerce_MAT_from_intarray(const uint_fast32_t nrow, const uint_fast32_t ncol, int_t * x);
 MAT identity_MAT( const int nrow);
 MAT copyinto_MAT( MAT matout, const MAT matin);
 MAT append_columns(MAT matout, const MAT matin, int colstart, int colend);

@@ -46,8 +46,8 @@
 
 /** AYB structure contains the data required for modelling. */
 struct AybT {
-    uint32_t ncluster;
-    uint32_t ncycle;
+    uint_fast32_t ncluster;
+    uint_fast32_t ncycle;
     TILE tile;
     ARRAY(NUC) bases;
     ARRAY(PHREDCHAR) quals;
@@ -63,8 +63,8 @@ struct AybT {
 
 /** Structure for spike-in quality counts. */
 struct QSpikeT {
-    uint32_t obs;
-    uint32_t diff;
+    uint_fast32_t obs;
+    uint_fast32_t diff;
 };
 
 typedef struct QSpikeT * QSPIKEPTR;
@@ -120,7 +120,7 @@ static MAT  accumulate_all_covariance( const real_t we, const MAT p, const real_
     validate(NBASE==p->nrow, NULL);
     validate(lambda>=0.0, NULL);
 
-    const uint32_t ncycle = p->ncol;
+    const uint_fast32_t ncycle = p->ncol;
     const int lda = ncycle * NBASE;
 
     // Allocate memory for V if necessary
@@ -131,7 +131,7 @@ static MAT  accumulate_all_covariance( const real_t we, const MAT p, const real_
 
     // Perform accululation. V += R R^t
     // Note: R = P - \lambda I_b, where I_b is unit vector with b'th elt = 1
-    for (uint32_t cy = 0; cy < ncycle; cy++){
+    for (uint_fast32_t cy = 0; cy < ncycle; cy++){
         if (!isambig(base[cy])) {
             p->x[cy * NBASE + base[cy]] -= lambda;
         }
@@ -171,12 +171,12 @@ static void calibrate_by_spikein(AYB ayb, const int blk, QSPIKEPTR qspike) {
 
     if (SpikeCalib) {
         /* replace existing phred chars with calibrated quality ones */
-        const uint32_t ncluster = ayb->ncluster;
-        const uint32_t ncycle = ayb->ncycle;
+        const uint_fast32_t ncluster = ayb->ncluster;
+        const uint_fast32_t ncycle = ayb->ncycle;
 
-        for (uint32_t cl = 0; cl < ncluster; cl++) {
+        for (uint_fast32_t cl = 0; cl < ncluster; cl++) {
             PHREDCHAR * cl_quals = ayb->quals.elt + cl * ncycle;
-            for (uint32_t cy = 0; cy < ncycle; cy++){
+            for (uint_fast32_t cy = 0; cy < ncycle; cy++){
                 int q = qualint_from_phredchar(cl_quals[cy]);
                 cl_quals[cy] = phredchar_from_quality(qact[q]);
             }
@@ -196,12 +196,12 @@ static void calibrate_by_spikein(AYB ayb, const int blk, QSPIKEPTR qspike) {
 }
 
 /** Calibrate qualities using calibration tables. */
-static void calibrate_by_table(const uint32_t ncycle, const real_t lambda, NUC * cl_bases, real_t * qual) {            
+static void calibrate_by_table(const uint_fast32_t ncycle, const real_t lambda, NUC * cl_bases, real_t * qual) {            
 
     if (lambda != 0.0) {
         /* adjust quality values; first and Last bases of read are special cases */
         qual[0] = adjust_first_quality(qual[0], cl_bases[0], cl_bases[1]);
-        for (uint32_t cy=1; cy<(ncycle-1); cy++) {
+        for (uint_fast32_t cy=1; cy<(ncycle-1); cy++) {
             qual[cy] = adjust_quality(qual[cy], cl_bases[cy-1], cl_bases[cy], cl_bases[cy+1]);
         }
         qual[ncycle-1] = adjust_last_quality(qual[ncycle-1], cl_bases[ncycle-2], cl_bases[ncycle-1]);
@@ -232,15 +232,15 @@ static MAT init_matrix(MAT mat, const IOTYPE idx, const MAT M) {
 
             case E_PARAMA:
                 if (M == NULL) {return NULL;}
-                const uint32_t lda = mat->nrow;
+                const uint_fast32_t lda = mat->nrow;
                 if (mat->ncol != lda) {return NULL;}
-                const uint32_t ncycle = lda / NBASE;
+                const uint_fast32_t ncycle = lda / NBASE;
 
                 /* initial A has blocks of initial M down the diagonal */
-                for (uint32_t cy = 0; cy < ncycle; cy++) {
-                    uint32_t offset = cy * NBASE;
-                    for (uint32_t i = 0; i < NBASE; i++) {
-                        for (uint32_t j = 0; j < NBASE; j++) {
+                for (uint_fast32_t cy = 0; cy < ncycle; cy++) {
+                    uint_fast32_t offset = cy * NBASE;
+                    for (uint_fast32_t i = 0; i < NBASE; i++) {
+                        for (uint_fast32_t j = 0; j < NBASE; j++) {
                             mat->x[(offset + i) * lda + (offset + j)] = M->x[i * NBASE + j];
                         }
                     }
@@ -321,16 +321,16 @@ static void read_spikein_data(AYB ayb, const int blk) {
     if (!read_spikein_file(ayb->ncycle, blk)) { return; }
 
     SpikeFound = true;
-    const uint32_t ncluster = ayb->ncluster;
-    const uint32_t ncycle = ayb->ncycle;
+    const uint_fast32_t ncluster = ayb->ncluster;
+    const uint_fast32_t ncycle = ayb->ncycle;
 
     SPIKEIN spikein = get_next_spikein();
     while (spikein != NULL) {
         /* store the bases for the given cluster */
-        uint32_t cl = spikein->knum;
+        uint_fast32_t cl = spikein->knum;
         if (cl < ncluster) {
             NUC * cl_bases = ayb->bases.elt + cl * ncycle;
-            for (uint32_t cy = 0; cy < ncycle; cy++){
+            for (uint_fast32_t cy = 0; cy < ncycle; cy++){
                 cl_bases[cy] = spikein->kbases.elt[cy];
             }
 
@@ -350,8 +350,8 @@ static void read_spikein_data(AYB ayb, const int blk) {
 /** Set all calls to null (before terminating processing on error). */
 static void set_null_calls(AYB ayb) {
 
-    const uint32_t ncluster = ayb->ncluster;
-    const uint32_t ncycle = ayb->ncycle;
+    const uint_fast32_t ncluster = ayb->ncluster;
+    const uint_fast32_t ncycle = ayb->ncycle;
 
     unsigned int cl = 0;
     LIST(CLUSTER) node = ayb->tile->clusterlist;
@@ -360,7 +360,7 @@ static void set_null_calls(AYB ayb) {
         PHREDCHAR * cl_quals = ayb->quals.elt + cl * ncycle;
 
         /* call null base for each cycle */
-        for (uint32_t cy = 0; cy < ncycle; cy++){
+        for (uint_fast32_t cy = 0; cy < ncycle; cy++){
             struct basequal bq = call_base_null();
             cl_bases[cy] = bq.base;
             cl_quals[cy] = MIN_PHRED;// bq.qual is in quality-score space, want PHRED
@@ -380,15 +380,15 @@ static void store_cluster_error(AYB ayb, MAT ip, unsigned int cl){
     validate(NULL!=ayb,);
     validate(NULL!=ip,);
     validate(cl < ayb->ncluster,);
-    const uint32_t ncycle = ayb->ncycle;
+    const uint_fast32_t ncycle = ayb->ncycle;
 
     ayb->we->x[cl] = 0.;
     NUC * cycle_bases = ayb->bases.elt + cl*ncycle;
 
-    for ( uint32_t i=0 ; i<ncycle ; i++){
+    for ( uint_fast32_t i=0 ; i<ncycle ; i++){
         ip->x[i*NBASE+cycle_bases[i]] -= ayb->lambda->x[cl];
     }
-    for( uint32_t idx=0 ; idx<NBASE*ncycle ; idx++){
+    for( uint_fast32_t idx=0 ; idx<NBASE*ncycle ; idx++){
         ayb->we->x[cl] += ip->x[idx]*ip->x[idx];
     }
 }
@@ -396,13 +396,13 @@ static void store_cluster_error(AYB ayb, MAT ip, unsigned int cl){
 /** Calculate new weights assuming least squares error already stored. */
 static real_t update_cluster_weights(AYB ayb){
     validate(NULL!=ayb,NAN);
-    const uint32_t ncluster = ayb->ncluster;
+    const uint_fast32_t ncluster = ayb->ncluster;
     real_t sumLSS = 0.;
 
     /* Calculate weight for each cluster */
     real_t meanLSSi = mean(ayb->we->x,ncluster);
     real_t varLSSi = variance(ayb->we->x,ncluster);
-    for ( uint32_t cl=0 ; cl<ncluster ; cl++){
+    for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
         sumLSS += ayb->we->x[cl];
         const real_t d = ayb->we->x[cl]-meanLSSi;
         ayb->we->x[cl] = cauchy(d*d,varLSSi);
@@ -441,9 +441,9 @@ static WORKPTR open_processed(const AYB ayb, const int blk) {
 }
 
 /** Output/store a line of processed intensities in same format as intensities input file. */
-static void write_processed(WORKPTR work, const AYB ayb, const CLUSTER cluster, const uint32_t cl, MAT pcl_int) {
+static void write_processed(WORKPTR work, const AYB ayb, const CLUSTER cluster, const uint_fast32_t cl, MAT pcl_int) {
 
-    const uint32_t ncycle = ayb->ncycle;
+    const uint_fast32_t ncycle = ayb->ncycle;
 
     switch (get_input_format()) {
         case E_TXT:
@@ -455,8 +455,8 @@ static void write_processed(WORKPTR work, const AYB ayb, const CLUSTER cluster, 
             break;
 
         case E_CIF:
-            for (uint32_t cy = 0; cy < ncycle; cy++) {
-                for (uint32_t base = 0; base < NBASE; base++){
+            for (uint_fast32_t cy = 0; cy < ncycle; cy++) {
+                for (uint_fast32_t base = 0; base < NBASE; base++){
                     cif_set_from_real (work->cif, cl, base, cy, pcl_int->x[cy * NBASE + base]);
                 }
             }
@@ -530,7 +530,7 @@ static WORKPTR close_processed(WORKPTR work, const AYB ayb, const real_t effDF, 
 
 /* standard functions */
 
-AYB new_AYB(const uint32_t ncycle, const uint32_t ncluster){
+AYB new_AYB(const uint_fast32_t ncycle, const uint_fast32_t ncluster){
     AYB ayb = malloc(sizeof(*ayb));
     if(NULL==ayb){ return NULL;}
     ayb->ncycle = ncycle;
@@ -652,7 +652,7 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
     if (showall) {
         xfputs("lss:\n",fp); show_MAT(fp,ayb->lss,ayb->ncluster,1);
         xfputs("spike-in:\n",fp);
-        for (uint32_t cl=0; cl<ayb->ncluster; cl++){
+        for (uint_fast32_t cl=0; cl<ayb->ncluster; cl++){
             xfputc(ayb->spiked[cl] ?'1':'0',fp);
         }
         xfputc('\n',fp); xfputc('\n',fp);
@@ -672,12 +672,12 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
 /* access functions */
 
 /** Return array of non-zero lambdas and how many in num. */
-real_t * get_AYB_lambdas(const AYB ayb, uint32_t *num) {
+real_t * get_AYB_lambdas(const AYB ayb, uint_fast32_t *num) {
 
     real_t * lambdas = calloc(ayb->lambda->nrow, sizeof(real_t));
     *num = 0;
 
-    for (uint32_t i = 0; i < ayb->lambda->nrow; i++) {
+    for (uint_fast32_t i = 0; i < ayb->lambda->nrow; i++) {
         if (ayb->lambda->x[i] != 0.0) {
             lambdas[(*num)++] = ayb->lambda->x[i];
         }
@@ -686,12 +686,12 @@ real_t * get_AYB_lambdas(const AYB ayb, uint32_t *num) {
 }
 
 /** Return the number of clusters. */
-uint32_t get_AYB_ncluster(const AYB ayb) {
+uint_fast32_t get_AYB_ncluster(const AYB ayb) {
     return ayb->ncluster;
 }
 
 /** Return the number of cycles. */
-uint32_t get_AYB_ncycle(const AYB ayb) {
+uint_fast32_t get_AYB_ncycle(const AYB ayb) {
     return ayb->ncycle;
 }
 
@@ -705,21 +705,21 @@ AYB replace_AYB_tile(AYB ayb, const TILE tile) {
 }
 
 /** Show bases in a single line. */
-void show_AYB_bases(XFILE * fp, const AYB ayb, const uint32_t cl) {
+void show_AYB_bases(XFILE * fp, const AYB ayb, const uint_fast32_t cl) {
 
-    const uint32_t ncycle = ayb->ncycle;
+    const uint_fast32_t ncycle = ayb->ncycle;
 
-    for (uint32_t cy = 0; cy < ncycle; cy++){
+    for (uint_fast32_t cy = 0; cy < ncycle; cy++){
         show_NUC(fp, ayb->bases.elt[cl * ncycle + cy]);
     }
 }
 
 /** Show qualities in a single line. */
-void show_AYB_quals(XFILE * fp, const AYB ayb, const uint32_t cl) {
+void show_AYB_quals(XFILE * fp, const AYB ayb, const uint_fast32_t cl) {
 
-    const uint32_t ncycle = ayb->ncycle;
+    const uint_fast32_t ncycle = ayb->ncycle;
 
-    for (uint32_t cy = 0; cy < ncycle; cy++){
+    for (uint_fast32_t cy = 0; cy < ncycle; cy++){
         show_PHREDCHAR(fp, ayb->quals.elt[cl * ncycle + cy]);
     }
 }
@@ -734,7 +734,7 @@ MAT calculate_covariance(AYB ayb){
 
     validate(NULL != ayb, NULL);
     unsigned int ncluster = ayb->ncluster;  // need unsigned int for array_from_LIST
-    const uint32_t ncycle = ayb->ncycle;
+    const uint_fast32_t ncycle = ayb->ncycle;
 
     MAT Vsum = NULL;                    // memory allocated in multi-thread accumulate
     real_t wesum = 0.0;
@@ -833,7 +833,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
     validate(NULL != ayb, 0);
     unsigned int ncluster = ayb->ncluster;  // need unsigned int for array_from_LIST
-    const uint32_t ncycle = ayb->ncycle;
+    const uint_fast32_t ncycle = ayb->ncycle;
 
     MAT V_full = NULL;                  // Full covariance matrix
     QSPIKEPTR qspike = NULL;
@@ -888,10 +888,10 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 #endif
 
     /* scale is variance of residuals; get from V full matrix */
-    for (uint32_t cy = 0; cy < ncycle; cy++){
+    for (uint_fast32_t cy = 0; cy < ncycle; cy++){
         ayb->cycle_var->x[cy] = 0.;
-        for (uint32_t b = 0; b < NBASE; b++){
-            uint32_t offset = cy * NBASE + b;
+        for (uint_fast32_t b = 0; b < NBASE; b++){
+            uint_fast32_t offset = cy * NBASE + b;
             ayb->cycle_var->x[cy] += V_full->x[offset * ncycle * NBASE + offset];
         }
     }
@@ -1104,7 +1104,7 @@ cleanup:
 real_t estimate_MPN(AYB ayb){
     real_t ret = NAN;
     validate(NULL!=ayb, ret);
-    const uint32_t ncycle = ayb->ncycle;
+    const uint_fast32_t ncycle = ayb->ncycle;
 
     /*  Calculate new weights */
     //timestamp("Updating weights\n",stderr);

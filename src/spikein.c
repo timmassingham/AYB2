@@ -61,8 +61,8 @@ static LIST(SPIKEIN) free_SPIKEIN_list(LIST(SPIKEIN) spikelist) {
 }
 
 /** Show first n blocks of spike-in data list.  */
-static void show_SPIKEIN_list(XFILE * fp, LIST(SPIKEIN) spikelist, const uint32_t nblock) __attribute__((used));
-static void show_SPIKEIN_list(XFILE * fp, LIST(SPIKEIN) spikelist, const uint32_t nblock) {
+static void show_SPIKEIN_list(XFILE * fp, LIST(SPIKEIN) spikelist, const uint_fast32_t nblock) __attribute__((used));
+static void show_SPIKEIN_list(XFILE * fp, LIST(SPIKEIN) spikelist, const uint_fast32_t nblock) {
 
     if (NULL == fp) { return; }
     if (NULL == spikelist) { return; }
@@ -77,7 +77,7 @@ static void show_SPIKEIN_list(XFILE * fp, LIST(SPIKEIN) spikelist, const uint32_
 }
 
 /** Read in spike-in data list. */
-static LIST(SPIKEIN) read_SPIKEIN_list(XFILE * fp, const uint32_t ncycle) {
+static LIST(SPIKEIN) read_SPIKEIN_list(XFILE * fp, const uint_fast32_t ncycle) {
 
     if (NULL == fp) { return NULL; }
 
@@ -109,7 +109,7 @@ static LIST(SPIKEIN) read_SPIKEIN_list(XFILE * fp, const uint32_t ncycle) {
 /* public functions */
 
 /* standard functions */
-SPIKEIN new_SPIKEIN(const uint32_t ncycle) {
+SPIKEIN new_SPIKEIN(const uint_fast32_t ncycle) {
     SPIKEIN spikein = calloc(1, sizeof(*spikein));
     if (NULL == spikein) { return NULL;}
     spikein->kbases = new_ARRAY(NUC)(ncycle);
@@ -152,7 +152,7 @@ void show_SPIKEIN(XFILE * fp, const SPIKEIN spikein) {
  * Expects tab separated cluster number and sequence.
  * Sequence must be at least ncycle long.
  */
-SPIKEIN read_SPIKEIN(XFILE * fp, const uint32_t ncycle, bool *err) {
+SPIKEIN read_SPIKEIN(XFILE * fp, const uint_fast32_t ncycle, bool *err) {
     if (NULL == fp) { return NULL; }
     
     /* get a line from file */
@@ -191,7 +191,7 @@ SPIKEIN read_SPIKEIN(XFILE * fp, const uint32_t ncycle, bool *err) {
         goto cleanup; 
     }
 
-    for( uint32_t i = 0; i < ncycle; i++){
+    for( uint_fast32_t i = 0; i < ncycle; i++){
         spikein->kbases.elt[i] = nuc_from_char(ptr[i]);
     }
     
@@ -231,7 +231,7 @@ SPIKEIN get_next_spikein(void) {
  * Read the spike-in data file.
  * Returns true if successfully read.
  */
-bool read_spikein_file(const uint32_t ncycle, const int blk) {
+bool read_spikein_file(const uint_fast32_t ncycle, const int blk) {
 
     bool res = false;
 
@@ -424,7 +424,7 @@ int main ( int argc, char * argv[]){
     free_SPIKEIN(spike2);
 
     /* count number of blocks */
-    uint32_t cnt = 1;
+    uint_fast32_t cnt = 1;
     while (spikein != NULL) {
         cnt++;
         spikein = get_next_spikein();

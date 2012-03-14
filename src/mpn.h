@@ -35,11 +35,11 @@
 
 //MAT calculateIbar( const ARRAY(int16_t) intmat, const MAT we, MAT Ibar){
 MAT calculateIbar( const TILE tile, const MAT we, MAT Ibar);
-MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint32_t ncycle, MAT Sbar);
+MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint_fast32_t ncycle, MAT Sbar);
 MAT calculateWe( const MAT lssi, MAT we);
 real_t calculateWbar( const MAT we);
 MAT calculateJ( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint_fast32_t ncycle, MAT J);
-//MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const ARRAY(int16_t) ints, const uint32_t ncycle, MAT K);
+//MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const ARRAY(int16_t) ints, const uint_fast32_t ncycle, MAT K);
 MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TILE tile, const uint_fast32_t ncycle, MAT K);
 MAT calculateMlhs( const MAT var, const real_t wbar, const MAT SbarT, const MAT P, const MAT Jt, real_t * tmp, MAT lhs);
 MAT calculateMrhs( const MAT var, const MAT IbarT, const MAT P, const MAT Kt, real_t * tmp, MAT rhs);

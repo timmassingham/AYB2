@@ -103,10 +103,10 @@ char char_from_nuc(const NUC nuc){
 
 ARRAY(NUC) nucs_from_string( const char * nucstr ){
     validate(NULL!=nucstr,null_ARRAY(NUC));
-    const uint32_t len = strlen(nucstr);
+    const uint_fast32_t len = strlen(nucstr);
     ARRAY(NUC) nucs = new_ARRAY(NUC)(len);
     validate(0!=nucs.nelt,nucs);
-    for( uint32_t i=0 ; i<len ; i++){
+    for( uint_fast32_t i=0 ; i<len ; i++){
         nucs.elt[i] = nuc_from_char(nucstr[i]);
     }
     return nucs;
@@ -126,7 +126,7 @@ ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs){
     validate(NULL!=nucs.elt,null_ARRAY(NUC));
     ARRAY(NUC) new_nuc = new_ARRAY(NUC)(nucs.nelt);
     validate(NULL!=new_nuc.elt,new_nuc);
-    for ( uint32_t i=0 ; i<nucs.nelt ; i++){
+    for ( uint_fast32_t i=0 ; i<nucs.nelt ; i++){
         new_nuc.elt[i] = complement(nucs.elt[nucs.nelt-i-1]);
     }
     return new_nuc;
@@ -261,14 +261,14 @@ int main ( int argc, char * argv[]){
     nucs = nucs_from_string(argv[1]);
     xfprintf(xstdout, "Stored length            : %u\n", nucs.nelt);
     xfputs("Store/write sequence     : ", xstdout);
-    for (uint32_t i = 0; i < nucs.nelt; i++){
+    for (uint_fast32_t i = 0; i < nucs.nelt; i++){
         show_NUC(xstdout, nucs.elt[i]);
     }
     xfputc('\n', xstdout);
 
     ARRAY(NUC) rc = reverse_complement(nucs);
     xfputs("Reversed sequence        : ", xstdout);
-    for (uint32_t i = 0; i < rc.nelt; i++){
+    for (uint_fast32_t i = 0; i < rc.nelt; i++){
         show_NUC(xstdout, rc.elt[i]);
     }
     xfputs("\n\n", xstdout);

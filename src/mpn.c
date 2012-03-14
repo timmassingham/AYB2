@@ -43,10 +43,10 @@
 
 /* private functions */
 
-static inline real_t sum_squares(const real_t * x, const uint32_t n){
+static inline real_t sum_squares(const real_t * x, const uint_fast32_t n){
     validate(NULL!=x,NAN);
     real_t res = 0.;
-    for ( uint32_t i=0 ; i<n ; i++){
+    for ( uint_fast32_t i=0 ; i<n ; i++){
         res += x[i] * x[i];
     }
     return res;
@@ -58,7 +58,7 @@ static inline real_t sum_squares(const real_t * x, const uint32_t n){
 // Crude method of obtaining weights
 MAT calculateWe( const MAT lssi, MAT we){
     validate(NULL!=lssi,NULL);
-    const uint32_t ncluster = lssi->nrow;
+    const uint_fast32_t ncluster = lssi->nrow;
     if(NULL==we){
         we = new_MAT(ncluster,1);
         validate(NULL!=we,NULL);
@@ -67,7 +67,7 @@ MAT calculateWe( const MAT lssi, MAT we){
 
     real_t meanLSSi = mean(lssi->x,ncluster);
     real_t varLSSi = variance(lssi->x,ncluster);
-    for ( uint32_t cl=0 ; cl<ncluster ; cl++){
+    for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
         const real_t d = lssi->x[cl]-meanLSSi;
         we->x[cl] = cauchy(d*d,varLSSi);
     }
@@ -79,8 +79,8 @@ MAT calculateWe( const MAT lssi, MAT we){
 MAT calculateIbar( const TILE tile, const MAT we, MAT Ibar){
     validate(NULL!=tile,NULL);
     validate(NULL!=we,NULL);
-    const uint32_t ncluster = tile->ncluster;
-    const uint32_t ncycle = tile->ncycle;
+    const uint_fast32_t ncluster = tile->ncluster;
+    const uint_fast32_t ncycle = tile->ncycle;
 
     if(NULL==Ibar){
         Ibar = new_MAT(NBASE,ncycle);
@@ -93,7 +93,7 @@ MAT calculateIbar( const TILE tile, const MAT we, MAT Ibar){
     unsigned int cl = 0;
     LIST(CLUSTER) node = tile->clusterlist;
     while (NULL != node && cl < ncluster){
-        for( uint32_t idx=0 ; idx<NBASE*ncycle ; idx++){
+        for( uint_fast32_t idx=0 ; idx<NBASE*ncycle ; idx++){
             Ibar->x[idx] += node->elt->signals->xint[idx] * we->x[cl];
         }
 
@@ -105,11 +105,11 @@ MAT calculateIbar( const TILE tile, const MAT we, MAT Ibar){
     return Ibar;
 }
 
-MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint32_t ncycle, MAT Sbar){
+MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint_fast32_t ncycle, MAT Sbar){
     validate(NULL!=lambda,NULL);
     validate(NULL!=we,NULL);
     validate(NULL!=bases.elt,NULL);
-    const uint32_t ncluster = lambda->nrow;
+    const uint_fast32_t ncluster = lambda->nrow;
     validate(ncluster==we->nrow,NULL);
     if(NULL==Sbar){
         Sbar = new_MAT(NBASE,ncycle);
@@ -119,8 +119,8 @@ MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const
     validate(Sbar->ncol==ncycle,NULL);
     memset(Sbar->x, 0, Sbar->nrow*Sbar->ncol*sizeof(real_t));
 
-    for ( uint32_t cl=0 ; cl<ncluster ; cl++){
-        for ( uint32_t cy=0 ; cy<ncycle ; cy++){
+    for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
+        for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
             int base = bases.elt[cl*ncycle+cy];
             if(!isambig(base)){
                 Sbar->x[cy*NBASE+base] += we->x[cl] * lambda->x[cl];
@@ -132,10 +132,10 @@ MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const
 }
 real_t calculateWbar( const MAT we){
     validate(NULL!=we,NAN);
-    const uint32_t ncluster = we->nrow;
+    const uint_fast32_t ncluster = we->nrow;
 
     real_t wbar = 0.;
-    for ( uint32_t cl=0 ; cl<ncluster ; cl++){
+    for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
         wbar += we->x[cl];
     }
     return wbar;
@@ -287,49 +287,49 @@ MAT calculateMlhs( const MAT var, const real_t wbar, const MAT SbarT, const MAT 
     }
     memset(lhs->x, 0, lhs->nrow*lhs->ncol*sizeof(real_t));
 
-    const uint32_t lda = NBASE+ncycle;
+    const uint_fast32_t lda = NBASE+ncycle;
     // Reshape Jvec(P diag(var) Pt) via P diag(sqrt(v)) %*% ( P diag(sqrt(v)) )^t
     // Scale P
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        for (uint32_t cy2=0 ; cy2<ncycle ; cy2++){
+    for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+        for (uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
             P->x[cy*ncycle+cy2] *= sqrt(var->x[cy]);
         }
     }
     gemm(LAPACK_NOTRANS,LAPACK_TRANS,&ncycle,&ncycle,&ncycle,&alpha,P->x,&ncycle,P->x,&ncycle,&beta,tmp+NBASE*NBASE,&ncycle);
     gemv(LAPACK_TRANS,&Jt->nrow,&Jt->ncol,&alpha,Jt->x,&Jt->nrow,tmp+NBASE*NBASE,&unit,&beta,tmp,&unit);
-    for ( uint32_t cy=0 ; cy<NBASE ; cy++){
-        for ( uint32_t base=0 ; base<NBASE ; base++){
+    for ( uint_fast32_t cy=0 ; cy<NBASE ; cy++){
+        for ( uint_fast32_t base=0 ; base<NBASE ; base++){
             lhs->x[cy*lda+base] = tmp[cy*NBASE+base];
         }
     }
     // Unscale P
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        for (uint32_t cy2=0 ; cy2<ncycle ; cy2++){
+    for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+        for (uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
             P->x[cy*ncycle+cy2] /= sqrt(var->x[cy]);
         }
     }
 
     // Sbar %*% P %*% diag(var)
     gemm(LAPACK_TRANS,LAPACK_NOTRANS,&SbarT->ncol,&P->ncol,&P->nrow,&alpha,SbarT->x,&SbarT->nrow,P->x,&P->nrow,&beta,lhs->x+NBASE*lda,&lhs->nrow);
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        for ( uint32_t base=0 ; base<NBASE ; base++){
+    for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+        for ( uint_fast32_t base=0 ; base<NBASE ; base++){
             lhs->x[NBASE*lda+cy*lda+base] *= var->x[cy];
         }
     }
     // Copy Sbar %*% P into new bit of array
 {
-    const uint32_t offset1 = lda * NBASE;
-    const uint32_t offset2 = NBASE;
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        for ( uint32_t base=0 ; base<NBASE ; base++){
+    const uint_fast32_t offset1 = lda * NBASE;
+    const uint_fast32_t offset2 = NBASE;
+    for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+        for ( uint_fast32_t base=0 ; base<NBASE ; base++){
             lhs->x[offset2+base*lda+cy] = lhs->x[offset1+cy*lda+base];
         }
     }
 }
     // Id matrix
 {
-    const uint32_t offset = NBASE*lda+NBASE;
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
+    const uint_fast32_t offset = NBASE*lda+NBASE;
+    for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
         lhs->x[offset+cy*lda+cy] = wbar*var->x[cy];
     }
 }
@@ -348,7 +348,7 @@ MAT calculateMrhs( const MAT var, const MAT IbarT, const MAT P, const MAT Kt, re
     const real_t alpha = 1.0;
     const real_t  beta = 0.0;
 
-    const uint32_t ncycle = P->nrow;
+    const uint_fast32_t ncycle = P->nrow;
     const int lda = NBASE + ncycle;
     if(NULL==rhs){
         rhs = new_MAT(lda,NBASE);
@@ -358,27 +358,27 @@ MAT calculateMrhs( const MAT var, const MAT IbarT, const MAT P, const MAT Kt, re
 
     // Reshape KVec(Pdiag(v))
     // Scale P
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        for (uint32_t cy2=0 ; cy2<ncycle ; cy2++){
+    for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+        for (uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
             P->x[cy*ncycle+cy2] *= var->x[cy];
         }
     }
     gemv(LAPACK_TRANS,&Kt->nrow,&Kt->ncol,&alpha,Kt->x,&Kt->nrow,P->x,LAPACK_UNIT,&beta,tmp,LAPACK_UNIT);
-    for ( uint32_t base1=0 ; base1<NBASE ; base1++){
-        for ( uint32_t base2=0 ; base2<NBASE ; base2++){
+    for ( uint_fast32_t base1=0 ; base1<NBASE ; base1++){
+        for ( uint_fast32_t base2=0 ; base2<NBASE ; base2++){
             rhs->x[base1*lda+base2] = tmp[base1*NBASE+base2];
         }
     }
     // Unscale P
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        for (uint32_t cy2=0 ; cy2<ncycle ; cy2++){
+    for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+        for (uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
             P->x[cy*ncycle+cy2] /= var->x[cy];
         }
     }
 
     // Copy in diag(v)*IbarT
-    for ( uint32_t base=0 ; base<NBASE ; base++){
-        for ( uint32_t cy=0 ; cy<ncycle ; cy++){
+    for ( uint_fast32_t base=0 ; base<NBASE ; base++){
+        for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
             rhs->x[NBASE+base*lda+cy] = IbarT->x[base*ncycle+cy] * var->x[cy];
         }
     }
@@ -407,8 +407,8 @@ MAT calculatePlhs( const real_t wbar, const MAT Sbar, const MAT Mt, const MAT J,
     // Reshape Jtvec(MtM)
     gemm(LAPACK_NOTRANS, LAPACK_TRANS,&nbase, &nbase, &nbase, &alpha,Mt->x,&nbase, Mt->x,  &nbase, &beta, tmp+ncycle*ncycle,&nbase);
     gemv(LAPACK_TRANS,&J->nrow,&J->ncol,&alpha,J->x,&J->nrow,tmp+ncycle*ncycle,LAPACK_UNIT,&beta,tmp,LAPACK_UNIT);
-    for ( uint32_t cy=0 ; cy<ncycle ; cy++){
-        for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
+    for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
+        for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
             lhs->x[cy*lda+cy2] = tmp[cy*ncycle+cy2];
         }
     }
@@ -444,8 +444,8 @@ MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT Sbar, const MAT N, co
     gemm(LAPACK_NOTRANS,LAPACK_NOTRANS,&nbase,&ncycle,&nbase,&alpha,Mt->x,&nbase,N->x,&nbase,&beta,tmp+ncycle*ncycle,&nbase);
     gemm(LAPACK_TRANS,LAPACK_NOTRANS,&ncycle,&ncycle,&nbase,&negalpha,Sbar->x,&nbase,tmp+ncycle*ncycle,&nbase,&alpha,tmp,&ncycle);
 
-    for ( uint32_t cy1=0 ; cy1<ncycle ; cy1++){
-        for ( uint32_t cy2=0 ; cy2<ncycle ; cy2++){
+    for ( uint_fast32_t cy1=0 ; cy1<ncycle ; cy1++){
+        for ( uint_fast32_t cy2=0 ; cy2<ncycle ; cy2++){
             rhs->x[cy1*lda+cy2] = tmp[cy1*ncycle+cy2];
         }
     }
@@ -727,7 +727,7 @@ int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag){
     if(info==0){
         // Success
         const int N = lhs->nrow;
-        for ( uint32_t i=0 ; i<N*N ; i++){
+        for ( uint_fast32_t i=0 ; i<N*N ; i++){
             if(rhs->x[i]<0){ rhs->x[i] = 0.;}
         }
     }
@@ -914,8 +914,8 @@ P nnls solution matrix (success=1):
 3:     0.05     0.00     0.07
 */
 int main ( void){
-    const uint32_t ncluster = 5;
-    const uint32_t ncycle = 3;
+    const uint_fast32_t ncluster = 5;
+    const uint_fast32_t ncycle = 3;
 
     /* use null variance for now */
     MAT var = new_MAT(ncycle, 1);

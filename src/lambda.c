@@ -55,10 +55,10 @@ real_t estimate_lambdaOLS( const MAT p, const NUC * base){
     validate(NULL!=p,NAN);
     validate(NBASE==p->nrow,NAN);
     validate(NULL!=base,NAN);
-    const uint32_t ncycle = p->ncol;
+    const uint_fast32_t ncycle = p->ncol;
 
     real_t numerator = 0.0, denominator = 0.0;
-    for (uint32_t cycle=0 ; cycle<ncycle ; cycle++){
+    for (uint_fast32_t cycle=0 ; cycle<ncycle ; cycle++){
         const int cybase = base[cycle];
         if (!isambig(cybase)){
             numerator += p->x[cycle*NBASE+cybase];
@@ -85,10 +85,10 @@ real_t estimate_lambdaWLS( const MAT p, const NUC * base, const real_t oldlambda
     validate(NULL!=base,NAN);
     validate(oldlambda>=0.,NAN);
     validate(NULL!=v,NAN);
-    const uint32_t ncycle = p->ncol;
+    const uint_fast32_t ncycle = p->ncol;
 
     real_t numerator = 0.0, denominator=0.0;
-    for (uint32_t cycle=0 ; cycle<ncycle ; cycle++){
+    for (uint_fast32_t cycle=0 ; cycle<ncycle ; cycle++){
         const int cybase = base[cycle];
         if(!isambig(cybase)){
             // Calculate Sum Squared Error, then weight
@@ -116,7 +116,7 @@ real_t estimate_lambdaWLS( const MAT p, const NUC * base, const real_t oldlambda
  */
 real_t estimate_lambda_A ( const MAT intensity, const MAT N, const MAT At, const NUC * base){
     if(NULL==intensity || NULL==N || NULL==At || NULL==base){ return NAN; }
-    const uint32_t ncycle = intensity->ncol;
+    const uint_fast32_t ncycle = intensity->ncol;
 
     // Calculate A vec(S_i)
     const int lda = NBASE*ncycle;

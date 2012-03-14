@@ -44,18 +44,18 @@ typedef struct AybT * AYB;
 /* function prototypes */
 
 /* standard functions */
-AYB new_AYB(const uint32_t ncycle, const uint32_t ncluster);
+AYB new_AYB(const uint_fast32_t ncycle, const uint_fast32_t ncluster);
 AYB free_AYB(AYB ayb);
 AYB copy_AYB(const AYB ayb);
 void show_AYB(XFILE * fp, const AYB ayb, bool showall);
 
 /* access functions */
-real_t * get_AYB_lambdas(AYB ayb, uint32_t *num);
-uint32_t get_AYB_ncluster(AYB ayb);
-uint32_t get_AYB_ncycle(AYB ayb);
+real_t * get_AYB_lambdas(AYB ayb, uint_fast32_t *num);
+uint_fast32_t get_AYB_ncluster(AYB ayb);
+uint_fast32_t get_AYB_ncycle(AYB ayb);
 AYB replace_AYB_tile(AYB ayb, const TILE tile);
-void show_AYB_bases(XFILE * fp, const AYB ayb, const uint32_t cl);
-void show_AYB_quals(XFILE * fp, const AYB ayb, const uint32_t cl);
+void show_AYB_bases(XFILE * fp, const AYB ayb, const uint_fast32_t cl);
+void show_AYB_quals(XFILE * fp, const AYB ayb, const uint_fast32_t cl);
 
 MAT calculate_covariance(AYB ayb);
 int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showdebug);
