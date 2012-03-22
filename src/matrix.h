@@ -89,6 +89,7 @@ bool is_square(const MAT mat);
 // Operations
 MAT vectranspose( const MAT mat, const unsigned int p );
 MAT reshape_MAT( MAT mat, const int nrow);
+MAT symmeteriseL2U( MAT mat);
 MAT cholesky( MAT mat);
 MAT invert_cholesky( MAT mat);
 MAT trim_MAT( MAT mat, const int mrow, const int mcol, const bool forwards);

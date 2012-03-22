@@ -650,7 +650,14 @@ MAT vectranspose ( const MAT mat, const unsigned int p ){
 }
 
 
-// Copy lower diagonal of matrix to upper diagonal
+/**
+ * Make a matrix in lower triangular form into a
+ * symmetric matrix by copying the lower triangle
+ * into the upper, transposing
+ *
+ * @param mat	Matrix in lower triangular form
+ * return 	mat, or NULL if mat is not a square matrix.
+ */
 MAT symmeteriseL2U( MAT mat){
     validate(NULL!=mat,NULL);
     validate(mat->nrow==mat->ncol,NULL);
