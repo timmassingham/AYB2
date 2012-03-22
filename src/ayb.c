@@ -809,11 +809,7 @@ MAT calculate_covariance(AYB ayb, const bool do_full){
                 wesum += wei[i];
             }
 	    // V's accumulated are lower triangular. Make symmetric.
-            for (int i = 0; i < lda; i++){
-                for (int j = 0; j < i; j++){
-                    Vsum->x[i * lda + j] = Vsum->x[j * lda + i];
-                }
-            }
+	    symmeteriseL2U(Vsum);
 
             /* scale sum of squares to make covariance */
             scale_MAT(Vsum, 1.0/wesum);
