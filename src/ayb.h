@@ -57,7 +57,7 @@ AYB replace_AYB_tile(AYB ayb, const TILE tile);
 void show_AYB_bases(XFILE * fp, const AYB ayb, const uint_fast32_t cl);
 void show_AYB_quals(XFILE * fp, const AYB ayb, const uint_fast32_t cl);
 
-MAT calculate_covariance(AYB ayb);
+MAT calculate_covariance(AYB ayb, const bool do_full);
 int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showdebug);
 real_t estimate_MPN(AYB ayb);
 bool initialise_model(AYB ayb, const int blk, const bool showdebug);

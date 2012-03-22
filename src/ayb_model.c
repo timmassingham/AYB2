@@ -359,7 +359,7 @@ static void output_simdata(AYB ayb, const int argc, char ** const argv, const in
     xfree(lambdas);
 
     /* calculate and output all covariance */
-    MAT V = calculate_covariance(ayb);
+    MAT V = calculate_covariance(ayb,true);
     
     if (V == NULL) {
         message(E_NOCREATE_S, MSG_ERR, "full covariance");
