@@ -145,6 +145,7 @@ static MAT  accumulate_covariance( const real_t we, const MAT p, const real_t la
 	    // Update more elements than necessary but excess are ignored later.
 	    for ( int i=0 ; i<lda ; i++){
 		    for ( int j=i ; j<i+2*NBASE ; j++ ){
+			    if(j>=lda){ break; }
 			    V->x[i*lda+j] += we * p->x[i] * p->x[j];
 		    }
 	    }
