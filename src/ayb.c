@@ -407,10 +407,17 @@ static real_t update_cluster_weights(AYB ayb){
     /* Calculate weight for each cluster */
     real_t meanLSSi = mean(ayb->we->x,ncluster);
     real_t varLSSi = variance(ayb->we->x,ncluster);
-    for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
-        sumLSS += ayb->we->x[cl];
-        const real_t d = ayb->we->x[cl]-meanLSSi;
-        ayb->we->x[cl] = cauchy(d*d,varLSSi);
+    if( varLSSi != 0.0){
+        for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
+            sumLSS += ayb->we->x[cl];
+            const real_t d = ayb->we->x[cl]-meanLSSi;
+            ayb->we->x[cl] = cauchy(d*d,varLSSi);
+	}
+    } else {
+	// If variance is zero, set all weights to one.
+	for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
+            ayb->we->x[cl] = 1.0;
+	}
     }
 
     //xfputs("Cluster weights:\n",xstderr);
