@@ -24,6 +24,7 @@
  */
 
 #include <math.h>
+#include <strings.h>
 #include "conjugate.h"
 #include "lapack.h"
 #include "utility.h"
@@ -379,7 +380,14 @@ MAT fit_omega(const MAT V, MAT omega){
         for ( int i=0 ; i<n ; i++){ omega->x[i*n+i] = 1.e-5 + 1.0/(1.0e-5 + V->x[i*n+i]); }
     }
     // Get Cholesky factorisation
-    cholesky(omega);
+    // Reset matrix if factorisation fails.
+    if(NULL==cholesky(omega)){
+	    bzero(omega->x,n*n*sizeof(real_t));
+	    for ( int i=0 ; i<n ; i++){ 
+		    real_t v = 1.e-5 + 1.0/(1.0e-5 + V->x[i*n+i]);
+		    omega->x[i*n+i] = sqrt(v);
+	    }
+    }
 
     // Initial gradient 
     MAT grad = new_MAT(n,n);

@@ -672,6 +672,7 @@ MAT symmeteriseL2U( MAT mat){
 
 /** 
  * Cholesky decomposition of matrix. Done in place.
+ * Returns NULL on error.
  */
 MAT cholesky( MAT mat){
     validate(NULL!=mat,NULL);
@@ -681,7 +682,10 @@ MAT cholesky( MAT mat){
     int info=0;
     int n = mat->nrow;
     potrf(LAPACK_UPPER,&mat->nrow,mat->x,&mat->nrow,&info);
-    if(info!=0){ warnx("potrf in %s returned %d\n",__func__,info);}
+    if(info!=0){
+	    warnx("potrf in %s returned %d\n",__func__,info);
+	    return NULL;
+    }
     
     // Zero entries in lower diagonal (not referenced in potrf, so retain initial values)
     for ( int i=0 ; i<n ; i++){
