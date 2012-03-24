@@ -901,6 +901,40 @@ real_t xMy( const real_t * x, const MAT M, const real_t * y){
     return res;
 }
 
+/**
+ * xOx
+ * 
+ * Calculates x^t Om x, where x is a vector and Om is a symmetric block-diagonal matrix
+ * @param x             Vector
+ * @param nblock        Number of blocks below diagonal
+ * @param blocksize     Size of block
+ * @param Om            block-diagonal matrix
+ * @return              Result
+ */
+real_t xOx(const real_t * x, const uint32_t nblock, const uint32_t blocksize, const MAT Om){
+    validate(NULL!=x,NAN);
+    validate(NULL!=Om,NAN);
+    validate(Om->ncol==Om->nrow,NAN);
+    validate(Om->ncol%blocksize==0,NAN);
+    const uint_fast32_t n = Om->ncol;
+    const uint_fast32_t maxblock = n / blocksize;
+    
+    real_t res = 0.0;
+    for( uint_fast32_t col=0 ; col<n ; col++){
+        const uint_fast32_t blockno = (col/blocksize);
+        const uint_fast32_t minb = blocksize * ((blockno>nblock)?(blockno-nblock):0);
+        const uint_fast32_t maxb = blocksize * (((blockno+nblock+1)>maxblock)?maxblock:(blockno+nblock+1));
+        
+        real_t acc = 0.0;
+        for( uint_fast32_t b=minb ; b<maxb ; b++){
+            acc += x[b] * Om->x[col*n+b];
+        }
+        res += acc*x[col];
+    }
+    return res;
+}
+
+
 real_t normalise_MAT(MAT mat, const real_t delta_diag){
     validate(NULL!=mat,NAN);
     validate(mat->nrow==mat->ncol,NAN);

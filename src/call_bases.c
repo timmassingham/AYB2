@@ -153,7 +153,7 @@ struct basequal call_base( const real_t * restrict p, const real_t lambda, const
         tot += exp(-0.5*(stat[i]-minstat));
     }
 
-    real_t K = xMy(p,omega,p);
+    real_t K = xOx(p,1,NBASE,omega);
     real_t maxprob = exp(-0.5*(K+minstat));
 
     /* Calculate posterior probability in numerically stable fashion
@@ -247,7 +247,7 @@ real_t call_bases( const MAT p, const real_t lambda, const MAT omega, NUC * base
         base[cy] = (NUC)array[cy*NBASE+base[cy+1]];
     }
 
-    return xMy(p->x,omega,p->x) + lambda * minstat;
+    return xOx(p->x,1,NBASE,omega) + lambda * minstat;
 }
 
 /** 
@@ -268,7 +268,7 @@ real_t calculate_lss(const MAT p, const real_t lambda, const MAT omega, const NU
 		res += 2.0*crosslike(p->x+(cy-1)*NBASE,lambda,base[cy-1],base[cy],omega->x+(cy-1)*NBASE*lda+cy*NBASE,ncycle);
 	}
 	
-	return xMy(p->x,omega,p->x) + lambda * res;
+	return xOx(p->x,1,NBASE,omega) + lambda * res;
 }
 
 /** 
@@ -341,7 +341,7 @@ void call_qualities_post(const MAT p, const real_t lambda, const MAT omega, cons
     }
 	//fprintf(stdout,"%e %e\n",fwdslike,bkdslike);
 
-    real_t pOp = xMy(p->x,omega,p->x);
+    real_t pOp = xOx(p->x,1,NBASE,omega);
     //fprintf(stdout,"%e\n",pOp+lambda*(farray[base[0]] + barray[base[0]] + basecost[base[0]]));
     for ( int cy=0 ; cy<ncycle ; cy++){
         int b = base[cy];
