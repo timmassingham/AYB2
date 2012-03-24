@@ -23,7 +23,7 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <omp.h>
+#include "aybthread.h"
 #include <math.h>
 #include <strings.h>
 #include "lapack.h"

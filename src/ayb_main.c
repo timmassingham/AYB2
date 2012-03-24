@@ -26,7 +26,7 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <omp.h>
+#include "aybthread.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
