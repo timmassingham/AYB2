@@ -11,7 +11,7 @@ SYNOPSIS
 --------
 *AYB* [-b blockstring] [-d input format] [-e log file] [-f output format] 
     [-g generr] [-i input path] [-k] [-l log level] [-n iterations]
-    [-o output path] [-p threads] [-q] [-r] [-s header] [-w] 
+    [-o output path] [-p threads] [-q] [-r] [-s header] [-w level] 
     [-A Parameter A] [-K spike-in path] [-M Crosstalk] [-N Noise] [-Q quality tab]
     'prefix'[\+]/lane tile range ['prefix'[+]/lane tile range ...]
 
@@ -188,21 +188,21 @@ OPTIONS
     Use ANSI-C style bash quoting ($\'...') to allow escape sequences such as newline (\n) to be interpreted. 
     The output file name is `{filename}.runfile` (cif) or `{filename}_runfile.txt` (txt).
 
-*-w,  --working*::
-	Output final working values. Files created are:
+*-w,  --working* <level>::
+	Output final working values. All files up to a given level are created. Files created are (level):
+
+        Parameter A and Noise matrices (0):::
+        Format as predetermined matrix input.
+        Filenames `{filename}[x].A/N` (cif) or `{filename}[x]_A/N.txt` (txt).
+
+        Final model values (1):::
+        Format as a collection of matrices.
+        Filenames `{filename}[x].final` (cif) or `{filename}[x]_final.txt` (txt).
 	
-	Final processed intensities:::
+	Final processed intensities (2):::
 	Format as intensities input, cif or txt.
 	Filenames `{filename}[x].pif` (cif) or `{filename}[x]_pif.txt` (txt).
 		
-	Final model values:::
-	Format as a collection of matrices.
-	Filenames `{filename}[x].final` (cif) or `{filename}[x]_final.txt` (txt).
-	
-	Parameter A and Noise matrices:::
-	Format as predetermined matrix input.
-	Filenames `{filename}[x].A/N` (cif) or `{filename}[x]_A/N.txt` (txt).	
-
 *--help*::
 	Display this help.
 

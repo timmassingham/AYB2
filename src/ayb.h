@@ -62,7 +62,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 real_t estimate_MPN(AYB ayb);
 bool initialise_model(AYB ayb, const int blk, const bool showdebug);
 
-void set_show_working(void);
+void set_show_working(const CSTRING optarg);
 void set_spike_calib(void);
 bool startup_ayb(void);
 void tidyup_ayb(void);

@@ -93,7 +93,7 @@ static struct option Longopts[] = {
     {"parallel",    required_argument,  NULL, 'p'},
     {"noqualout",   no_argument,        NULL, 'q'},
     {"runfolder",   no_argument,        NULL, 'r'},
-    {"working",     no_argument,        NULL, 'w'},
+    {"working",     required_argument,  NULL, 'w'},
     {"A",           required_argument,  NULL, 'A'},
     {"spikein",     required_argument,  NULL, 'K'},
     {"M",           required_argument,  NULL, 'M'},
@@ -146,7 +146,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:kl:m:n:o:p:qrwA:K:M:N:Q:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:kl:m:n:o:p:qrw:A:K:M:N:Q:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 's':
@@ -243,7 +243,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
 
             case 'w':
                 /* show working flag */
-                set_show_working();
+                set_show_working(optarg);
                 break;
 
             case 'A':

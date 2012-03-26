@@ -32,7 +32,7 @@
 "  -r  --runfolder\t\tRead cif files from a run-folder\n"
 "\tPrefix is replaced by lane tile (range) with format LnTn (Ln-nTn-n)\n"
 "  -s  --simdata <header>\tOutput simulation data\n"
-"  -w  --working\t\t\tOutput final working values\n"
+"  -w  --working <level>\t\tOutput final working values upto given level\n"
 "  -A  --A <filepath>\t\tPredetermined fixed Parameter A matrix file path\n"
 "\t\t\t\t(Must be accompanied by option N)\n"
 "  -K  --spikein <path>\t\tLocation of spike-in data files\n"

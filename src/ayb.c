@@ -75,6 +75,9 @@ struct WorkT {
 };
 typedef struct WorkT * WORKPTR;
 
+/** Enumeration for what output to show. */
+typedef enum { E_SHOWWORK_NULL, E_SHOWWORK_MATRIX, E_SHOWWORK_FINAL, E_SHOWWORK_PROCESSED, E_SHOWWORK_NUM} SHOWWORK;
+
 
 /* constants */
 
@@ -95,13 +98,13 @@ static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Parameter A"};
 
 /* members */
 
-static MAT Matrix[E_MNP];                       ///< Predetermined matrices.
-static MAT Initial_At = NULL;                   ///< Initial parameter matrix.
-static bool FixedParam = false;                 ///< Use fixed supplied parameter matrices.
-static bool ShowWorking = false;                ///< Set to output final working values.
-static bool SpikeIn = false;                    ///< Use spike-in data.
-static bool SpikeFound = false;                 ///< Spike-in data found for this tile block.
-static bool SpikeCalib = false;                 ///< Calibrate qualities using spike-in data.
+static MAT Matrix[E_MNP];                          ///< Predetermined matrices.
+static MAT Initial_At = NULL;                      ///< Initial parameter matrix.
+static bool FixedParam = false;                    ///< Use fixed supplied parameter matrices.
+static SHOWWORK ShowWorking = E_SHOWWORK_NULL;  ///< Set to non-zero to output final working values.
+static bool SpikeIn = false;                       ///< Use spike-in data.
+static bool SpikeFound = false;                    ///< Spike-in data found for this tile block.
+static bool SpikeCalib = false;                    ///< Calibrate qualities using spike-in data.
 
 
 /* private functions */
@@ -479,7 +482,7 @@ static void write_processed(WORKPTR work, const AYB ayb, const CLUSTER cluster, 
 }
 
 /** Output final model values. */
-static void output_final(const AYB ayb, const real_t effDF, const int blk) {
+static void output_final_values(const AYB ayb, const real_t effDF, const int blk) {
     XFILE *fpfin = NULL;
 
     /* final model values */
@@ -489,6 +492,11 @@ static void output_final(const AYB ayb, const real_t effDF, const int blk) {
     }
     xfprintf(fpfin, "effDF: %#0.2f\n", effDF);
     xfclose(fpfin);
+}
+
+/** Output final model matrices. */
+static void output_final_matrices(const AYB ayb, const real_t effDF, const int blk) {
+    XFILE *fpfin = NULL;
 
     /* final N, A in input format */
     fpfin = open_output_blk("N", blk);
@@ -505,6 +513,7 @@ static void output_final(const AYB ayb, const real_t effDF, const int blk) {
     }
     xfclose(fpfin);
 }
+
 
 /**
  * Finish off and close up final processed intensities output.
@@ -527,9 +536,6 @@ static WORKPTR close_processed(WORKPTR work, const AYB ayb, const real_t effDF, 
 
             default: ;
         }
-
-        /* final model values */
-        output_final(ayb, effDF, blk);
     }
 
     free_cif(work->cif);
@@ -854,7 +860,6 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     WORKPTR work = NULL;
     real_t effDF = NBASE * ncycle;
     int ret_count = 0;
-    bool show_processed = (ShowWorking && lastiter);
 
     struct structLU AtLU = LUdecomposition(ayb->At);
 
@@ -1069,19 +1074,30 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     }
 
     /* output processed intensities if requested and final iteration */
-    if (show_processed) {
-        work = open_processed(ayb, blk);
+    if (lastiter){
+	switch(ShowWorking){
+	    case E_SHOWWORK_PROCESSED:
+                work = open_processed(ayb, blk);
 
-        for (cl = 0; cl < ncluster; cl++){
-            /* processed output must be done outide of multi-thread so need to process intensities again */
-            pcl_int[0] = processNew(AtLU, ayb->N, nodearry[cl]->elt->signals, pcl_int[0]);
-            if (NULL != pcl_int[0]) {
-                write_processed(work, ayb, nodearry[cl]->elt, cl, pcl_int[0]);
-            }
-        }
+                for (cl = 0; cl < ncluster; cl++){
+                    /* processed output must be done outide of multi-thread so need to process intensities again */
+                    pcl_int[0] = processNew(AtLU, ayb->N, nodearry[cl]->elt->signals, pcl_int[0]);
+                    if (NULL != pcl_int[0]) {
+                        write_processed(work, ayb, nodearry[cl]->elt, cl, pcl_int[0]);
+		    }
+		}
 
-        work = close_processed(work, ayb, effDF, blk, ret_count);
-        xfree(work);
+                work = close_processed(work, ayb, effDF, blk, ret_count);
+                xfree(work);
+	    case E_SHOWWORK_FINAL:
+                output_final_values(ayb, effDF, blk);
+	    case E_SHOWWORK_MATRIX:
+	        output_final_matrices(ayb, effDF, blk);
+	    case E_SHOWWORK_NULL:
+		break;
+	    default:
+		errx(EXIT_FAILURE,"Unrecognised case in enumeration at %s:%d",__FILE__,__LINE__);
+	}
     }
 
 #ifndef NDEBUG
@@ -1358,9 +1374,15 @@ cleanup:
 }
 
 /** Set show working flag. */
-void set_show_working(void) {
+void set_show_working(const CSTRING optarg) {
 
-    ShowWorking = true;
+    ShowWorking = atoi(optarg);
+    if(ShowWorking<E_SHOWWORK_NULL) {
+	    ShowWorking = 0;
+    }
+    if(ShowWorking>=E_SHOWWORK_NUM){
+	    ShowWorking = E_SHOWWORK_PROCESSED;
+    }
 }
 
 /** Set spike-in data calibration flag. */
