@@ -242,8 +242,11 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
                 break;
 
             case 'w':
-                /* show working flag */
-                set_show_working(optarg);
+                /* show working output level */
+                if (!set_show_working(optarg)) {
+                    fprintf(stderr, "Fatal: Unrecognised --working option: \'%s\'\n\n", optarg);
+                    status = E_FAIL;
+                }
                 break;
 
             case 'A':

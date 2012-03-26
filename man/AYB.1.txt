@@ -188,18 +188,25 @@ OPTIONS
     Use ANSI-C style bash quoting ($\'...') to allow escape sequences such as newline (\n) to be interpreted. 
     The output file name is `{filename}.runfile` (cif) or `{filename}_runfile.txt` (txt).
 
-*-w,  --working* <level>::
+*-w,  --working* <level> [default: none]::
 	Output final working values. All files up to a given level are created. Files created are (level):
 
-        Parameter A and Noise matrices (0):::
+	- none
+	No additional working will be output:::
+        This is the default option.
+
+	- matrices
+        Parameter A and Noise matrices:::
         Format as predetermined matrix input.
         Filenames `{filename}[x].A/N` (cif) or `{filename}[x]_A/N.txt` (txt).
 
-        Final model values (1):::
+        - values
+        Final model values:::
         Format as a collection of matrices.
         Filenames `{filename}[x].final` (cif) or `{filename}[x]_final.txt` (txt).
-	
-	Final processed intensities (2):::
+
+	- processed
+	Final processed intensities:::
 	Format as intensities input, cif or txt.
 	Filenames `{filename}[x].pif` (cif) or `{filename}[x]_pif.txt` (txt).
 		

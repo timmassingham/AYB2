@@ -41,6 +41,7 @@
 #include "qual_table.h"
 #include "spikein.h"
 #include "statistics.h"
+#include "utility.h"
 
 
 /** AYB structure contains the data required for modelling. */
@@ -77,6 +78,19 @@ typedef struct WorkT * WORKPTR;
 
 /** Enumeration for what output to show. */
 typedef enum { E_SHOWWORK_NULL, E_SHOWWORK_MATRIX, E_SHOWWORK_FINAL, E_SHOWWORK_PROCESSED, E_SHOWWORK_NUM} SHOWWORK;
+
+/**
+ * ShowWork text. Used to match program argument and as text in log file.
+ * Ensure list matches SHOWWORK enum. 
+ */
+static const char *SHOWWORK_TEXT[] = {
+        "none",
+        "matrices",
+        "values",
+        "processed",
+        ""};
+
+
 
 
 /* constants */
@@ -1080,7 +1094,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
                 work = open_processed(ayb, blk);
 
                 for (cl = 0; cl < ncluster; cl++){
-                    /* processed output must be done outide of multi-thread so need to process intensities again */
+                    /* processed output must be done outside of multi-thread so need to process intensities again */
                     pcl_int[0] = processNew(AtLU, ayb->N, nodearry[cl]->elt->signals, pcl_int[0]);
                     if (NULL != pcl_int[0]) {
                         write_processed(work, ayb, nodearry[cl]->elt, cl, pcl_int[0]);
@@ -1374,14 +1388,16 @@ cleanup:
 }
 
 /** Set show working flag. */
-void set_show_working(const CSTRING optarg) {
+bool set_show_working(const CSTRING shwkstr) {
 
-    ShowWorking = atoi(optarg);
-    if(ShowWorking<E_SHOWWORK_NULL) {
-	    ShowWorking = 0;
+    /* match to one of the possible options */
+    int matchidx = match_string(shwkstr, SHOWWORK_TEXT, E_SHOWWORK_NUM);
+    if (matchidx >= 0) {
+        ShowWorking = (SHOWWORK)matchidx;
+        return true;
     }
-    if(ShowWorking>=E_SHOWWORK_NUM){
-	    ShowWorking = E_SHOWWORK_PROCESSED;
+    else {
+        return false;
     }
 }
 
