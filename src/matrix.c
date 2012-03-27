@@ -701,7 +701,7 @@ MAT invert_cholesky( MAT mat){
     validate(NULL!=mat,NULL);
     validate(mat->nrow==mat->ncol,NULL);
     int info=0;
-    trtri(LAPACK_LOWER,LAPACK_NONUNITTRI,&mat->nrow,mat->x,&mat->nrow,&info);
+    trtri(LAPACK_UPPER,LAPACK_NONUNITTRI,&mat->nrow,mat->x,&mat->nrow,&info);
     symmeteriseL2U(mat);
     return mat;
 }
