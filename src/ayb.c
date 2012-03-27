@@ -1351,6 +1351,7 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
 
     /* process intensities then call initial bases and lambda for each cluster */
     for (cl = 0; cl < ncluster; cl++){
+	if(!ayb->notthinned[cl]){ continue; }
         th_id = omp_get_thread_num();
 
         cl_bases = ayb->bases.elt + cl * ayb->ncycle;
