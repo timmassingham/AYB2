@@ -303,7 +303,7 @@ static void output_simdata(AYB ayb, const int argc, char ** const argv, const in
     }
 
     /* get non-zero lambdas as weibull uses log */
-    uint32_t num = 0;
+    uint_fast32_t num = 0;
     real_t * lambdas = get_AYB_lambdas(ayb, &num);
 
     /* get parameters for fitted lambda distribution according to fixed selection */
@@ -314,26 +314,26 @@ static void output_simdata(AYB ayb, const int argc, char ** const argv, const in
     switch (fitdist) {
         case E_LOGISTIC:
             fitc = 'L';
-            lambdafit.e1 = mean(lambdas, num);
+            lambdafit.e1 = mean(lambdas, NULL, num);
             /* scale stdev by root 3 over pi */
-            lambdafit.e2 = sqrt(variance(lambdas, num) * 3) / M_PI;
+            lambdafit.e2 = sqrt(variance(lambdas, NULL, num) * 3) / M_PI;
             break;
 
         case E_MIXED:
             fitc = 'M';
             /* mix and iterations fixed */
-            mparam = fit_mixnormal(lambdas, num, MIX_NUM, MIX_ITER);
+            mparam = fit_mixnormal(lambdas, NULL, num, MIX_NUM, MIX_ITER);
             break;
 
         case E_NORMAL:
             fitc = 'N';
-            lambdafit.e1 = mean(lambdas, num);
-            lambdafit.e2 = sqrt(variance(lambdas, num));
+            lambdafit.e1 = mean(lambdas, NULL, num);
+            lambdafit.e2 = sqrt(variance(lambdas, NULL, num));
             break;
 
         case E_WEIBULL:
             fitc = 'W';
-            lambdafit = fit_weibull(lambdas, num);
+            lambdafit = fit_weibull(lambdas, NULL, num);
             break;
 
         default: ;
@@ -582,6 +582,7 @@ bool set_output_format(const char *outform_str) {
         return false;
     }
 }
+
 
 /** Set simdata flag and text for file. */
 void set_simdata(const CSTRING simdata_str) {

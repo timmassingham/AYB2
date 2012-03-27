@@ -63,6 +63,7 @@ real_t estimate_MPN(AYB ayb);
 bool initialise_model(AYB ayb, const int blk, const bool showdebug);
 
 bool set_show_working(const CSTRING optarg);
+bool set_thin_factor(const CSTRING thinfac_str);
 void set_spike_calib(void);
 bool startup_ayb(void);
 void tidyup_ayb(void);

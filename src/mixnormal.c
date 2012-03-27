@@ -42,7 +42,7 @@
  * Parameters are number of values supplied and number of distributions in the mix.
  * Returns a new mixed normal data structure.
  */
-static NormMixParam initialise_mixture(const real_t * x, const unsigned int n, const unsigned int nmix){
+static NormMixParam initialise_mixture(const real_t * x, const bool * allowed, const unsigned int n, const unsigned int nmix){
 	if(NULL==x){ return NULL;}
 	if ((n==0) || (nmix==0)) { return NULL;}
 	NormMixParam param = new_NormMixParam(nmix);
@@ -50,12 +50,15 @@ static NormMixParam initialise_mixture(const real_t * x, const unsigned int n, c
 
 	real_t mean = 0.0;
 	real_t var = 0.0;
+	unsigned int nallowed = 0;
 	for ( int i=0 ; i<n ; i++){
+		if(NULL!=allowed && !allowed[i]){ continue; }
 		mean += x[i];
 		var += x[i]*x[i];
+		nallowed++;
 	}
-	mean /= n;
-	var = var/n - mean*mean;
+	mean /= nallowed;
+	var = var/nallowed - mean*mean;
 	real_t sd = sqrt(var);
 
 	for ( int j=0 ; j<nmix ; j++){
@@ -71,7 +74,7 @@ static NormMixParam initialise_mixture(const real_t * x, const unsigned int n, c
  * Perform one optimisation loop for the supplied data.
  * Parameters are number of values supplied and mixed normal data structure.
  */
-static real_t emstep_mixnormal(const real_t * x, const unsigned int n, NormMixParam param){
+static real_t emstep_mixnormal(const real_t * x, const bool * allowed, const unsigned int n, NormMixParam param){
 	if(NULL==param){ return NAN; }
 	if(NULL==x){ return NAN; }
 	const unsigned int nmix = param->nmix;
@@ -86,7 +89,10 @@ static real_t emstep_mixnormal(const real_t * x, const unsigned int n, NormMixPa
 		logsd[j] = log(param->sd[j]);
 	}
 	real_t loglike = 0.0;
+	unsigned int nallowed = 0;
 	for ( int i=0 ; i<n ; i++){
+		if(NULL!=allowed && !allowed[i]){ continue; }
+		nallowed++;
 		// E-step, conditional probability
 		real_t cprob[nmix];
 		real_t tot = 0.0;
@@ -116,10 +122,10 @@ static real_t emstep_mixnormal(const real_t * x, const unsigned int n, NormMixPa
 	for ( int j=0 ; j<nmix ; j++){
 		param->mean[j] = m_mean[j] / m_we[j];
 		param->sd[j] = sqrt(m_var[j]/m_we[j] - param->mean[j]*param->mean[j]);
-		param->prob[j] = m_we[j]/n;
+		param->prob[j] = m_we[j]/nallowed;
 	}
 
-	return loglike - 0.5 * log(2.0*M_PI) * n;
+	return loglike - 0.5 * log(2.0*M_PI) * nallowed;
 }
 
 
@@ -161,12 +167,12 @@ void show_NormMixParam( FILE * fp, const NormMixParam param){
  * number of distributions in the mix and number of iterations to use.
  * Returns a new mixed normal data structure.
  */
-NormMixParam fit_mixnormal(const real_t * x, const unsigned int n, const unsigned int nmix, const unsigned niter){
+NormMixParam fit_mixnormal(const real_t * x, const bool * allowed, const unsigned int n, const unsigned int nmix, const unsigned niter){
 	if(NULL==x){ return NULL;}
-	NormMixParam param = initialise_mixture(x,n,nmix);
+	NormMixParam param = initialise_mixture(x,allowed,n,nmix);
 	if(NULL==param){ return NULL; }
 	for ( int i=0 ; i<niter ; i++){
-		emstep_mixnormal(x,n,param);
+		emstep_mixnormal(x,allowed,n,param);
 	}
 	return param;
 }

@@ -27,6 +27,7 @@
 #define MIXNORMAL_H_
 
 #include "utility.h"
+#include <stdbool.h>
 
 
 /** Data for a mixed normal fitted distribution. */
@@ -45,7 +46,7 @@ NormMixParam new_NormMixParam( const unsigned int nmix);
 void free_NormMixParam(NormMixParam param);
 void show_NormMixParam( FILE * fp, const NormMixParam param);
 
-NormMixParam fit_mixnormal(const real_t * x, const unsigned int n, const unsigned int nmix, const unsigned niter);
+NormMixParam fit_mixnormal(const real_t * x, const bool * allowed, const unsigned int n, const unsigned int nmix, const unsigned niter);
 
 #endif /* MIXNORMAL_H_ */
 

@@ -34,10 +34,10 @@
 /* function prototypes */
 
 //MAT calculateIbar( const ARRAY(int16_t) intmat, const MAT we, MAT Ibar){
-MAT calculateIbar( const TILE tile, const MAT we, MAT Ibar);
-MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint_fast32_t ncycle, MAT Sbar);
-MAT calculateWe( const MAT lssi, MAT we);
-real_t calculateWbar( const MAT we);
+MAT calculateIbar( const TILE tile, const MAT we, const bool * allowed, MAT Ibar);
+MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint_fast32_t ncycle, const bool * allowed, MAT Sbar);
+MAT calculateWe( const MAT lssi, const bool * allowed, MAT we);
+real_t calculateWbar( const MAT we, const bool * allowed);
 MAT calculateJ( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const uint_fast32_t ncycle, MAT J);
 //MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const ARRAY(int16_t) ints, const uint_fast32_t ncycle, MAT K);
 MAT calculateK( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const TILE tile, const uint_fast32_t ncycle, MAT K);
@@ -47,9 +47,9 @@ MAT calculatePlhs( const real_t wbar, const MAT Sbar, const MAT Mt, const MAT J,
 MAT calculatePrhs( const MAT Ibar, const MAT Mt, const MAT Sbar, const MAT N, const MAT K, real_t * tmp, MAT rhs);
 real_t calculateDeltaLSE(const MAT Mt, const MAT P, const MAT N, const MAT J, const MAT K, real_t * tmp);
 
-MAT calculateNewJ(const MAT lambda, const ARRAY(NUC) bases, const MAT we, const int ncycle, MAT newJ);
+MAT calculateNewJ(const MAT lambda, const ARRAY(NUC) bases, const MAT we, const int ncycle, const bool * allowed, MAT newJ);
 //MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases,const ARRAY(int16_t) intmat, const MAT we, const int ncycle, MAT newK);
-MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases, const TILE tile, const MAT we, const int ncycle, MAT newK);
+MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases, const TILE tile, const MAT we, const int ncycle, const bool * allowed, MAT newK);
 MAT calculateLhs( const real_t wbar,const MAT J, const MAT Ibar, MAT lhs);
 MAT calculateRhs( const MAT K, const MAT Sbar, MAT rhs);
 

@@ -119,19 +119,24 @@ int cmp_real_t ( const void * a, const void * b){
  * Returns a pair_real structure containing the fitted shape and 
  * scale.
  */
-pair_real fit_weibull ( const real_t * x_orig, const uint_fast32_t n ){
+pair_real fit_weibull ( const real_t * x_orig, const bool * allowed, const uint_fast32_t n ){
     real_t * x_sorted = calloc(n,sizeof(real_t));
     real_t * y_sorted = calloc(n,sizeof(real_t));
     if(NULL==x_sorted || NULL==y_sorted){
         errx(EXIT_FAILURE,"Failed to allocate memory in %s (%s:%d)",__func__,__FILE__,__LINE__);
     }
+    uint_fast32_t nallowed = 0;
     for( uint_fast32_t i=0 ; i<n ; i++){
-        x_sorted[i] = log(x_orig[i]);
-        y_sorted[i] = log(-log( (n-i)/(n+1.0) ));
+        if(!allowed[i]){ continue; }
+        x_sorted[nallowed] = log(x_orig[i]);
+	nallowed++;
     }
-    qsort(x_sorted,n,sizeof(*x_sorted),cmp_real_t);
+    for( uint_fast32_t i=0 ; i<nallowed ; i++){
+        y_sorted[i] = log(-log( (nallowed-i)/(nallowed+1.0) ));
+    }
+    qsort(x_sorted,nallowed,sizeof(*x_sorted),cmp_real_t);
 
-    real_t * res = linearRegression(x_sorted,y_sorted,n,NULL);
+    real_t * res = linearRegression(x_sorted,y_sorted,NULL,nallowed,NULL);
     pair_real resf = {NAN,NAN};
     if(NULL!=res){
         resf.e1 = res[0];
@@ -160,16 +165,21 @@ pair_real fit_weibull ( const real_t * x_orig, const uint_fast32_t n ){
  * Returns a pair_real structure containing the fitted shape and 
  * scale.
  */
-pair_real wfit_weibull ( const real_t * x_orig, const uint_fast32_t n ){
+pair_real wfit_weibull ( const real_t * x_orig, const bool * allowed, const uint_fast32_t n ){
     real_t * x_sorted = calloc(n,sizeof(real_t));
     real_t * y_sorted = calloc(n,sizeof(real_t));
     real_t * w_sorted = calloc(n,sizeof(real_t));
     if(NULL==x_sorted || NULL==y_sorted || NULL==w_sorted){
         errx(EXIT_FAILURE,"Failed to allocate memory in %s (%s:%d)",__func__,__FILE__,__LINE__);
     }
+    uint_fast32_t nallowed = 0;
     for( uint_fast32_t i=0 ; i<n ; i++){
-        x_sorted[i] = log(x_orig[i]);
-        y_sorted[i] = log(-log( (n-i)/(n+1.0) ));
+	if(!allowed[i]){ continue; }
+        x_sorted[nallowed] = log(x_orig[i]);
+	nallowed++;
+    }
+    for( uint_fast32_t i=0 ; i<nallowed ; i++){
+        y_sorted[i] = log(-log( (nallowed-i)/(nallowed+1.0) ));
         /*  Calculate weight.
          * k'th order statistic is distributed Beta(k,n+1-k),
          * which has variance V = k * (n+1-k) / ( (n+2)(n+1)^2 )
@@ -178,14 +188,14 @@ pair_real wfit_weibull ( const real_t * x_orig, const uint_fast32_t n ){
          *  Finally, the weight for the linear regression is
          * inversely proportional to the variance.
          */
-        real_t p = (i+1.0)/(n+1.0);
-        w_sorted[i] = (i+1.0)*(n-i)/((n+1.0)*(n+1.0)*(n+2.0));
+        real_t p = (i+1.0)/(nallowed+1.0);
+        w_sorted[i] = (i+1.0)*(nallowed-i)/((nallowed+1.0)*(nallowed+1.0)*(nallowed+2.0));
 	w_sorted[i] /= (1-p)*(1-p)*log1p(-p)*log1p(-p);
         w_sorted[i] = 1.0/w_sorted[i];
     }
-    qsort(x_sorted,n,sizeof(*x_sorted),cmp_real_t);
+    qsort(x_sorted,nallowed,sizeof(*x_sorted),cmp_real_t);
 
-    real_t * res = wLinearRegression(w_sorted,x_sorted,y_sorted,n,NULL);
+    real_t * res = wLinearRegression(w_sorted,x_sorted,y_sorted,NULL,nallowed,NULL);
     pair_real resf = {NAN,NAN};
     if(NULL!=res){
         resf.e1 = res[0];

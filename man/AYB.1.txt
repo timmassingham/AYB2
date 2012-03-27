@@ -11,7 +11,7 @@ SYNOPSIS
 --------
 *AYB* [-b blockstring] [-d input format] [-e log file] [-f output format] 
     [-g generr] [-i input path] [-k] [-l log level] [-n iterations]
-    [-o output path] [-p threads] [-q] [-r] [-s header] [-w level] 
+    [-o output path] [-p threads] [-q] [-r] [-s header] [-t factor] [-w level]
     [-A Parameter A] [-K spike-in path] [-M Crosstalk] [-N Noise] [-Q quality tab]
     'prefix'[\+]/lane tile range ['prefix'[+]/lane tile range ...]
 
@@ -187,6 +187,12 @@ OPTIONS
     escape sequence (\") or single quotes (\').    
     Use ANSI-C style bash quoting ($\'...') to allow escape sequences such as newline (\n) to be interpreted. 
     The output file name is `{filename}.runfile` (cif) or `{filename}_runfile.txt` (txt).
+
+*-t --thin* factor [default: 1]::
+    Factor with which to thin out clusters. Only every *factor* cluster, and those which are marked
+    as spike-in data, will be used to estimate parameter values. The bases of all clusters will be
+    called on the final iteration. Factor should be an integer greater than zero, which larger values
+    decreasing runtime but potentially also decreasing accuracy.
 
 *-w,  --working* <level> [default: none]::
 	Output final working values. All files up to a given level are created. Files created are (level):

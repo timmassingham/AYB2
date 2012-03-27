@@ -32,6 +32,7 @@
 "  -r  --runfolder\t\tRead cif files from a run-folder\n"
 "\tPrefix is replaced by lane tile (range) with format LnTn (Ln-nTn-n)\n"
 "  -s  --simdata <header>\tOutput simulation data\n"
+"  -t  --thin <factor>\t\tThin number of clusters by factor [default: 1]\n"
 "  -w  --working <level>\t\tOutput final working values to level [default: none]\n"
 "\t\t\t\t(none/matrices/values/processed)\n"
 "  -A  --A <filepath>\t\tPredetermined fixed Parameter A matrix file path\n"

@@ -32,12 +32,13 @@
 #include "statistics.h"
 
 
-real_t sum( const real_t * x, const uint_fast32_t n){
-    if(NULL==x){return 0.;}
+real_t sum( const real_t * x, const bool * allowed, const uint_fast32_t n){
+    if(NULL==x){return NAN;}
     
-    real_t sum = x[0];
+    real_t sum = 0.0;
     real_t c = 0.;
-    for ( uint_fast32_t i=1; i<n ; i++){
+    for ( uint_fast32_t i=0; i<n ; i++){
+	if(NULL!=allowed && !allowed[i]){ continue; }
         volatile real_t y = x[i] - c;
         volatile real_t t = sum + y;
         c = (t-sum) - y;
@@ -57,18 +58,23 @@ bool isodd(const uint_fast32_t n){
 
 // Median by sorting.
 // Divide and conquer would be quicker (linear vs n log(n) )
-real_t median( const real_t * x, const uint_fast32_t n){
+real_t median( const real_t * x, const bool * allowed, const uint_fast32_t n){
    if(NULL==x){ return NAN;}
    if(0==n){ return NAN;}
 
    real_t * xc = calloc(n,sizeof(double));
    if(NULL==xc){ return NAN;}
 
-   memcpy(xc,x,n*sizeof(real_t));
-   qsort(xc,n,sizeof(real_t),cmpReal);
+   uint_fast32_t nallowed = 0;
+   for ( int i=0 ; i<n ; i++){
+       if(NULL!=allowed && !allowed[i]){ continue; }
+       xc[nallowed] = x[i];
+       nallowed++;
+   }
+   qsort(xc,nallowed,sizeof(real_t),cmpReal);
 
-   int minIdx = (n-1)/2;
-   real_t ret = isodd(n)?xc[minIdx]:0.5*(xc[minIdx]+xc[minIdx+1]);
+   int minIdx = (nallowed-1)/2;
+   real_t ret = isodd(nallowed)?xc[minIdx]:0.5*(xc[minIdx]+xc[minIdx+1]);
    free(xc);
 
    return ret;
@@ -78,60 +84,70 @@ real_t median( const real_t * x, const uint_fast32_t n){
 /*  Mean by compensated summation
  * See: http://en.wikipedia.org/wiki/Kahan_summation_algorithm
  */
-real_t mean( const real_t * x, const uint_fast32_t n){
-    if(NULL==x){return 0.;}
-    
-    real_t sum = x[0];
+real_t mean( const real_t * x, const bool * allowed, const uint_fast32_t n){
+    if(NULL==x){return NAN;}
+   
+    uint_fast32_t nallowed = 0; 
+    real_t sum = 0.0;
     real_t c = 0.;
-    for ( uint_fast32_t i=1; i<n ; i++){
+    for ( uint_fast32_t i=0; i<n ; i++){
+	if(NULL!=allowed && !allowed[i]){ continue; }
         volatile real_t y = x[i] - c;
         volatile real_t t = sum + y;
         c = (t-sum) - y;
         sum = t;
+	nallowed++;
     }
-    return sum/n;
+    return sum/nallowed;
 }
 
-real_t meanxx( const real_t * x, const uint_fast32_t n){
-    if(NULL==x){return 0.;}
-    
-    real_t sum = x[0]*x[0];
+real_t meanxx( const real_t * x, const bool * allowed, const uint_fast32_t n){
+    if(NULL==x){return NAN;}
+   
+    uint_fast32_t nallowed = 0; 
+    real_t sum = 0.0;
     real_t c = 0.;
-    for ( uint_fast32_t i=1; i<n ; i++){
+    for ( uint_fast32_t i=0; i<n ; i++){
+	if(NULL!=allowed && !allowed[i]){ continue; }
         volatile real_t y = x[i]*x[i] - c;
         volatile real_t t = sum + y;
         c = (t-sum) - y;
         sum = t;
+	nallowed++;
     }
-    return sum/n;
+    return sum/nallowed;
 }
 
-real_t meanxy( const real_t * x, const real_t * y, const uint_fast32_t n){
-    if(NULL==x){return 0.;}
-    if(NULL==y){return 0.;}
+real_t meanxy( const real_t * x, const real_t * y, const bool * allowed, const uint_fast32_t n){
+    if(NULL==x){return NAN;}
+    if(NULL==y){return NAN;}
     
-    real_t sum = x[0]*y[0];
+    uint_fast32_t nallowed = 0;
+    real_t sum = 0.0;
     real_t c = 0.;
-    for ( uint_fast32_t i=1; i<n ; i++){
+    for ( uint_fast32_t i=0; i<n ; i++){
+	if(NULL!=allowed && !allowed[i]){ continue; }
         volatile real_t r = x[i]*y[i] - c;
         volatile real_t t = sum + r;
         c = (t-sum) - r;
         sum = t;
+	nallowed++;
     }
-    return sum/n;
+    return sum/nallowed;
 }
 
 
 /*  Weighted mean by compensated summation
  * See: http://en.wikipedia.org/wiki/Kahan_summation_algorithm
  */
-real_t wmean( const real_t * w, const real_t * x, const uint_fast32_t n){
-    if(NULL==x){return 0.;}
+real_t wmean( const real_t * w, const real_t * x, const bool * allowed, const uint_fast32_t n){
+    if(NULL==w || NULL==x ){return NAN;}
     
-    real_t sum = w[0]*x[0];
-    real_t wsum = w[0];
+    real_t sum = 0.0;
+    real_t wsum = 0.0;
     real_t c = 0.;
-    for ( uint_fast32_t i=1; i<n ; i++){
+    for ( uint_fast32_t i=0; i<n ; i++){
+	if(NULL!=allowed && !allowed[i]){ continue; }
         volatile real_t y = w[i]*x[i] - c;
         volatile real_t t = sum + y;
         c = (t-sum) - y;
@@ -142,13 +158,14 @@ real_t wmean( const real_t * w, const real_t * x, const uint_fast32_t n){
     return sum/wsum;
 }
 
-real_t wmeanxx( const real_t * w, const real_t * x, const uint_fast32_t n){
-    if(NULL==x){return 0.;}
+real_t wmeanxx( const real_t * w, const real_t * x, const bool * allowed, const uint_fast32_t n){
+    if( NULL==w || NULL==x ){return NAN;}
     
-    real_t sum = w[0]*x[0]*x[0];
+    real_t sum = 0.0;
     real_t c = 0.;
-    real_t wsum = w[0];
-    for ( uint_fast32_t i=1; i<n ; i++){
+    real_t wsum = 0.0;
+    for ( uint_fast32_t i=0; i<n ; i++){
+	if(NULL!=allowed && !allowed[i]){ continue; }
         volatile real_t y = w[i]*x[i]*x[i] - c;
         volatile real_t t = sum + y;
         c = (t-sum) - y;
@@ -159,14 +176,15 @@ real_t wmeanxx( const real_t * w, const real_t * x, const uint_fast32_t n){
     return sum/wsum;
 }
 
-real_t wmeanxy( const real_t * w, const real_t * x, const real_t * y, const uint_fast32_t n){
-    if(NULL==x){return 0.;}
-    if(NULL==y){return 0.;}
+real_t wmeanxy( const real_t * w, const real_t * x, const real_t * y, const bool * allowed, const uint_fast32_t n){
+    if(NULL==x){return NAN;}
+    if(NULL==y){return NAN;}
     
-    real_t sum = w[0]*x[0]*y[0];
+    real_t sum = 0.0;
     real_t c = 0.;
-    real_t wsum = w[0];
-    for ( uint_fast32_t i=1; i<n ; i++){
+    real_t wsum = 0.0;
+    for ( uint_fast32_t i=0; i<n ; i++){
+	if(NULL!=allowed && !allowed[i]){ continue; }
         volatile real_t r = w[i]*x[i]*y[i] - c;
         volatile real_t t = sum + r;
         c = (t-sum) - r;
@@ -180,45 +198,51 @@ real_t wmeanxy( const real_t * w, const real_t * x, const real_t * y, const uint
 
 /* Variance by compensated summation
  */
-real_t variance( const real_t * x, const uint_fast32_t n){
-        if(NULL==x){return -1.;}
+real_t variance( const real_t * x, const bool * allowed, const uint_fast32_t n){
+        if(NULL==x){return NAN;}
         
-        const real_t m = mean(x,n);
-        real_t v = (x[0]-m)*(x[0]-m);
+        const real_t m = mean(x,allowed,n);
+	uint_fast32_t nallowed = 0;
+        real_t v = 0.0;
         real_t c = 0.;
-        for ( uint_fast32_t i=1; i<n ; i++){
+        for ( uint_fast32_t i=0; i<n ; i++){
+            if(NULL!=allowed && !allowed[i]){ continue; }
             volatile real_t y = (x[i] - m)*(x[i]-m) - c;
             volatile real_t t = v + y;
             c = (t-v) - y;
             v = t;
+	    nallowed++;
         }
-        return v/(n-1);
+        return v/(nallowed-1);
 }
 
 /* Weighted variance by compensated summation
  */
-real_t wvariance( const real_t * w, const real_t * x, const uint_fast32_t n){
-        if(NULL==x){return -1.;}
+real_t wvariance( const real_t * w, const real_t * x, const bool * allowed, const uint_fast32_t n){
+        if(NULL==w || NULL==x){return NAN;}
         
-        const real_t m = wmean(x,w,n);
-        real_t v = w[0]*(x[0]-m)*(x[0]-m);
+        const real_t m = wmean(x,w,allowed,n);
+        real_t v = 0.;
         real_t c = 0.;
         real_t wsum = w[0];
-        for ( uint_fast32_t i=1; i<n ; i++){
+	uint_fast32_t nallowed = 0;
+        for ( uint_fast32_t i=0; i<n ; i++){
+            if(NULL!=allowed && !allowed[i]){ continue; }
             volatile real_t y = w[i]*(x[i] - m)*(x[i]-m) - c;
             volatile real_t t = v + y;
             c = (t-v) - y;
             v = t;
             // Sum of weights not compensated
             wsum += w[i];
+	    nallowed++;
         }
-        return v/(n-1.) * n/wsum;
+        return v/(nallowed-1.) * nallowed/wsum;
 }
 
 /* Returns [ slope, constant, minLS ]
  * where minLS = sum_i w_i res_i^2
  */
-real_t * wLinearRegression( const real_t * w, const real_t * x, const real_t * y, const uint_fast32_t n, real_t *res){
+real_t * wLinearRegression( const real_t * w, const real_t * x, const real_t * y, const bool * allowed, const uint_fast32_t n, real_t *res){
     if(NULL==w){ return NULL;}
     if(NULL==x){ return NULL;}
     if(NULL==y){ return NULL;}
@@ -227,12 +251,12 @@ real_t * wLinearRegression( const real_t * w, const real_t * x, const real_t * y
     if(NULL==res){ res = calloc(3,sizeof(real_t));}
     if(NULL==res){ return NULL;}
     
-    real_t wmx  = wmean(w,x,n);
-    real_t wmy  = wmean(w,y,n);
-    real_t wmxx = wmeanxx(w,x,n); // Could be made more generic, to wmean(w,f(x),n);
-    real_t wmxy = wmeanxy(w,x,y,n);
-    real_t wmyy = wmeanxx(w,y,n);
-    real_t ws   = sum(w,n);
+    real_t wmx  = wmean(w,x,allowed,n);
+    real_t wmy  = wmean(w,y,allowed,n);
+    real_t wmxx = wmeanxx(w,x,allowed,n); // Could be made more generic, to wmean(w,f(x),n);
+    real_t wmxy = wmeanxy(w,x,y,allowed,n);
+    real_t wmyy = wmeanxx(w,y,allowed,n);
+    real_t ws   = sum(w,allowed,n);
     
     res[0] = (wmxy-wmx*wmy)/(wmxx-wmx*wmx); // Solve LS problem for slope
     res[1] = wmy - res[0]*wmx; // Error remaining
@@ -241,7 +265,7 @@ real_t * wLinearRegression( const real_t * w, const real_t * x, const real_t * y
     return res;
 }
 
-real_t * linearRegression( const real_t * x, const real_t * y, const uint_fast32_t n, real_t *res){
+real_t * linearRegression( const real_t * x, const real_t * y, const bool * allowed, const uint_fast32_t n, real_t *res){
     if(NULL==x){ return NULL;}
     if(NULL==y){ return NULL;}
     if(n==0){return NULL;} // Matter of definition
@@ -249,20 +273,28 @@ real_t * linearRegression( const real_t * x, const real_t * y, const uint_fast32
     if(NULL==res){ res = calloc(3,sizeof(real_t));}
     if(NULL==res){ return NULL;}
     
-    real_t mx  = mean(x,n);
-    real_t my  = mean(y,n);
-    real_t mxx = meanxx(x,n); // Could be made more generic, to wmean(w,f(x),n);
-    real_t mxy = meanxy(x,y,n);
-    real_t myy = meanxx(y,n);
+    real_t mx  = mean(x,allowed,n);
+    real_t my  = mean(y,allowed,n);
+    real_t mxx = meanxx(x,allowed,n); // Could be made more generic, to wmean(w,f(x),n);
+    real_t mxy = meanxy(x,y,allowed,n);
+    real_t myy = meanxx(y,allowed,n);
+    uint_fast32_t nallowed = 0;
+    if(NULL==allowed){
+	    nallowed = n;
+    } else {
+        for ( uint_fast32_t i=0 ; i<n ; i++){
+	    nallowed += allowed[i];
+	}
+    }
     
     res[0] = (mxy-mx*my)/(mxx-mx*mx); // Solve LS problem for slope
     res[1] = my - res[0]*mx; // Error remaining
-    res[2] = n*(myy - res[0] * mxy - res[1] * my);
+    res[2] = nallowed*(myy - res[0] * mxy - res[1] * my);
     
     return res;
 }
 
-real_t * linearResiduals( const real_t * x, const real_t * y, const real_t * param, const uint_fast32_t nobs, real_t * resid){
+real_t * linearResiduals( const real_t * x, const real_t * y, const bool * allowed, const real_t * param, const uint_fast32_t nobs, real_t * resid){
     if(NULL==x){return NULL;}
     if(NULL==y){return NULL;}
     if(NULL==param){return NULL;}
@@ -272,6 +304,7 @@ real_t * linearResiduals( const real_t * x, const real_t * y, const real_t * par
         if(NULL==resid){ return NULL;}
     }
     for ( uint_fast32_t i=0 ; i<nobs ; i++){
+	if(NULL!=allowed && !allowed[i]){ continue; }
         resid[i] = y[i] - param[0]*x[i] - param[1];
     }
     
@@ -291,7 +324,7 @@ real_t __attribute__((const)) tukey_biweight( const real_t xsqr, const real_t v)
    return (ratio < 36.)?(1.-ratio/36.)*(1.-ratio/36.):0.;
 }
 
-real_t * iwlsLinearRegression(real_t (*f)(const real_t,const real_t), const real_t * x, const real_t * y, const uint_fast32_t niter, const uint_fast32_t n, real_t * res){
+real_t * iwlsLinearRegression(real_t (*f)(const real_t,const real_t), const real_t * x, const real_t * y, const bool * allowed, const uint_fast32_t niter, const uint_fast32_t n, real_t * res){
     if(NULL==x){return NULL;}
     if(NULL==y){return NULL;}
 
@@ -305,18 +338,18 @@ real_t * iwlsLinearRegression(real_t (*f)(const real_t,const real_t), const real
     
     
     // Initial linear regression
-    res = wLinearRegression(w,x,y,n,res);
+    res = wLinearRegression(w,x,y,allowed,n,res);
     real_t * resid = NULL;
     for ( uint_fast32_t iter=0 ; iter<niter ; iter++){
         // First, robust estimate of scale
-        resid = linearResiduals(x,y,res,n,resid);
-        real_t v = wvariance(w,resid,n);
+        resid = linearResiduals(x,y,allowed,res,n,resid);
+        real_t v = wvariance(w,resid,allowed,n);
         // New weights
         for( uint_fast32_t i=0 ; i<n ; i++){
             w[i] = f(resid[i]*resid[i],v);
         }
         // Weighted regression
-        res = wLinearRegression(w,x,y,n,res);
+        res = wLinearRegression(w,x,y,allowed,n,res);
     }
     xfree(resid);
     return res;        

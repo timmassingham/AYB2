@@ -93,6 +93,7 @@ static struct option Longopts[] = {
     {"parallel",    required_argument,  NULL, 'p'},
     {"noqualout",   no_argument,        NULL, 'q'},
     {"runfolder",   no_argument,        NULL, 'r'},
+    {"thin",        required_argument,  NULL, 't'},
     {"working",     required_argument,  NULL, 'w'},
     {"A",           required_argument,  NULL, 'A'},
     {"spikein",     required_argument,  NULL, 'K'},
@@ -146,7 +147,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:kl:m:n:o:p:qrw:A:K:M:N:Q:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:kl:m:n:o:p:qrt:w:A:K:M:N:Q:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 's':
@@ -240,6 +241,14 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
                 /* input from run-folder */
                 set_run_folder();
                 break;
+
+	    case 't':
+		/* Factor of clusters to thin */
+		if(!set_thin_factor(optarg)){
+	 	    fprintf(stderr, "Fatal: Illegal --thin factor: \'%s\'\n\n", optarg);
+		    status = E_FAIL;
+		}
+		break;
 
             case 'w':
                 /* show working output level */

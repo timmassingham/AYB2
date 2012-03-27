@@ -58,7 +58,7 @@ struct AybT {
     MAT lss;
     MAT we, cycle_var;
     MAT omega;
-    bool *spiked;
+    bool *spiked, *notthinned;
 };
 
 /** Structure for spike-in quality counts. */
@@ -112,13 +112,14 @@ static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Parameter A"};
 
 /* members */
 
-static MAT Matrix[E_MNP];                          ///< Predetermined matrices.
-static MAT Initial_At = NULL;                      ///< Initial parameter matrix.
-static bool FixedParam = false;                    ///< Use fixed supplied parameter matrices.
+static MAT Matrix[E_MNP];                       ///< Predetermined matrices.
+static MAT Initial_At = NULL;                   ///< Initial parameter matrix.
+static bool FixedParam = false;                 ///< Use fixed supplied parameter matrices.
 static SHOWWORK ShowWorking = E_SHOWWORK_NULL;  ///< Set to non-zero to output final working values.
-static bool SpikeIn = false;                       ///< Use spike-in data.
-static bool SpikeFound = false;                    ///< Spike-in data found for this tile block.
-static bool SpikeCalib = false;                    ///< Calibrate qualities using spike-in data.
+static unsigned int ThinFact = 1;               ///< Factor to thin out clusters by.
+static bool SpikeIn = false;                    ///< Use spike-in data.
+static bool SpikeFound = false;                 ///< Spike-in data found for this tile block.
+static bool SpikeCalib = false;                 ///< Calibrate qualities using spike-in data.
 
 
 /* private functions */
@@ -418,14 +419,17 @@ static void store_cluster_error(AYB ayb, MAT ip, unsigned int cl){
 /** Calculate new weights assuming least squares error already stored. */
 static real_t update_cluster_weights(AYB ayb){
     validate(NULL!=ayb,NAN);
+    validate(NULL!=ayb->notthinned,NAN);
     const uint_fast32_t ncluster = ayb->ncluster;
+    const bool * allowed = ayb->notthinned;
     real_t sumLSS = 0.;
 
     /* Calculate weight for each cluster */
-    real_t meanLSSi = mean(ayb->we->x,ncluster);
-    real_t varLSSi = variance(ayb->we->x,ncluster);
+    real_t meanLSSi = mean(ayb->we->x,allowed,ncluster);
+    real_t varLSSi = variance(ayb->we->x,allowed,ncluster);
     if( varLSSi != 0.0){
         for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
+	    if(!allowed[cl]){ continue; }
             sumLSS += ayb->we->x[cl];
             const real_t d = ayb->we->x[cl]-meanLSSi;
             ayb->we->x[cl] = cauchy(d*d,varLSSi);
@@ -433,6 +437,7 @@ static real_t update_cluster_weights(AYB ayb){
     } else {
 	// If variance is zero, set all weights to one.
 	for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
+	    if(!allowed[cl]){ continue; }
             ayb->we->x[cl] = 1.0;
 	}
     }
@@ -580,11 +585,14 @@ AYB new_AYB(const uint_fast32_t ncycle, const uint_fast32_t ncluster){
     ayb->cycle_var = new_MAT(ncycle,1);
     ayb->omega = NULL;
     ayb->spiked = calloc(ncluster, sizeof(bool));
+    ayb->notthinned = calloc(ncluster,sizeof(bool));
+    memset(ayb->notthinned,1,ncluster);
     
     if( NULL==ayb->tile || NULL==ayb->bases.elt || NULL==ayb->quals.elt
 //            || NULL==ayb->M || NULL==ayb->P || NULL==ayb->N
             || NULL==ayb->N || NULL==ayb->At
-            || NULL==ayb->lambda || NULL==ayb->lss || NULL==ayb->we || NULL==ayb->cycle_var || NULL==ayb->spiked){
+            || NULL==ayb->lambda || NULL==ayb->lss || NULL==ayb->we || NULL==ayb->cycle_var 
+	    || NULL==ayb->spiked || NULL==ayb->notthinned){
         goto cleanup;
     }
 
@@ -610,6 +618,7 @@ AYB free_AYB(AYB ayb){
     free_MAT(ayb->cycle_var);
     free_MAT(ayb->omega);
     xfree(ayb->spiked);
+    xfree(ayb->notthinned);
     xfree(ayb);
     return NULL;
 }
@@ -658,9 +667,13 @@ AYB copy_AYB(const AYB ayb){
     ayb_copy->omega = copy_MAT(ayb->omega);
     if(NULL!=ayb->omega && NULL==ayb_copy->omega){ goto cleanup;}
     
-    ayb->spiked = calloc(ayb->ncluster, sizeof(bool));
+    ayb_copy->spiked = calloc(ayb->ncluster, sizeof(bool));
     if(NULL==ayb_copy->spiked){ goto cleanup;}
     memcpy(ayb_copy->spiked, ayb->spiked, ayb->ncluster * sizeof(bool));
+
+    ayb_copy->notthinned = calloc(ayb->ncluster, sizeof(bool));
+    if(NULL==ayb_copy->notthinned){ goto cleanup;}
+    memcpy(ayb_copy->notthinned, ayb->notthinned, ayb->ncluster * sizeof(bool));
 
     return ayb_copy;
 
@@ -767,6 +780,7 @@ MAT calculate_covariance(AYB ayb, const bool do_full){
     validate(NULL != ayb, NULL);
     unsigned int ncluster = ayb->ncluster;  // need unsigned int for array_from_LIST
     const uint_fast32_t ncycle = ayb->ncycle;
+    const bool * allowed = ayb->notthinned;
 
     MAT Vsum = NULL;                    // memory allocated in multi-thread accumulate
     real_t wesum = 0.0;
@@ -801,6 +815,7 @@ MAT calculate_covariance(AYB ayb, const bool do_full){
         default(shared) private(th_id, cl, cl_bases)
 
     for (cl = 0; cl < ncluster; cl++){
+	if(!allowed[cl]){ continue; }
         th_id = omp_get_thread_num();
 
         cl_bases = ayb->bases.elt + cl * ncycle;
@@ -868,6 +883,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     validate(NULL != ayb, 0);
     unsigned int ncluster = ayb->ncluster;  // need unsigned int for array_from_LIST
     const uint_fast32_t ncycle = ayb->ncycle;
+    const bool * allowed = ayb->notthinned;
 
     MAT V_part = NULL;                  // Partial covariance matrix
     QSPIKEPTR qspike = NULL;
@@ -961,7 +977,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     if (lastiter) {
         /* Calculate the median value of the lss array before updating any of the entries */
         /* (only used on last iteration ) */
-        effDF = median(ayb->lss->x, ncluster);
+        effDF = median(ayb->lss->x, ayb->notthinned, ncluster);
 
         if (SpikeIn) {
             /* storage for spike-in quality counts */
@@ -990,6 +1006,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
     /* process intensities then estimate lambda and call bases for each cluster */
     for (cl = 0; cl < ncluster; cl++){
+	if(!lastiter && !allowed[cl]){ continue; }
         th_id = omp_get_thread_num();
 
         cl_bases = ayb->bases.elt + cl * ncycle;
@@ -1168,13 +1185,13 @@ real_t estimate_MPN(AYB ayb){
         /*  Precalculate terms for iteration */
         //timestamp("Calculating matrices\n",stderr);
         //timestamp("J\t",stderr);
-        J = calculateNewJ(ayb->lambda,ayb->bases,ayb->we,ncycle,NULL);
+        J = calculateNewJ(ayb->lambda,ayb->bases,ayb->we,ncycle,ayb->notthinned,NULL);
         //timestamp("K\t",stderr);
-        K = calculateNewK(ayb->lambda,ayb->bases,ayb->tile,ayb->we,ncycle,NULL);
+        K = calculateNewK(ayb->lambda,ayb->bases,ayb->tile,ayb->we,ncycle,ayb->notthinned,NULL);
         //timestamp("Others\n",stderr);
-        Sbar = calculateSbar(ayb->lambda,ayb->we,ayb->bases,ncycle,NULL);
-        Ibar = calculateIbar(ayb->tile,ayb->we,NULL);
-        real_t Wbar = calculateWbar(ayb->we);
+        Sbar = calculateSbar(ayb->lambda,ayb->we,ayb->bases,ncycle,ayb->notthinned,NULL);
+        Ibar = calculateIbar(ayb->tile,ayb->we,ayb->notthinned,NULL);
+        real_t Wbar = calculateWbar(ayb->we,ayb->notthinned);
         tmp = calloc(ncycle*ncycle*NBASE*NBASE,sizeof(real_t));
     
         lhs = calculateLhs(Wbar, J, Sbar, NULL);
@@ -1290,6 +1307,14 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
     /* read in and store any spike-in data */
     read_spikein_data(ayb, blk);
 
+    /* If thinning, set allowed bases so spikein is never thinned */
+    if(ThinFact>1){
+        memcpy(ayb->notthinned,ayb->spiked,ayb->ncluster*sizeof(bool));
+	for ( int i=0 ; i<ayb->ncluster ; i+=ThinFact){
+            ayb->notthinned[i] = true;
+	}
+    }
+
     struct structLU AtLU = LUdecomposition(ayb->At);
     bool ret = true;
 
@@ -1399,6 +1424,19 @@ bool set_show_working(const CSTRING shwkstr) {
     else {
         return false;
     }
+}
+
+/** Set factor with which to thin out clusters */
+bool set_thin_factor(const CSTRING thinfac_str){
+    if(NULL==thinfac_str){
+        return false;
+    }
+    ThinFact = atoi(thinfac_str);
+    if(ThinFact<1){
+            return false;
+    }
+
+    return true;
 }
 
 /** Set spike-in data calibration flag. */
