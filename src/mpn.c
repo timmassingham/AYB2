@@ -685,11 +685,20 @@ MAT calculateRhs( const MAT K, const MAT Ibar, MAT rhs){
  * Both lhs and rhs are destructively updated.
  * Result is stored in rhs.
  */
-int solverChol( MAT lhs, MAT rhs, real_t * null){
+int solverChol( MAT lhs, MAT rhs, real_t * null, const real_t delta_diag){
     validate(NULL!=lhs,-4);
     validate(NULL!=rhs,-6);
     validate(lhs->nrow==lhs->ncol,-2);
     validate(lhs->ncol==rhs->nrow,-3);
+    const size_t N = lhs->ncol;
+
+    /* add a diagonal offset to avoid failure to solve */
+    if(0.0 != delta_diag){
+       for (int i = 0; i < N; i++){
+           lhs->x[i * N + i] += delta_diag;
+       }
+    }
+
 
     int info = 0;
     posv(LAPACK_UPPER, &lhs->ncol, &rhs->ncol, lhs->x, &lhs->nrow, rhs->x, &rhs->nrow, &info);

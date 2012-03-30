@@ -53,7 +53,7 @@ MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases, const TILE tile, con
 MAT calculateLhs( const real_t wbar,const MAT J, const MAT Ibar, MAT lhs);
 MAT calculateRhs( const MAT K, const MAT Sbar, MAT rhs);
 
-int solverChol( MAT lhs, MAT rhs, real_t * tmp);
+int solverChol( MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag);
 int solverSVD(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag);
 int solverZeroSVD(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag);
 int solverNNLS(MAT lhs, MAT rhs, real_t * tmp, const real_t delta_diag);

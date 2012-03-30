@@ -101,10 +101,10 @@ static const real_t RIDGE_VAL = 100000.0;       ///< At and N solver constant.
 
 /** Initial Crosstalk matrix if not read in, fixed values of approximately the right shape. */
 static const real_t INITIAL_CROSSTALK[] = {
-    2.0114300, 1.7217841, 0.06436576, 0.1126401,
-    0.6919319, 1.8022413, 0.06436576, 0.0804572,
-    0.2735545, 0.2252802, 1.39995531, 0.9976693,
-    0.2896459, 0.2413716, 0.11264008, 1.3194981
+	1.08, 1.13, 0.02, 0.01,
+	0.20, 0.93, 0.02, 0.02,
+	0.01, 0.02, 1.00, 0.53,
+	0.00, 0.01, 0.05, 1.32
 };
 
 /** Name text for matrix messages. Match to IOTYPE enum in dirio. */
@@ -1217,7 +1217,7 @@ real_t estimate_MPN(AYB ayb){
             }
         }
 
-        solverSVD(lhs, rhs, tmp, DELTA_DIAG);
+        solverChol(lhs,rhs,NULL,DELTA_DIAG);
 
         /* extract new At and N */
         nrow = ayb->At->nrow;
@@ -1376,14 +1376,7 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
 
                 /* skip any spike-in data clusters */
                 if (!ayb->spiked[cl]) {
-                
-                    /* deal differently with missing data */
-                    if (nodata(nodearry[cl]->elt->signals->xint + cy * NBASE, NBASE)) {
-                        cl_bases[cy] = call_base_nodata();
-                    }
-                    else {
                         cl_bases[cy] = call_base_simple(pcl_int[th_id]->x + cy * NBASE);
-                    }
                 }
                 cl_quals[cy] = MIN_PHRED;
             }
