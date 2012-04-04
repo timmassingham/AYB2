@@ -1,6 +1,22 @@
 AYB ChangeLog
 =============
 
+Version 2.09 (2012-04-04)
+-------------------------
+
+.Additions and changes
+
+- None
+
+.Bug fixes
+
+- Zero variance when updating cluster weights was not handled.
+
+- Problems occurred when fitting omega if the factorisation failed.
+
+- Modelling was not robust when there were certain patterns of missing data.
+
+
 Version 2.08 (2012-02-21)
 -------------------------
 
