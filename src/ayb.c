@@ -42,7 +42,6 @@
 #include "qual_table.h"
 #include "spikein.h"
 #include "statistics.h"
-#include "utility.h"
 
 
 /** AYB structure contains the data required for modelling. */
@@ -91,8 +90,6 @@ static const char *SHOWWORK_TEXT[] = {
         "values",
         "processed",
         ""};
-
-
 
 
 /* constants */
@@ -157,16 +154,17 @@ static MAT  accumulate_covariance( const real_t we, const MAT p, const real_t la
         }
     }
     if ( do_full ){
-    	syr(LAPACK_LOWER, &lda, &we, p->x, LAPACK_UNIT, V->x, &lda);
-    } else {
-	    // Only update base*base blocks on the diagonal or immediately above and below it
-	    // Update more elements than necessary but excess are ignored later.
-	    for ( int i=0 ; i<lda ; i++){
-		    for ( int j=i ; j<i+2*NBASE ; j++ ){
-			    if(j>=lda){ break; }
-			    V->x[i*lda+j] += we * p->x[i] * p->x[j];
-		    }
-	    }
+        syr(LAPACK_LOWER, &lda, &we, p->x, LAPACK_UNIT, V->x, &lda);
+    } 
+    else {
+        // Only update base*base blocks on the diagonal or immediately above and below it
+        // Update more elements than necessary but excess are ignored later.
+        for ( int i=0 ; i<lda ; i++){
+            for ( int j=i ; j<i+2*NBASE ; j++ ){
+                if(j>=lda){ break; }
+                V->x[i*lda+j] += we * p->x[i] * p->x[j];
+            }
+        }
     }
 
     return V;
@@ -430,17 +428,18 @@ static real_t update_cluster_weights(AYB ayb){
     real_t varLSSi = variance(ayb->we->x,allowed,ncluster);
     if( varLSSi != 0.0){
         for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
-	    if(!allowed[cl]){ continue; }
+            if(!allowed[cl]){ continue; }
             sumLSS += ayb->we->x[cl];
             const real_t d = ayb->we->x[cl]-meanLSSi;
             ayb->we->x[cl] = cauchy(d*d,varLSSi);
-	}
-    } else {
-	// If variance is zero, set all weights to one.
-	for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
-	    if(!allowed[cl]){ continue; }
+        }
+    } 
+    else {
+        // If variance is zero, set all weights to one.
+        for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
+            if(!allowed[cl]){ continue; }
             ayb->we->x[cl] = 1.0;
-	}
+        }
     }
 
     //xfputs("Cluster weights:\n",xstderr);
@@ -515,7 +514,7 @@ static void output_final_values(const AYB ayb, const real_t effDF, const int blk
 }
 
 /** Output final model matrices. */
-static void output_final_matrices(const AYB ayb, const real_t effDF, const int blk) {
+static void output_final_matrices(const AYB ayb, const int blk) {
     XFILE *fpfin = NULL;
 
     /* final N, A in input format */
@@ -534,13 +533,12 @@ static void output_final_matrices(const AYB ayb, const real_t effDF, const int b
     xfclose(fpfin);
 }
 
-
 /**
  * Finish off and close up final processed intensities output.
- * Output is done here for cif and final model.
+ * Output is done here for cif.
  * If status is error then just free resources.
  */
-static WORKPTR close_processed(WORKPTR work, const AYB ayb, const real_t effDF, const int blk, const int status) {
+static WORKPTR close_processed(WORKPTR work, const int status) {
 
     if (status != DATA_ERR) {
         switch (get_input_format()) {
@@ -789,7 +787,7 @@ MAT calculate_covariance(AYB ayb, const bool do_full){
     const uint_fast32_t ncycle = ayb->ncycle;
     const bool * allowed = ayb->notthinned;
 
-    MAT Vsum = NULL;                    // memory allocated in multi-thread accumulate
+    MAT Vsum = NULL;                        // memory allocated in multi-thread accumulate
     real_t wesum = 0.0;
     bool ok = true;
 
@@ -859,8 +857,8 @@ MAT calculate_covariance(AYB ayb, const bool do_full){
                 }
                 wesum += wei[i];
             }
-	    // V's accumulated are lower triangular. Make symmetric.
-	    symmeteriseL2U(Vsum);
+            /* V's accumulated are lower triangular. Make symmetric. */
+            symmeteriseL2U(Vsum);
 
             /* scale sum of squares to make covariance */
             scale_MAT(Vsum, 1.0/wesum);
@@ -894,7 +892,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     const uint_fast32_t ncycle = ayb->ncycle;
     const bool * allowed = ayb->notthinned;
 
-    MAT V_part = NULL;                  // Partial covariance matrix
+    MAT V_part = NULL;                      // Partial covariance matrix
     QSPIKEPTR qspike = NULL;
     WORKPTR work = NULL;
     real_t effDF = NBASE * ncycle;
@@ -1115,10 +1113,11 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         calibrate_by_spikein(ayb, blk, qspike);
     }
 
-    /* output processed intensities if requested and final iteration */
+    /* output working values if requested and final iteration */
     if (lastiter){
-	switch(ShowWorking){
-	    case E_SHOWWORK_PROCESSED:
+        switch(ShowWorking){
+            /* switch cases fall through because working value levels are cumulative */
+            case E_SHOWWORK_PROCESSED:
                 work = open_processed(ayb, blk);
 
                 for (cl = 0; cl < ncluster; cl++){
@@ -1126,20 +1125,24 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
                     pcl_int[0] = processNew(AtLU, ayb->N, nodearry[cl]->elt->signals, pcl_int[0]);
                     if (NULL != pcl_int[0]) {
                         write_processed(work, ayb, nodearry[cl]->elt, cl, pcl_int[0]);
-		    }
-		}
+                    }
+                }
 
-                work = close_processed(work, ayb, effDF, blk, ret_count);
+                work = close_processed(work, ret_count);
                 xfree(work);
-	    case E_SHOWWORK_FINAL:
+
+            case E_SHOWWORK_FINAL:
                 output_final_values(ayb, effDF, blk);
-	    case E_SHOWWORK_MATRIX:
-	        output_final_matrices(ayb, effDF, blk);
-	    case E_SHOWWORK_NULL:
-		break;
-	    default:
-		errx(EXIT_FAILURE,"Unrecognised case in enumeration at %s:%d",__FILE__,__LINE__);
-	}
+
+            case E_SHOWWORK_MATRIX:
+                output_final_matrices(ayb, blk);
+
+            case E_SHOWWORK_NULL:
+                break;
+
+            default:
+                errx(EXIT_FAILURE,"Unrecognised case in enumeration at %s:%d",__FILE__,__LINE__);
+        }
     }
 
 #ifndef NDEBUG
@@ -1417,7 +1420,10 @@ cleanup:
     return ret;
 }
 
-/** Set show working flag. */
+/** 
+ * Set show working flag. Text must match one of the ShowWork text list. Ignores case.
+ * Returns true if match found.
+ */
 bool set_show_working(const CSTRING shwkstr) {
 
     /* match to one of the possible options */
