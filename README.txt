@@ -47,3 +47,8 @@ $ make
 
 The AYB executable will be in the bin directory.
 
+{nbsp}
+
+Notes::
+If OpenMP libraries are not available then the dependency can be removed by 
+deleting the -fopenmp option from the makefile.

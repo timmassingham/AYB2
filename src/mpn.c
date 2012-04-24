@@ -490,9 +490,11 @@ MAT calculateNewJ(const MAT lambda, const ARRAY(NUC) bases, const MAT we, const 
         if (NULL==J[i]) { goto cleanup; }
     }
     
+#ifdef _OPENMP
     // multi-threaded loop
     #pragma omp parallel for \
         default(shared) private(th_id,cl,eltmult,i,j,idx1,idx2,base,base2)
+#endif
 
     for ( cl=0 ; cl<ncluster ; cl++){
 	if(!allowed[cl]){continue;}
@@ -569,9 +571,11 @@ MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases, const TILE tile, con
     nodearry = array_from_LIST(CLUSTER)(tile->clusterlist, &ncluster);
     if (NULL==nodearry) { goto cleanup; }
 
+#ifdef _OPENMP
     // multi-threaded loop
     #pragma omp parallel for \
         default(shared) private(th_id,cl,i,j,col,base,colmult)
+#endif
 
 	// Calculate transpose
     for ( cl=0 ; cl<ncluster ; cl++){

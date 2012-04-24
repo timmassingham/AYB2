@@ -24,6 +24,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "aybthread.h"
 #include <math.h>
 #include "ayb.h"
@@ -816,9 +817,11 @@ MAT calculate_covariance(AYB ayb, const bool do_full){
         goto cleanup; 
     }
 
+#ifdef _OPENMP
     /* multi-threaded loop */
     #pragma omp parallel for \
         default(shared) private(th_id, cl, cl_bases)
+#endif
 
     for (cl = 0; cl < ncluster; cl++){
 	if(!allowed[cl]){ continue; }
@@ -1006,9 +1009,11 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
         goto cleanup; 
     }
 
+#ifdef _OPENMP
     /* multi-threaded loop */
     #pragma omp parallel for \
         default(shared) private(th_id, cl, cy, cl_bases, cl_quals)
+#endif
 
     /* process intensities then estimate lambda and call bases for each cluster */
     for (cl = 0; cl < ncluster; cl++){
@@ -1349,9 +1354,11 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
         goto cleanup; 
     }
 
+#ifdef _OPENMP
     /* multi-threaded loop */
     #pragma omp parallel for \
         default(shared) private(th_id, cl, cy, cl_bases, cl_quals)
+#endif
 
     /* process intensities then call initial bases and lambda for each cluster */
     for (cl = 0; cl < ncluster; cl++){
