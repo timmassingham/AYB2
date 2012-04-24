@@ -183,9 +183,9 @@ static RETOPT output_results (const AYB ayb, const int blk) {
 
     if (xfisnull(fpout)) {return E_STOP;}
 
-    const uint32_t ncluster = get_AYB_ncluster(ayb);
+    const uint_fast32_t ncluster = get_AYB_ncluster(ayb);
 
-    for (uint32_t cl = 0; cl < ncluster; cl++){
+    for (uint_fast32_t cl = 0; cl < ncluster; cl++){
         /* convert from 0-based cluster loop to 1-based for file */
         xfprintf(fpout, "%ccluster_%u\n", OUT_SYMBOL[OutputFormat], cl + 1);
         show_AYB_bases(fpout, ayb, cl);
@@ -582,7 +582,6 @@ bool set_output_format(const char *outform_str) {
         return false;
     }
 }
-
 
 /** Set simdata flag and text for file. */
 void set_simdata(const CSTRING simdata_str) {

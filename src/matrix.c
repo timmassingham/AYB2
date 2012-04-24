@@ -653,10 +653,10 @@ MAT vectranspose ( const MAT mat, const unsigned int p ){
 /**
  * Make a matrix in lower triangular form into a
  * symmetric matrix by copying the lower triangle
- * into the upper, transposing
+ * into the upper, transposing.
  *
  * @param mat	Matrix in lower triangular form
- * return 	mat, or NULL if mat is not a square matrix.
+ * @return      mat, or NULL if mat is not a square matrix
  */
 MAT symmeteriseL2U( MAT mat){
     validate(NULL!=mat,NULL);
@@ -902,16 +902,14 @@ real_t xMy( const real_t * x, const MAT M, const real_t * y){
 }
 
 /**
- * xOx
- * 
- * Calculates x^t Om x, where x is a vector and Om is a symmetric block-diagonal matrix
+ * Calculates x^t Om x, where x is a vector and Om is a symmetric block-diagonal matrix.
  * @param x             Vector
  * @param nblock        Number of blocks below diagonal
  * @param blocksize     Size of block
  * @param Om            block-diagonal matrix
  * @return              Result
  */
-real_t xOx(const real_t * x, const uint32_t nblock, const uint32_t blocksize, const MAT Om){
+real_t xOx(const real_t * x, const uint_fast32_t nblock, const uint_fast32_t blocksize, const MAT Om){
     validate(NULL!=x,NAN);
     validate(NULL!=Om,NAN);
     validate(Om->ncol==Om->nrow,NAN);
