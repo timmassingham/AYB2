@@ -54,6 +54,7 @@ struct AybT {
 //    MAT M, P, N;
     MAT N;
     MAT At;
+    MAT Initial_At;
     MAT lambda;
     MAT lss;
     MAT we, cycle_var;
@@ -113,7 +114,6 @@ static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Parameter A"};
 /* members */
 
 static MAT Matrix[E_MNP];                       ///< Predetermined matrices.
-static MAT Initial_At = NULL;                   ///< Initial parameter matrix.
 static bool FixedParam = false;                 ///< Use fixed supplied parameter matrices.
 static SHOWWORK ShowWorking = E_SHOWWORK_NULL;  ///< Set to non-zero to output final working values.
 static unsigned int ThinFact = 1;               ///< Factor to thin out clusters by.
@@ -579,6 +579,7 @@ AYB new_AYB(const uint_fast32_t ncycle, const uint_fast32_t ncluster){
 //    ayb->P = new_MAT(ncycle,ncycle);
     ayb->N = new_MAT(NBASE,ncycle);
     ayb->At = new_MAT(NBASE*ncycle,NBASE*ncycle);
+    ayb->Initial_At = new_MAT(NBASE*ncycle,NBASE*ncycle);
     ayb->lambda = new_MAT(ncluster,1);
     ayb->lss = new_MAT(ncluster,1);
     ayb->we = new_MAT(ncluster,1);
@@ -590,7 +591,7 @@ AYB new_AYB(const uint_fast32_t ncycle, const uint_fast32_t ncluster){
     
     if( NULL==ayb->tile || NULL==ayb->bases.elt || NULL==ayb->quals.elt
 //            || NULL==ayb->M || NULL==ayb->P || NULL==ayb->N
-            || NULL==ayb->N || NULL==ayb->At
+            || NULL==ayb->N || NULL==ayb->At || NULL==ayb->Initial_At
             || NULL==ayb->lambda || NULL==ayb->lss || NULL==ayb->we || NULL==ayb->cycle_var 
 	    || NULL==ayb->spiked || NULL==ayb->notthinned){
         goto cleanup;
@@ -612,6 +613,7 @@ AYB free_AYB(AYB ayb){
 //    free_MAT(ayb->P);
     free_MAT(ayb->N);
     free_MAT(ayb->At);
+    free_MAT(ayb->Initial_At);
     free_MAT(ayb->lambda);
     free_MAT(ayb->lss);
     free_MAT(ayb->we);
@@ -652,6 +654,9 @@ AYB copy_AYB(const AYB ayb){
     ayb_copy->At = copy_MAT(ayb->At);
     if(NULL!=ayb->At && NULL==ayb_copy->At){ goto cleanup;}
 
+    ayb_copy->Initial_At = copy_MAT(ayb->Initial_At);
+    if(NULL!=ayb->Initial_At && NULL==ayb_copy->Initial_At){ goto cleanup;}
+
     ayb_copy->lambda = copy_MAT(ayb->lambda);
     if(NULL!=ayb->lambda && NULL==ayb_copy->lambda){ goto cleanup;}
 
@@ -690,6 +695,7 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
 //    xfputs("P:\n",fp); show_MAT(fp,ayb->P,ayb->ncycle,ayb->ncycle);
     xfputs("N:\n",fp); show_MAT(fp,ayb->N,NBASE,ayb->ncycle);
     xfputs("At:\n",fp); show_MAT(fp,ayb->At,NBASE*ayb->ncycle,NBASE*ayb->ncycle);
+    xfputs("Initial_At:\n",fp); show_MAT(fp,ayb->Initial_At,NBASE*ayb->ncycle,NBASE*ayb->ncycle);
     xfputs("we:\n",fp); show_MAT(fp,ayb->we,ayb->ncluster,1);
     xfputs("cycle_var:\n",fp); show_MAT(fp,ayb->cycle_var,ayb->ncycle,1);
     xfputs("omega:\n",fp); show_MAT(fp,ayb->omega,NBASE*ayb->ncycle,NBASE*ayb->ncycle);
@@ -1199,7 +1205,7 @@ real_t estimate_MPN(AYB ayb){
 
         if ((NULL==J) || (NULL==K) || (NULL==Sbar) || (NULL==Ibar) || (NULL==lhs) || (NULL==rhs)) { goto cleanup; }
         /* assume ayb->At and Initial_At same size so only need to check one */
-        if ((rhs->nrow != Initial_At->nrow + 1) || (rhs->ncol != Initial_At->ncol)) { goto cleanup; }
+        if ((rhs->nrow != ayb->Initial_At->nrow + 1) || (rhs->ncol != ayb->Initial_At->ncol)) { goto cleanup; }
         if (rhs->ncol != (ayb->N->nrow * ayb->N->ncol)) { goto cleanup; }
 
         // add the solver constant
@@ -1210,10 +1216,10 @@ real_t estimate_MPN(AYB ayb){
         for (uint_fast32_t i = 0; i < nrow; i++) {
             lhs->x[i * nrow + i] += RIDGE_VAL;
         }
-        nrow = Initial_At->nrow;
-        for (uint_fast32_t i = 0; i < Initial_At->ncol; i++) {
+        nrow = ayb->Initial_At->nrow;
+        for (uint_fast32_t i = 0; i < ayb->Initial_At->ncol; i++) {
             for (uint_fast32_t j = 0; j < nrow; j++) {
-                rhs->x[i * rnrow + j] += RIDGE_VAL * Initial_At->x[i * nrow + j];
+                rhs->x[i * rnrow + j] += RIDGE_VAL * ayb->Initial_At->x[i * nrow + j];
             }
         }
 
@@ -1269,7 +1275,6 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
 
     validate(NULL != ayb, false);
     unsigned int ncluster = ayb->ncluster;  // need unsigned int for array_from_LIST
-    const int lda = NBASE * ayb->ncycle;
 
     /* initial M, N, A */
     MAT M = new_MAT(NBASE, NBASE);
@@ -1279,10 +1284,9 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
         return false;
     }
 
-    Initial_At = new_MAT(lda, lda);
-    Initial_At = init_matrix(Initial_At, E_PARAMA, M);
+    ayb->Initial_At = init_matrix(ayb->Initial_At, E_PARAMA, M);
     free_MAT(M);
-    if (Initial_At == NULL) {
+    if (ayb->Initial_At == NULL) {
         message (E_MATRIX_FAIL_S, MSG_ERR, MATRIX_TEXT[E_PARAMA]);
         return false;
     }
@@ -1294,8 +1298,8 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
     }
 
     /* store A as transpose and for first iteration */
-    transpose_inplace(Initial_At);
-    copyinto_MAT(ayb->At, Initial_At);
+    transpose_inplace(ayb->Initial_At);
+    copyinto_MAT(ayb->At, ayb->Initial_At);
 
     /* Initialise call bases return values to nbase * ncycle */
     set_MAT(ayb->lss, NBASE * ayb->ncycle);
@@ -1497,5 +1501,4 @@ void tidyup_ayb(void) {
     for (IOTYPE idx = (IOTYPE)0; idx < E_MNP; idx++) {
         Matrix[idx] = free_MAT(Matrix[idx]);
     }
-    free_MAT(Initial_At);
 }
