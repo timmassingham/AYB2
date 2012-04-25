@@ -30,11 +30,12 @@
 /* constants */
 
 /** Program Version. */
-static const float VERSION = 2.09;      // Use spike-in data, update system test
+static const float VERSION = 2.10;      // Performance improvements, thinning, memory leak.
 /** Version release date. */
-static const unsigned int VERSION_DATE = 20120404;
+static const unsigned int VERSION_DATE = 20120425;
 
 /* keep a history */
+// Version 2.09;    20120404    Urgent bug fixes; improve handling of missing data
 // Version 2.08;    20120221    Use spike-in data, update system test
 // Version 2.07;    20111216    Option to run with multiple threads
 // Version 2.06;    20111201    Improve quality scoring
