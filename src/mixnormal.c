@@ -208,7 +208,7 @@ int main ( int argc, char * argv[]){
             
     NormMixParam param = NULL;
     fputs("Initialise distribution null values\n", stdout);
-	param = initialise_mixture(NULL,nelt,nmix);
+	param = initialise_mixture(NULL,NULL,nelt,nmix);
 	if (param==NULL) {
         fputs("Return value null, ok\n", stdout);
     }
@@ -218,7 +218,7 @@ int main ( int argc, char * argv[]){
 	}
 	
     fputs("Initialise distribution no values\n", stdout);
-	param = initialise_mixture(x,0,nmix);
+	param = initialise_mixture(x,NULL,0,nmix);
 	if (param==NULL) {
         fputs("Return value null, ok\n", stdout);
     }
@@ -228,7 +228,7 @@ int main ( int argc, char * argv[]){
 	}
 	
     fputs("Initialise distribution nmix zero\n", stdout);
-	param = initialise_mixture(x,nelt,0);
+	param = initialise_mixture(x,NULL,nelt,0);
 	if (param==NULL) {
         fputs("Return value null, ok\n", stdout);
     }
@@ -238,10 +238,10 @@ int main ( int argc, char * argv[]){
 	}
 	
     fputs("Fit mixed normal distribution\n", stdout);
-	param = initialise_mixture(x,nelt,nmix);
+	param = initialise_mixture(x,NULL,nelt,nmix);
 	for ( int i=0 ; i<niter ; i++){
 		show_NormMixParam(stdout,param);
-		real_t l = emstep_mixnormal(x,nelt,param);
+		real_t l = emstep_mixnormal(x,NULL,nelt,param);
 		fprintf(stdout,"loglike = %f\n",l);
 	}
 	show_NormMixParam(stdout,param);

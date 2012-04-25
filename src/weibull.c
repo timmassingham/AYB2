@@ -120,16 +120,19 @@ int cmp_real_t ( const void * a, const void * b){
  * scale.
  */
 pair_real fit_weibull ( const real_t * x_orig, const bool * allowed, const uint_fast32_t n ){
+    pair_real resf = {NAN,NAN};
+    validate(NULL!=allowed,resf);
     real_t * x_sorted = calloc(n,sizeof(real_t));
     real_t * y_sorted = calloc(n,sizeof(real_t));
     if(NULL==x_sorted || NULL==y_sorted){
         errx(EXIT_FAILURE,"Failed to allocate memory in %s (%s:%d)",__func__,__FILE__,__LINE__);
     }
+    
     uint_fast32_t nallowed = 0;
     for( uint_fast32_t i=0 ; i<n ; i++){
         if(!allowed[i]){ continue; }
         x_sorted[nallowed] = log(x_orig[i]);
-	nallowed++;
+        nallowed++;
     }
     for( uint_fast32_t i=0 ; i<nallowed ; i++){
         y_sorted[i] = log(-log( (nallowed-i)/(nallowed+1.0) ));
@@ -137,7 +140,6 @@ pair_real fit_weibull ( const real_t * x_orig, const bool * allowed, const uint_
     qsort(x_sorted,nallowed,sizeof(*x_sorted),cmp_real_t);
 
     real_t * res = linearRegression(x_sorted,y_sorted,NULL,nallowed,NULL);
-    pair_real resf = {NAN,NAN};
     if(NULL!=res){
         resf.e1 = res[0];
         resf.e2 = exp(-res[1]/res[0]);
@@ -166,17 +168,20 @@ pair_real fit_weibull ( const real_t * x_orig, const bool * allowed, const uint_
  * scale.
  */
 pair_real wfit_weibull ( const real_t * x_orig, const bool * allowed, const uint_fast32_t n ){
+    pair_real resf = {NAN,NAN};
+    validate(NULL!=allowed,resf);
     real_t * x_sorted = calloc(n,sizeof(real_t));
     real_t * y_sorted = calloc(n,sizeof(real_t));
     real_t * w_sorted = calloc(n,sizeof(real_t));
     if(NULL==x_sorted || NULL==y_sorted || NULL==w_sorted){
         errx(EXIT_FAILURE,"Failed to allocate memory in %s (%s:%d)",__func__,__FILE__,__LINE__);
     }
+
     uint_fast32_t nallowed = 0;
     for( uint_fast32_t i=0 ; i<n ; i++){
-	if(!allowed[i]){ continue; }
+        if(!allowed[i]){ continue; }
         x_sorted[nallowed] = log(x_orig[i]);
-	nallowed++;
+        nallowed++;
     }
     for( uint_fast32_t i=0 ; i<nallowed ; i++){
         y_sorted[i] = log(-log( (nallowed-i)/(nallowed+1.0) ));
@@ -190,13 +195,12 @@ pair_real wfit_weibull ( const real_t * x_orig, const bool * allowed, const uint
          */
         real_t p = (i+1.0)/(nallowed+1.0);
         w_sorted[i] = (i+1.0)*(nallowed-i)/((nallowed+1.0)*(nallowed+1.0)*(nallowed+2.0));
-	w_sorted[i] /= (1-p)*(1-p)*log1p(-p)*log1p(-p);
+        w_sorted[i] /= (1-p)*(1-p)*log1p(-p)*log1p(-p);
         w_sorted[i] = 1.0/w_sorted[i];
     }
     qsort(x_sorted,nallowed,sizeof(*x_sorted),cmp_real_t);
 
     real_t * res = wLinearRegression(w_sorted,x_sorted,y_sorted,NULL,nallowed,NULL);
-    pair_real resf = {NAN,NAN};
     if(NULL!=res){
         resf.e1 = res[0];
         resf.e2 = exp(-res[1]/res[0]);
@@ -281,17 +285,20 @@ int main ( int argc, char * argv[] ){
         for ( int i=0 ; i<n ; i++){
             fscanf(fp,REAL_FORMAT_IN,&x[i]);
         }
-
+        /* Create all allowed array */
+        bool * allowed = calloc(n,sizeof(bool));
+        memset(allowed,1,n);
+    
 	// OLS fit
 	real_t loglike = 0.;
-        pair_real param = fit_weibull(x,n);
+        pair_real param = fit_weibull(x,allowed,n);
         for ( uint_fast32_t i=0 ; i<n ; i++){
 		loglike -= dweibull(x[i],param.e1,param.e2,true);
 	}
         printf("\nOLS: shape = %f  scale = %f  loglike = %f\n",param.e1,param.e2,loglike);
 	// WLS fit
         loglike = 0.;
-	param = wfit_weibull(x,n);
+	param = wfit_weibull(x,allowed,n);
         for ( uint_fast32_t i=0 ; i<n ; i++){
                 loglike -= dweibull(x[i],param.e1,param.e2,true);
         }

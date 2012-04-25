@@ -179,7 +179,7 @@ OPTIONS
     Virtual intensities filename for output:::
     +s_x_zzzz+ where `x' is the lane number and `zzzz' is the tile number in 4 digits.
 
-*-s  --simdata* <header>::
+*-s,  --simdata* <header>::
     Output simulation data as used by simNGS program (lambda fit and full covariance matrix).
     The header argument text is included in the file with limited interpretation.
     Spaces can be used if the whole thing is enclosed in double quotes ("). 
@@ -188,17 +188,17 @@ OPTIONS
     Use ANSI-C style bash quoting ($\'...') to allow escape sequences such as newline (\n) to be interpreted. 
     The output file name is `{filename}.runfile` (cif) or `{filename}_runfile.txt` (txt).
 
-*-t --thin* factor [default: 1]::
-    Factor with which to thin out clusters. Only every *factor* cluster, and those which are marked
+*-t,  --thin* <factor> [default: 1]::
+    Factor used to thin out clusters. Only every 'factor' cluster, and those which are marked
     as spike-in data, will be used to estimate parameter values. The bases of all clusters will be
-    called on the final iteration. Factor should be an integer greater than zero, which larger values
+    called on the final iteration. Factor should be an integer greater than zero, with larger values
     decreasing runtime but potentially also decreasing accuracy.
 
 *-w,  --working* <level> [default: none]::
-	Output final working values. All files up to a given level are created. Files created are (level):
+	Output final working values. All files up to a given level are created. Levels and files created are:
 
 	- none
-	No additional working will be output:::
+	    No additional working will be output:::
         This is the default option.
 
 	- matrices
@@ -206,15 +206,15 @@ OPTIONS
         Format as predetermined matrix input.
         Filenames `{filename}[x].A/N` (cif) or `{filename}[x]_A/N.txt` (txt).
 
-        - values
+    - values
         Final model values:::
         Format as a collection of matrices.
         Filenames `{filename}[x].final` (cif) or `{filename}[x]_final.txt` (txt).
 
 	- processed
-	Final processed intensities:::
-	Format as intensities input, cif or txt.
-	Filenames `{filename}[x].pif` (cif) or `{filename}[x]_pif.txt` (txt).
+	    Final processed intensities:::
+	    Format as intensities input, cif or txt.
+	    Filenames `{filename}[x].pif` (cif) or `{filename}[x]_pif.txt` (txt).
 		
 *--help*::
 	Display this help.

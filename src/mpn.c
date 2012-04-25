@@ -58,6 +58,7 @@ static inline real_t sum_squares(const real_t * x, const uint_fast32_t n){
 // Crude method of obtaining weights
 MAT calculateWe( const MAT lssi, const bool * allowed, MAT we){
     validate(NULL!=lssi,NULL);
+    validate(NULL!=allowed,NULL);
     const uint_fast32_t ncluster = lssi->nrow;
     if(NULL==we){
         we = new_MAT(ncluster,1);
@@ -68,7 +69,7 @@ MAT calculateWe( const MAT lssi, const bool * allowed, MAT we){
     real_t meanLSSi = mean(lssi->x,allowed,ncluster);
     real_t varLSSi = variance(lssi->x,allowed,ncluster);
     for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
-	if(!allowed[cl]){ continue; }
+        if(!allowed[cl]){ continue; }
         const real_t d = lssi->x[cl]-meanLSSi;
         we->x[cl] = cauchy(d*d,varLSSi);
     }
@@ -95,11 +96,11 @@ MAT calculateIbar( const TILE tile, const MAT we, const bool * allowed, MAT Ibar
     unsigned int cl = 0;
     LIST(CLUSTER) node = tile->clusterlist;
     while (NULL != node && cl < ncluster){
-	if (allowed[cl]){
+        if (allowed[cl]){
             for( uint_fast32_t idx=0 ; idx<NBASE*ncycle ; idx++){
                 Ibar->x[idx] += node->elt->signals->xint[idx] * we->x[cl];
             }
-	}
+        }
 
         /* next cluster */
         node = node->nxt;
@@ -125,7 +126,7 @@ MAT calculateSbar( const MAT lambda, const MAT we, const ARRAY(NUC) bases, const
     memset(Sbar->x, 0, Sbar->nrow*Sbar->ncol*sizeof(real_t));
 
     for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
-	if(!allowed[cl]){ continue; }
+        if(!allowed[cl]){ continue; }
         for ( uint_fast32_t cy=0 ; cy<ncycle ; cy++){
             int base = bases.elt[cl*ncycle+cy];
             if(!isambig(base)){
@@ -143,7 +144,7 @@ real_t calculateWbar( const MAT we, const bool * allowed){
 
     real_t wbar = 0.;
     for ( uint_fast32_t cl=0 ; cl<ncluster ; cl++){
-	if(!allowed[cl]){ continue; }
+        if(!allowed[cl]){ continue; }
         wbar += we->x[cl];
     }
     return wbar;
@@ -497,7 +498,7 @@ MAT calculateNewJ(const MAT lambda, const ARRAY(NUC) bases, const MAT we, const 
 #endif
 
     for ( cl=0 ; cl<ncluster ; cl++){
-	if(!allowed[cl]){continue;}
+        if(!allowed[cl]){continue;}
         th_id = omp_get_thread_num();
         eltmult = we->x[cl] * lambda->x[cl] * lambda->x[cl];
         for ( i=0 ; i<ncycle ; i++){
@@ -579,7 +580,7 @@ MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases, const TILE tile, con
 
 	// Calculate transpose
     for ( cl=0 ; cl<ncluster ; cl++){
-	if(!allowed[cl]){ continue;}
+        if(!allowed[cl]){ continue;}
         th_id = omp_get_thread_num();
         for ( i=0 ; i<ncycle ; i++){
             base = bases.elt[cl*ncycle+i];
@@ -940,6 +941,10 @@ int main ( void){
     const uint_fast32_t ncluster = 5;
     const uint_fast32_t ncycle = 3;
 
+    /* Create all allowed array */
+    bool * allowed = calloc(ncluster,sizeof(bool));
+    memset(allowed,1,ncluster);
+    
     /* use null variance for now */
     MAT var = new_MAT(ncycle, 1);
     set_MAT(var, 1.0);
@@ -988,17 +993,17 @@ int main ( void){
     fputs("K matrix:\n",stdout);
     show_MAT(xstdout,K,0,0);
 
-    MAT matSbar = calculateSbar(matLambda, matWe, bases, ncycle, NULL);
+    MAT matSbar = calculateSbar(matLambda, matWe, bases, ncycle, allowed, NULL);
     MAT matSbarT = transpose(matSbar);
     fputs("Sbar matrix:\n",stdout);
     show_MAT(xstdout,matSbar,0,0);
 
-    MAT matIbar = calculateIbar(tileInts, matWe, NULL);
+    MAT matIbar = calculateIbar(tileInts, matWe, allowed, NULL);
     MAT matIbarT = transpose(matIbar);
     fputs("Ibar matrix:\n",stdout);
     show_MAT(xstdout,matIbar,0,0);
 
-    real_t Wbar = calculateWbar(matWe);
+    real_t Wbar = calculateWbar(matWe, allowed);
 #ifdef NDEBUG
     xfprintf(xstdout, "Wbar:%#8.2f\n", Wbar);
 #else

@@ -592,7 +592,7 @@ AYB new_AYB(const uint_fast32_t ncycle, const uint_fast32_t ncluster){
 //            || NULL==ayb->M || NULL==ayb->P || NULL==ayb->N
             || NULL==ayb->N || NULL==ayb->At || NULL==ayb->Initial_At
             || NULL==ayb->lambda || NULL==ayb->lss || NULL==ayb->we || NULL==ayb->cycle_var 
-	    || NULL==ayb->spiked || NULL==ayb->notthinned){
+            || NULL==ayb->spiked || NULL==ayb->notthinned){
         goto cleanup;
     }
 
@@ -704,6 +704,11 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall){
         xfputs("spike-in:\n",fp);
         for (uint_fast32_t cl=0; cl<ayb->ncluster; cl++){
             xfputc(ayb->spiked[cl] ?'1':'0',fp);
+        }
+        xfputc('\n',fp); xfputc('\n',fp);
+        xfputs("not thinned:\n",fp);
+        for (uint_fast32_t cl=0; cl<ayb->ncluster; cl++){
+            xfputc(ayb->notthinned[cl] ?'1':'0',fp);
         }
         xfputc('\n',fp); xfputc('\n',fp);
         xfputs("Bases:\n",fp); show_ARRAY(NUC)(fp,ayb->bases,"",ayb->ncycle*10);
@@ -822,7 +827,7 @@ MAT calculate_covariance(AYB ayb, const bool do_full){
 #endif
 
     for (cl = 0; cl < ncluster; cl++){
-	if(!allowed[cl]){ continue; }
+        if (!allowed[cl]) { continue; }
         th_id = omp_get_thread_num();
 
         cl_bases = ayb->bases.elt + cl * ncycle;
@@ -1015,7 +1020,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
     /* process intensities then estimate lambda and call bases for each cluster */
     for (cl = 0; cl < ncluster; cl++){
-	if(!lastiter && !allowed[cl]){ continue; }
+        if (!lastiter && !allowed[cl]) { continue; }
         th_id = omp_get_thread_num();
 
         cl_bases = ayb->bases.elt + cl * ncycle;
@@ -1320,11 +1325,11 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
     read_spikein_data(ayb, blk);
 
     /* If thinning, set allowed bases so spikein is never thinned */
-    if(ThinFact>1){
-        memcpy(ayb->notthinned,ayb->spiked,ayb->ncluster*sizeof(bool));
-	for ( int i=0 ; i<ayb->ncluster ; i+=ThinFact){
+    if (ThinFact > 1) {
+        memcpy(ayb->notthinned, ayb->spiked, ayb->ncluster * sizeof(bool));
+        for (int i = 0; i < ayb->ncluster; i += ThinFact) {
             ayb->notthinned[i] = true;
-	}
+        }
     }
 
     struct structLU AtLU = LUdecomposition(ayb->At);
@@ -1365,7 +1370,7 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
 
     /* process intensities then call initial bases and lambda for each cluster */
     for (cl = 0; cl < ncluster; cl++){
-	if(!ayb->notthinned[cl]){ continue; }
+        if (!ayb->notthinned[cl]) { continue; }
         th_id = omp_get_thread_num();
 
         cl_bases = ayb->bases.elt + cl * ayb->ncycle;
@@ -1390,7 +1395,7 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
 
                 /* skip any spike-in data clusters */
                 if (!ayb->spiked[cl]) {
-                        cl_bases[cy] = call_base_simple(pcl_int[th_id]->x + cy * NBASE);
+                    cl_bases[cy] = call_base_simple(pcl_int[th_id]->x + cy * NBASE);
                 }
                 cl_quals[cy] = MIN_PHRED;
             }
@@ -1437,17 +1442,21 @@ bool set_show_working(const CSTRING shwkstr) {
     }
 }
 
-/** Set factor with which to thin out clusters */
+/** Set factor with which to thin out clusters. */
 bool set_thin_factor(const CSTRING thinfac_str){
-    if(NULL==thinfac_str){
+
+    if (NULL==thinfac_str) {
         return false;
     }
-    ThinFact = atoi(thinfac_str);
-    if(ThinFact<1){
-            return false;
+    char *endptr;
+    long n = strtol(thinfac_str, &endptr, 0);
+    if (n < 1) {
+        return false;
     }
-
-    return true;
+    else {
+        ThinFact = n;
+        return true;
+    }
 }
 
 /** Set spike-in data calibration flag. */
@@ -1462,6 +1471,8 @@ void set_spike_calib(void) {
  * Returns true if any M, N, P matrix and quality table reads are successful.
  */
 bool startup_ayb(void) {
+
+    message(E_OPT_SELECT_SG, MSG_INFO, "Thin factor", (float)ThinFact);
 
     /* check if spike-in data configured */
     SpikeIn = spike_in();

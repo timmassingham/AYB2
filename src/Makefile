@@ -41,6 +41,9 @@ test-nuc: $(objects)
 test-spikein: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST spikein.c $(filter-out spikein.o ayb_main.o,$(objects))
 
+test-statistics: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST statistics.c $(filter-out statistics.o ayb_main.o,$(objects))
+
 test-tile: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects))
 
