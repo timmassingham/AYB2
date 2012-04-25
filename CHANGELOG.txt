@@ -1,6 +1,24 @@
 AYB ChangeLog
 =============
 
+Version 2.10 (2012-04-25)
+-------------------------
+
+.Additions and changes
+
+- Performance improvements.
+
+- New 'thin' (t) option to only use some clusters for parameter calculation.
+
+- Add argument to 'working' (w) option to allow different levels of final working values to be output.
+
+- Build with OpenMP is now optional.
+
+.Bug fixes
+
+- Memory leak when analysing multiple files or blocks.
+
+
 Version 2.09 (2012-04-04)
 -------------------------
 
@@ -38,7 +56,7 @@ Version 2.07 (2011-12-16)
 
 .Additions and changes
 
-- New 'parallel' option to run with multiple threads if multiple cores are available. 
+- New 'parallel' (p) option to run with multiple threads if multiple cores are available. 
   Can speed up the run time.
 
 
@@ -110,7 +128,7 @@ Version 2.02 (2011-02-17)
 .Additions and changes
 
 - Quality calibration table now contains values to use instead of conversion for default.
-  Values used per run are output unless disabled with new 'noqualout' option.
+  Values used per run are output unless disabled with new 'noqualout' (q) option.
   
 
 Regression issues
@@ -125,10 +143,10 @@ Version 2.01 (2011-01-21)
 
 .Additions and changes
 
-- New 'qualtab' option to read in a quality calibration table from a file and
+- New 'qualtab' (Q) option to read in a quality calibration table from a file and
   use to convert the default. Resultant values are output if log level is debug.
 
-- New 'runfolder' option to read cif files directly from a run-folder.
+- New 'runfolder' (r) option to read cif files directly from a run-folder.
   The command line 'prefix' is then replaced by a single lane tile or range. 
 
 - A 'prefix' or input filepath may now contain a complete path.
