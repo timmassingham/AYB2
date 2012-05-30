@@ -553,17 +553,10 @@ void read_intensities_folder(const char *root, const LANETILE lanetile, unsigned
 }
 
 /** Set the number of base call iterations. */
-void set_niter(const char *n_str) {
+bool set_niter(const CSTRING n_str) {
 
-    char *endptr;
-    long n = strtol(n_str, &endptr, 0);
-    if (n > 0) {
-        NIter = n;
-    }
-    else {
-        /* validity check done in startup */
-        NIter = 0;
-    }
+    NIter = parse_uint(n_str);
+    return (NIter > 0);
 }
 
 /**
@@ -617,12 +610,6 @@ bool startup_model(void) {
         }
         message(E_OPT_SELECT_SD, MSG_INFO, "cycles total", totalcycle);
         message(E_OPT_SELECT_SD, MSG_INFO, "distinct data blocks", numblock);
-    }
-
-    /* check number of iterations supplied - may be left at default */
-    if (NIter == 0) {
-        message(E_BAD_ITER, MSG_FATAL);
-        return false;
     }
 
     /* storage for zero lambda count */

@@ -118,10 +118,9 @@ static void init_options(void) {
  * Set the requested number of parallel threads.
  * Do not allow to be invalid.
  */
-static void set_nthread(const char *n_str) {
+static void set_nthread(const CSTRING n_str) {
 
-    char *endptr;
-    long n = strtol(n_str, &endptr, 0);
+    unsigned int n = parse_uint(n_str);
     if (n > 0) {
         NThread = n;
     }
@@ -219,7 +218,10 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
 
             case 'n':
                 /* number of base call iterations */
-                set_niter(optarg);
+                if (!set_niter(optarg)) {
+        	 	    fprintf(stderr, "Fatal: Illegal --niter value: \'%s\'\n\n", optarg);
+                    status = E_FAIL;
+                }
                 break;
 
             case 'o':

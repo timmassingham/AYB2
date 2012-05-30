@@ -1439,6 +1439,18 @@ cleanup:
     return ret;
 }
 
+/** Parse a string for an expected unsigned int. Returns zero if not found. */
+unsigned int parse_uint(const CSTRING str) {
+
+    if (NULL==str) {
+        return 0;
+    }
+    char *endptr;
+    /* use strtol as strtoul can return a value that may be interpreted as negative */
+    long n = strtol(str, &endptr, 0);
+    return (n < 0) ? 0 : n;
+}
+
 /** 
  * Set show working flag. Text must match one of the ShowWork text list. Ignores case.
  * Returns true if match found.
@@ -1457,20 +1469,10 @@ bool set_show_working(const CSTRING shwkstr) {
 }
 
 /** Set factor with which to thin out clusters. */
-bool set_thin_factor(const CSTRING thinfac_str){
+bool set_thin_factor(const CSTRING thinfac_str) {
 
-    if (NULL==thinfac_str) {
-        return false;
-    }
-    char *endptr;
-    long n = strtol(thinfac_str, &endptr, 0);
-    if (n < 1) {
-        return false;
-    }
-    else {
-        ThinFact = n;
-        return true;
-    }
+    ThinFact = parse_uint(thinfac_str);
+    return (ThinFact > 0);
 }
 
 /** Set spike-in data calibration flag. */

@@ -62,6 +62,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 real_t estimate_MPN(AYB ayb);
 bool initialise_model(AYB ayb, const int blk, const bool showdebug);
 
+unsigned int parse_uint(const CSTRING str);
 bool set_show_working(const CSTRING shwkstr);
 bool set_thin_factor(const CSTRING thinfac_str);
 void set_spike_calib(void);

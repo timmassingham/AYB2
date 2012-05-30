@@ -56,7 +56,6 @@ static const char *MSG_TEXT[] = {
         "All available cycles in one block selected\n",                         // E_DEFAULTBLOCK
         "Blockstring option contains no datablocks\n",                          // E_NOBLOCKS
         "No file pattern match supplied\n",                                     // E_NOPATTERN
-        "Number of model iterations incorrectly supplied\n",                    // E_BAD_ITER
         "Need to supply neither or both parameter matrices (A and N)\n",        // E_BAD_MATRIXIN
         "Run folder option invalid with txt input format\n",                    // E_BAD_RUNOPT
         "",                                                                     // E_END_NONE
