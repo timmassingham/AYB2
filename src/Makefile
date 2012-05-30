@@ -58,6 +58,14 @@ test-xio: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST xio.c $(filter-out xio.o ayb_main.o,$(objects))
 
 ayb_options.o: ayb_options.c ayb_usage.h ayb_help.h
+ayb.o: ayb.c message.h
+ayb_main.o: ayb_main.c message.h
+ayb_model.o: ayb_model.c message.h
+datablock.o: datablock.c message.h
+dirio.o: dirio.c message.h
+nuc.o: nuc.c message.h
+qual_table.o: qual_table.c message.h
+spikein.o: spikein.c message.h
 
 .c.o:
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $@ -c $<
