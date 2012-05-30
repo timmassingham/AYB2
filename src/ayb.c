@@ -898,7 +898,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     const bool * allowed = ayb->notthinned;
 
     MAT V_part = NULL;                      // Partial covariance matrix
-    QSPIKEPTR qspike = NULL;
+    QSPIKEPTR qspikesum = NULL;
     WORKPTR work = NULL;
     real_t effDF = NBASE * ncycle;
     int ret_count = 0;
@@ -909,8 +909,10 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     LIST(CLUSTER) * nodearry = NULL;
     const int ncpu = omp_get_max_threads();
     MAT pcl_int[ncpu];                      // Shell for processed intensities
+    QSPIKEPTR qspike[ncpu];
     for (int i = 0; i < ncpu; i++) {
         pcl_int[i] = NULL;
+        qspike[i] = NULL;
     }
     int zero_lam[ncpu];
     memset(zero_lam, 0, ncpu * sizeof(int));
@@ -993,7 +995,10 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
         if (SpikeIn) {
             /* storage for spike-in quality counts */
-            qspike = calloc(MAX_QUALITY + 1, sizeof(*qspike));
+            qspikesum = calloc(MAX_QUALITY + 1, sizeof(*qspikesum));
+            for (int i = 0; i < ncpu; i++) {
+                qspike[i] = calloc(MAX_QUALITY + 1, sizeof(*qspikesum));
+            }
         }
     }
 
@@ -1075,9 +1080,9 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
                         /* add obs/diffs to counts */
                         for (cy = 0; cy < ncycle; cy++) {
                             int q = qualint_from_quality(qual[cy]);
-                            qspike[q].obs++;
+                            qspike[th_id][q].obs++;
                             if (cl_bases[cy] != sp_bases[cy]) {
-                                qspike[q].diff++;
+                                qspike[th_id][q].diff++;
                             }
                         }
                     }
@@ -1107,6 +1112,14 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
     }
 
     /* accumulate from multi-thread */ 
+    if (lastiter && SpikeIn) {
+        for (int i = 0; i < ncpu; i++) {
+            for (int q = 0; q <= MAX_QUALITY; q++) {
+                qspikesum[q].obs += qspike[i][q].obs;
+                qspikesum[q].diff += qspike[i][q].diff;
+            }
+        }
+    }
     if (ret_count != DATA_ERR) {
         for (int i = 0; i < ncpu; i++) {
             ret_count += zero_lam[i];
@@ -1115,7 +1128,7 @@ int estimate_bases(AYB ayb, const int blk, const bool lastiter, const bool showd
 
     /* calibrate using spike-in data */
     if (lastiter && SpikeFound) {
-        calibrate_by_spikein(ayb, blk, qspike);
+        calibrate_by_spikein(ayb, blk, qspikesum);
     }
 
     /* output working values if requested and final iteration */
@@ -1166,11 +1179,12 @@ cleanup:
     free_array_LIST(CLUSTER)(nodearry);
     for (int i = 0; i < ncpu; i++) {
         free_MAT(pcl_int[i]);
+        xfree(qspike[i]);
     }
     free_MAT(AtLU.mat);
     xfree(AtLU.piv);
     free_MAT(V_part);
-    xfree(qspike);
+    xfree(qspikesum);
     return ret_count;
 }
 
