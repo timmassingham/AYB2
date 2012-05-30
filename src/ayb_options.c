@@ -95,6 +95,7 @@ static struct option Longopts[] = {
     {"runfolder",   no_argument,        NULL, 'r'},
     {"thin",        required_argument,  NULL, 't'},
     {"working",     required_argument,  NULL, 'w'},
+    {"zerothin",    required_argument,  NULL, 'z'},
     {"A",           required_argument,  NULL, 'A'},
     {"spikein",     required_argument,  NULL, 'K'},
     {"M",           required_argument,  NULL, 'M'},
@@ -146,7 +147,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:kl:m:n:o:p:qrt:w:A:K:M:N:Q:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:kl:m:n:o:p:qrt:w:z:A:K:M:N:Q:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 's':
@@ -219,7 +220,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
             case 'n':
                 /* number of base call iterations */
                 if (!set_niter(optarg)) {
-        	 	    fprintf(stderr, "Fatal: Illegal --niter value: \'%s\'\n\n", optarg);
+                    fprintf(stderr, "Fatal: Illegal --niter value: \'%s\'\n\n", optarg);
                     status = E_FAIL;
                 }
                 break;
@@ -244,18 +245,26 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
                 set_run_folder();
                 break;
 
-	    case 't':
-		/* Factor of clusters to thin */
-		if(!set_thin_factor(optarg)){
-	 	    fprintf(stderr, "Fatal: Illegal --thin factor: \'%s\'\n\n", optarg);
-		    status = E_FAIL;
-		}
-		break;
+            case 't':
+                /* Factor of clusters to thin */
+                if(!set_thin_factor(optarg)){
+                    fprintf(stderr, "Fatal: Illegal --thin factor: \'%s\'\n\n", optarg);
+                    status = E_FAIL;
+                }
+                break;
 
             case 'w':
                 /* show working output level */
                 if (!set_show_working(optarg)) {
                     fprintf(stderr, "Fatal: Unrecognised --working option: \'%s\'\n\n", optarg);
+                    status = E_FAIL;
+                }
+                break;
+
+            case 'z':
+                /* limit for cycles with missing data */
+                if (!set_zerothin_limit(optarg)) {
+                    fprintf(stderr, "Fatal: Illegal --zerothin limit: \'%s\'\n\n", optarg);
                     status = E_FAIL;
                 }
                 break;

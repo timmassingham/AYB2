@@ -66,6 +66,7 @@ unsigned int parse_uint(const CSTRING str);
 bool set_show_working(const CSTRING shwkstr);
 bool set_thin_factor(const CSTRING thinfac_str);
 void set_spike_calib(void);
+bool set_zerothin_limit(const CSTRING n_str);
 bool startup_ayb(void);
 void tidyup_ayb(void);
 

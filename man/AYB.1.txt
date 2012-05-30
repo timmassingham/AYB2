@@ -215,6 +215,11 @@ OPTIONS
 	    Final processed intensities:::
 	    Format as intensities input, cif or txt.
 	    Filenames `{filename}[x].pif` (cif) or `{filename}[x]_pif.txt` (txt).
+
+*-z,  --zerothin* <num> [default: 3]::
+    Thin clusters with too many zero data cycles (those with num or more). 
+    See the 'thin' option for details of the effects of thinning.
+    Can be disabled by using a num larger than ncycle.
 		
 *--help*::
 	Display this help.

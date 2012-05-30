@@ -95,6 +95,7 @@ static const char *MSG_TEXT[] = {
         "",                                                                     // E_END_SG
         "Unrecognised nucleotide \'%c\'; returning NUC_AMBIG\n",                // E_BAD_NUC_C
         "",                                                                     // E_END_C
+        "Thin clusters with %d or more zero data cycles\n",                     // E_ZEROTHIN_D
         "Processing failed at iteration %d; calls set to null\n",               // E_PROCESS_FAIL_D
         "Insufficient cycles for model; %d selected or found\n",                // E_CYCLESIZE_D
         "",                                                                     // E_END_D
@@ -104,6 +105,8 @@ static const char *MSG_TEXT[] = {
         "Failed to initialise model for block %d, %d cycles\n",                 // E_INIT_FAIL_DD
         "Processing block %d, %d cycles\n",                                     // E_PROCESS_DD
         "",                                                                     // E_END_DD
+        "%d clusters out of %d used for parameter estimation (%0.2F%%)\n",      // E_THIN_DDF
+        "",                                                                     // E_END_DDF
 
         "%s %20s\n",                                                            // E_GENERIC_SS
         "%s %d\n",                                                              // E_GENERIC_SD
@@ -355,14 +358,14 @@ void tidyup_message (void) {
 #ifdef TEST
 #include <err.h>
 
-static const char * SETMSGLEV = "error";
+static const char *SETMSGLEV = "error";
 static const char *STRING1 = "xxx1";
 static const char *STRING2 = "xxx2";
 static const char CHAR1 = 'x';
 static const int INT1 = 9;
-static const int INT2 = 99;
+static const int INT2 = 91;
 static const real_t EXP1 = 1e-5;
-static const real_t FLOAT1 = 99.99;
+static const real_t FLOAT1 = 91.234;
 
 int main ( int argc, char * argv[]){
     if(argc<3){
@@ -472,6 +475,10 @@ int main ( int argc, char * argv[]){
         sev = (sev + 1) % MSG_NUM;
         for (MSGTYPE typi = E_END_D + 1; typi < E_END_DD; typi++) {
             message(typi, sev, INT1, INT2);
+        }
+        sev = (sev + 1) % MSG_NUM;
+        for (MSGTYPE typi = E_END_DD + 1; typi < E_END_DDF; typi++) {
+            message(typi, sev, INT1, INT2, FLOAT1);
         }
     }
     

@@ -112,9 +112,10 @@ static const char *MATRIX_TEXT[] = {"Crosstalk", "Noise", "Parameter A"};
 /* members */
 
 static MAT Matrix[E_MNP];                       ///< Predetermined matrices.
-static bool FixedParam = false;                 ///< Use fixed supplied parameter matrices.
 static SHOWWORK ShowWorking = E_SHOWWORK_NULL;  ///< Set to non-zero to output final working values.
 static unsigned int ThinFact = 1;               ///< Factor to thin out clusters by.
+static unsigned int ZeroThin = 3;               ///< Thin clusters with this or more missing data cycles.
+static bool FixedParam = false;                 ///< Use fixed supplied parameter matrices.
 static bool SpikeIn = false;                    ///< Use spike-in data.
 static bool SpikeFound = false;                 ///< Spike-in data found for this tile block.
 static bool SpikeCalib = false;                 ///< Calibrate qualities using spike-in data.
@@ -1360,6 +1361,7 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
     LIST(CLUSTER) * nodearry = NULL;
     int_fast32_t cl;
     uint_fast32_t cy;
+    uint_fast32_t count;
     NUC * cl_bases = NULL;
     PHREDCHAR * cl_quals = NULL;
     int th_id;                              // thread number
@@ -1379,7 +1381,7 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
 #ifdef _OPENMP
     /* multi-threaded loop */
     #pragma omp parallel for \
-        default(shared) private(th_id, cl, cy, cl_bases, cl_quals)
+        default(shared) private(th_id, cl, cy, count, cl_bases, cl_quals)
 #endif
 
     /* process intensities then call initial bases and lambda for each cluster */
@@ -1405,11 +1407,16 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
 #endif
 
             /* call initial bases for each cycle */
+            count = 0;
             for ( cy = 0; cy < ayb->ncycle; cy++){
 
                 /* skip any spike-in data clusters */
                 if (!ayb->spiked[cl]) {
                     cl_bases[cy] = call_base_simple(pcl_int[th_id]->x + cy * NBASE);
+                    /* count number of zero data cycles */
+                    if (nodata(nodearry[cl]->elt->signals->xint + cy * NBASE, NBASE)) {
+                        count++;
+                    }
                 }
                 cl_quals[cy] = MIN_PHRED;
             }
@@ -1419,8 +1426,19 @@ bool initialise_model(AYB ayb, const int blk, const bool showdebug) {
 
             /* store the least squares error */
             store_cluster_error(ayb, pcl_int[th_id], cl);
+            if (count >= ZeroThin) {
+                /* set to thin */
+                ayb->notthinned[cl] = false;
+            }
         }
     }
+    
+    /* output how many clusters for parameter estimation */
+    count = 0;
+    for (cl = 0; cl < ncluster; cl++){
+        if (ayb->notthinned[cl]) { count++; }
+    }
+    message(E_THIN_DDF, MSG_INFO, count, ayb->ncluster, (float)count * 100/ayb->ncluster);
 
 #ifndef NDEBUG
     if (showdebug) {
@@ -1481,6 +1499,13 @@ void set_spike_calib(void) {
     SpikeCalib = true;
 }
 
+/** Set the limit for cycles with zero data. */
+bool set_zerothin_limit(const CSTRING n_str) {
+
+    ZeroThin = parse_uint(n_str);
+    return (ZeroThin > 0);
+}
+
 /**
  * Start up; call at program start after options.
  * Issues option info messages.
@@ -1489,6 +1514,7 @@ void set_spike_calib(void) {
 bool startup_ayb(void) {
 
     message(E_OPT_SELECT_SG, MSG_INFO, "Thin factor", (float)ThinFact);
+    message(E_ZEROTHIN_D, MSG_INFO, ZeroThin);
 
     /* check if spike-in data configured */
     SpikeIn = spike_in();

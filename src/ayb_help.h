@@ -36,6 +36,8 @@
 "\t\t\t\t(Used in parameter estimation)\n"
 "  -w  --working <level>\t\tOutput final working values to level\n"
 "\t\t\t\t(none/matrices/values/processed) [default: none]\n"
+"  -z  --zerothin <num>\t\tThin clusters with too many zero data cycles\n"
+"\t\t\t\t(Those with num or more) [default 3]\n"
 "  -A  --A <filepath>\t\tPredetermined fixed Parameter A matrix file path\n"
 "\t\t\t\t(Must be accompanied by option N)\n"
 "  -K  --spikein <path>\t\tLocation of spike-in data files\n"
