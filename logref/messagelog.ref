@@ -1,4 +1,4 @@
-AYB Message Log;	Created by hazelm;	16 February 2012 15:56
+AYB Message Log;	Created by hazelm;	21 May 2012 15:22
 
 Information: Log message output level: Warning
 None: All available cycles in one block selected
@@ -7,7 +7,6 @@ Error: All available cycles in one block selected
 None: All available cycles in one block selected
 None: Blockstring option contains no datablocks
 None: No file pattern match supplied
-None: Number of model iterations incorrectly supplied
 None: Need to supply neither or both parameter matrices (A and N)
 None: Run folder option invalid with txt input format
 Fatal: Memory allocation failed during xxx1
@@ -36,15 +35,17 @@ Information: xxx1 contains invalid character: 'x'
 Warning: Input file pattern match: 'xxx1'; 9 file(s) found
 Warning: Number of xxx1 selected: 9
 Warning: Invalid cluster number in xxx1: 9
-Debug: xxx1 matrix wrong size, need dimension 9 not 99
+Debug: xxx1 matrix wrong size, need dimension 9 not 91
 None: xxx1 selected: 1E-05
-None: xxx1 selected: 99.99
+None: xxx1 selected: 91.234
 None: xxx1 selected: 9
 Fatal: Unrecognised nucleotide 'x'; returning NUC_AMBIG
+Error: Thin clusters with 9 or more zero data cycles
 Error: Processing failed at iteration 9; calls set to null
 Error: Insufficient cycles for model; 9 selected or found
-Information: Using 9 thread(s) (99 requested)
-Information: Input file contains fewer cycles than requested; 9 instead of 99
-Information: Tile data size: 9 clusters of 99 cycles
-Information: Failed to initialise model for block 9, 99 cycles
-Information: Processing block 9, 99 cycles
+Information: Using 9 thread(s) (91 requested)
+Information: Input file contains fewer cycles than requested; 9 instead of 91
+Information: Tile data size: 9 clusters of 91 cycles
+Information: Failed to initialise model for block 9, 91 cycles
+Information: Processing block 9, 91 cycles
+Warning: 9 clusters out of 91 used for parameter estimation (91.23%)
