@@ -122,7 +122,7 @@ OPTIONS
     Quality scores are output without calibration unless the 'spikeuse' option is selected.
 
 *-l,  --loglevel* <level> [default: warning]::
-	Level of message output (none/fatal/error/warning/information/debug).
+	Level of message output (none/fatal/error/information/warning/debug).
 
 *-M,  --M* <filepath>::
 	Predetermined initial Crosstalk matrix file path.

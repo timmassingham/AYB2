@@ -24,7 +24,7 @@
 "\t\t\t\t(Alternative to output of quality counts file)\n"
 "  -i  --input <path>\t\tLocation of input files [default: \"\"]\n"
 "  -l  --loglevel <level>\tLevel of message output [default: warning]\n"
-"\t\t\t\t(none/fatal/error/warning/information/debug)\n"
+"\t\t\t\t(none/fatal/error/information/warning/debug)\n"
 "  -n  --niter <num>\t\tNumber of model iterations [default: 5]\n"
 "  -o  --output <path>\t\tLocation to create output files [default: \"\"]\n"
 "  -p  --parallel <num>\t\tMultiple threads speeds up run time [default: 1]\n"
