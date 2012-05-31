@@ -213,8 +213,10 @@ Executables are currently available for:
 - cluster
 - matrix
 - message
+- mixnormal
 - mpn
 - nuc
+- spikein
 - tile
 - xio
 
@@ -271,15 +273,19 @@ The tests are grouped with various non-overlapping aspects of functionality comb
 Test groups have an associated 3 letter suffix as follows:
 - blk: Cif input, multiple blocks
 - cif: Cif input, default block, all output
-- fol: Cif run-folder input
+- fol: Cif run-folder input, default zero thin, run multi-threaded
 - mat: Cif input, blockstring=cycles, fixed matrices and qualtab input
-- mul: Cif input, niter in, fasta output, multiple prefix, prefix as prefix, partial path, stderr redirect
+- mul: Cif input, niter in, zero thin in, fasta output, multiple prefix, prefix as prefix, partial path, stderr redirect
 - par: Cif input, generr in, run multi-threaded
+- spk: Cif input, spike-in, no zero thin, run multi-threaded
+- thn: Cif input, thinned, run multi-threaded
 - txt: Txt input, default block, all output, debug logging
 - zip: Zip txt input, blockstring=cycles
 
 Each group has its own reference and output sub-directories (indicated by the suffix in the name) located under SystemTest.
 Output directories are created if they do not exist otherwise any existing contents are deleted.
+
+A valgrind check for memory leaks is done in two parts; all output, multiple blocks and then multiple input files.
 
 When the script has finished check any error messages and the test report. 
 All outputs should match the reference with the exception of:
