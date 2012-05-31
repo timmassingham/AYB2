@@ -1,6 +1,20 @@
 AYB ChangeLog
 =============
 
+Version 2.11 (2012-05-31)
+-------------------------
+
+.Additions and changes
+
+- New 'zerothin' (z) option to thin clusters with too much missing data.
+
+- Correct level order of warning and information in help and manual.
+
+.Bug fixes
+
+- Qspike output was incorrect and not determinate when run with multiple threads.
+
+
 Version 2.10 (2012-04-25)
 -------------------------
 
@@ -17,6 +31,11 @@ Version 2.10 (2012-04-25)
 .Bug fixes
 
 - Memory leak when analysing multiple files or blocks.
+
+Regression issues
+~~~~~~~~~~~~~~~~~
+
+Option working (w) now takes an argument.
 
 
 Version 2.09 (2012-04-04)
