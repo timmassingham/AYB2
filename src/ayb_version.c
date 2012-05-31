@@ -30,11 +30,12 @@
 /* constants */
 
 /** Program Version. */
-static const float VERSION = 2.10;      // Performance improvements, thinning, memory leak.
+static const float VERSION = 2.11;      // Thin missing data and tidy up.
 /** Version release date. */
-static const unsigned int VERSION_DATE = 20120425;
+static const unsigned int VERSION_DATE = 20120531;
 
 /* keep a history */
+// Version 2.10;    20120425    Performance improvements, thinning, memory leak
 // Version 2.09;    20120404    Urgent bug fixes; improve handling of missing data
 // Version 2.08;    20120221    Use spike-in data, update system test
 // Version 2.07;    20111216    Option to run with multiple threads
