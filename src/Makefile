@@ -92,3 +92,5 @@ man_html: $(MANDIR)/AYB.1.html
 archive: clean man
 	cd ../.. && tar zcf AYB.tgz --exclude=archive --exclude=test --exclude=doc --exclude=.git --exclude=.gitignore AYB
 
+archive_test:
+	cd ../.. && tar zcf AYB_test.tgz AYB/test
