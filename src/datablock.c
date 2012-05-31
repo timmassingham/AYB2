@@ -160,17 +160,21 @@ bool parse_blockopt(const char *blockstr) {
     DATABLOCK newblock = NULL;
     LIST(DATABLOCK) tail = NULL;
     BLOCKTYPE type;
-    const char *ch;
-    char *endptr;
+    const char *ch = NULL;
+    char *endptr = NULL;
     int cycles;
     bool ok = true;
 
+    if (blockstr == NULL) {
+        message(E_BAD_TXT_SS, MSG_FATAL, MESS_TEXT, "no blockstring supplied");
+        return false;
+    }
     /* argument supplied, turn default off even if an error detected */
     DefaultBlock = false;
 
     /* parse the string from the beginning */
     ch = blockstr;
-    while ((ch[0] != 0) && ok) {
+    while (ok && (ch != NULL) && (ch[0] != 0)) {
         /* create a new data block */
         newblock = new_DATABLOCK();
         

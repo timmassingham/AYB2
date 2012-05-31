@@ -487,6 +487,9 @@ MAT calculateNewJ(const MAT lambda, const ARRAY(NUC) bases, const MAT we, const 
     const int ncpu = omp_get_max_threads();
     MAT J[ncpu];
     for ( int i=0 ; i<ncpu ; i++) {
+        J[i] = NULL;
+    }
+    for ( int i=0 ; i<ncpu ; i++) {
         J[i] = new_MAT(lda,lda);
         if (NULL==J[i]) { goto cleanup; }
     }
@@ -563,6 +566,9 @@ MAT calculateNewK(const MAT lambda, const ARRAY(NUC) bases, const TILE tile, con
     int th_id;                              // thread number
     const int ncpu = omp_get_max_threads();
     MAT K[ncpu];
+    for ( int i=0 ; i<ncpu ; i++) {
+        K[i] = NULL;
+    }
     for ( int i=0 ; i<ncpu ; i++) {
         K[i] = new_MAT(lda,lda);
         if (NULL==K[i]) { goto cleanup; }
