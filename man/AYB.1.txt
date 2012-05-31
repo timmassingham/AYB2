@@ -123,6 +123,7 @@ Some examples of use are:
 
 *-K,  --spikein* <path>::
     Location of spike-in data files. 
+    Files are named `{filename}[x].spike` (cif) or `{filename}[x]_spike.txt` (txt).
     Format is tab delimited with a cluster number and sequence on each line.
     The spike-in data is used to produce a table of counts of differences and observed 
     for each quality value that can be used to calibrate quality scores. 
