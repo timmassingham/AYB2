@@ -89,7 +89,16 @@ OPTIONS
 	- R => Read
 	- I => Ignore 
 	- C => Concatenate onto previous block (first R must precede first C)
-	
+
++
+Some examples of use are:
+
+    - R76R76 specifies two 76 cycle paired-end data blocks.
+    - R50I26R50I26 specifies two 76 cycle paired-end data blocks trimmed so that 
+      only the first 50 bases of each are used e.g. because of poor quality.
+    - R50I10C50 specifies a single 100 cycle block made up of two 50 cycle blocks 
+      separated by an unwanted 10 cycle block e.g. a tag.
+
 *-d,  --dataformat* <format> [default: cif]::
 	Input format (cif/txt).
 
