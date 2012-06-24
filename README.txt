@@ -17,6 +17,10 @@ Libraries::
 - zlib (general purpose compression library)
 - bzip2 (alternative compression library)
 
+To make the program, the relevant header files for each of these libraries
+must also be present. The header files are usual contained in the
+-devel package corresponding to each library, for example: blas-devel
+
 External Links::
 - http://gcc.gnu.org/[GCC]
 - http://www.gnu.org/software/make/[GNU Make]
