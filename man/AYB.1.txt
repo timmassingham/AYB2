@@ -23,12 +23,25 @@ SYNOPSIS
 
 *AYB* --version
 
-EXAMPLE
--------
+EXAMPLES
+--------
 *AYB* 'intensities'
 
 will process 'cif' file 'intensities' in one block using 5 iterations and
 output a 'fastq' file, both in the current directory with log messages to stderr.
+
+
+*AYB* -b R76R76 -i cifdir -o outputdir s_3_1301
+
+will process a 76 base paired-end from the file 's_3_1301.cif' stored in the directory 'cifdir'.
+Output will be stored in 'outputdir'
+ 
+*AYB* -i runfolder -b R8R108R108 -r L1T1301-2301
+
+will process a 108 base paired-end run, with an additional 8 base index between the pairs,
+from a run folder. All the tiles between 1301 and 2301 will be processed from lane 1. 
+
+
 
 DESCRIPTION
 -----------
