@@ -297,8 +297,8 @@ TO DO
 Quality scores can be calibrated to be in line with empirical observations using a table. 
 A default table is supplied and a description of how to adjust the table for local observations is to follow.
 
-AUTHOR
-------
+AUTHORS
+-------
 Written by Hazel Marsden <hazelm@ebi.ac.uk> and 
 Tim Massingham <tim.massingham@ebi.ac.uk>.
 
@@ -309,6 +309,10 @@ Richard J. Hanson (Jet Propulsion Laboratory, 1973). See
 RESOURCES
 ---------
 See <http://www.ebi.ac.uk/goldman/AYB/>.
+
+An online git repository is available at <https://github.com/timmassingham/AYB2>.
+
+Please direct enquires to <ayb@ebi.ac.uk>.
 
 COPYING
 -------
