@@ -35,7 +35,7 @@
 /* function prototypes */
 
 RETOPT analyse_tile (const int argc, char ** const argv);
-void read_intensities_file(XFILE *fp, unsigned int ncycle);
+void read_intensities_file(XFILE *fp, const LANETILE lanetile, unsigned int ncycle);
 void read_intensities_folder(const char *root, LANETILE lanetile, unsigned int ncycle);
 bool set_niter(const CSTRING niter_str);
 bool set_output_format(const char *outform_str);

@@ -84,4 +84,7 @@ bool spike_in(void);
 bool startup_dirio(void);
 void tidyup_dirio(void);
 
+LANETILE parse_lanetile_from_filename ( const char * fn);
+LANETILE get_current_lanetile ( void );
+
 #endif /* DIRIO_H_ */

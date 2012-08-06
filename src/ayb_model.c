@@ -184,10 +184,13 @@ static RETOPT output_results (const AYB ayb, const int blk) {
     if (xfisnull(fpout)) {return E_STOP;}
 
     const uint_fast32_t ncluster = get_AYB_ncluster(ayb);
+    TILE tile = get_AYB_tile(ayb);
+    const unsigned int laneNum = tile->lane;
+    const unsigned int tileNum = tile->tile;
 
     for (uint_fast32_t cl = 0; cl < ncluster; cl++){
         /* convert from 0-based cluster loop to 1-based for file */
-        xfprintf(fpout, "%ccluster_%u\n", OUT_SYMBOL[OutputFormat], cl + 1);
+        xfprintf(fpout, "%c%s:%d:%d:%d:%d#0/%u\n", OUT_SYMBOL[OutputFormat], "Sample", laneNum, tileNum, 0, 0, cl + 1);
         show_AYB_bases(fpout, ayb, cl);
         /* quality score */
         if (OutputFormat == E_FASTQ) {
@@ -519,7 +522,7 @@ cleanup:
 /**
  * Read and store a single intensities input file.
  */
-void read_intensities_file(XFILE *fp, unsigned int ncycle) {
+void read_intensities_file(XFILE *fp, const LANETILE lanetile, unsigned int ncycle) {
 
     /* should always be null on entry, but check anyway */
     if (MainTile != NULL) {
@@ -533,6 +536,8 @@ void read_intensities_file(XFILE *fp, unsigned int ncycle) {
 
         case E_CIF:
             MainTile = read_cif_TILE (fp, ncycle);
+	    MainTile->lane = lanetile.lane;
+	    MainTile->tile = lanetile.tile;
             break;
 
         default: ;

@@ -53,6 +53,7 @@ void show_AYB(XFILE * fp, const AYB ayb, bool showall);
 real_t * get_AYB_lambdas(AYB ayb, uint_fast32_t *num);
 uint_fast32_t get_AYB_ncluster(AYB ayb);
 uint_fast32_t get_AYB_ncycle(AYB ayb);
+TILE get_AYB_tile(AYB ayb);
 AYB replace_AYB_tile(AYB ayb, const TILE tile);
 void show_AYB_bases(XFILE * fp, const AYB ayb, const uint_fast32_t cl);
 void show_AYB_quals(XFILE * fp, const AYB ayb, const uint_fast32_t cl);

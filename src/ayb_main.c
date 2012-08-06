@@ -153,6 +153,7 @@ int main(int argc, char **argv) {
                 else {
                     /* open the intensities file */
                     fp = open_next(fp);
+		    lanetile = get_current_lanetile();
                     if (xfisnull(fp)) {
                         /* next prefix */
                         status = E_FAIL;
@@ -166,7 +167,7 @@ int main(int argc, char **argv) {
                     }
                     else {
                         /* read intensities data from supplied file */
-                        read_intensities_file(fp, totalcycle);
+                        read_intensities_file(fp, lanetile, totalcycle);
                     }
 
                     /* analyse the stored tile */

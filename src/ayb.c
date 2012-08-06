@@ -751,6 +751,11 @@ uint_fast32_t get_AYB_ncycle(const AYB ayb) {
     return ayb->ncycle;
 }
 
+/** Return the current tile. */
+TILE get_AYB_tile(AYB ayb){
+    return ayb->tile;
+}
+
 /** Replace any existing tile with the supplied one. */
 AYB replace_AYB_tile(AYB ayb, const TILE tile) {
 

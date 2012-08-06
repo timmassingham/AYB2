@@ -925,6 +925,7 @@ XFILE * open_next(XFILE *fplast) {
 
     while ((fp == NULL) && (++Index < Dir_Num)) {
         Current = copy_CSTRING(Dir_List[Index]->d_name);
+	LTCurrent = parse_lanetile_from_filename(Current);
         message(E_DEBUG_SSD_S, MSG_DEBUG, __func__, __FILE__, __LINE__, Current);
 
         /* make a full path name */
@@ -1239,3 +1240,14 @@ void tidyup_dirio(void) {
         Matrix[idx] = free_CSTRING(Matrix[idx]);
     }
 }
+
+LANETILE parse_lanetile_from_filename ( const char * fn){
+	LANETILE lt;
+	int ret = sscanf(fn,"%*[^0123456789]%u_%u",&lt.lane,&lt.tile);
+	return lt;
+}
+
+LANETILE get_current_lanetile ( void ){
+	return LTCurrent;
+}
+
