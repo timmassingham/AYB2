@@ -4,9 +4,11 @@
  * Used as a singleton class with local functions accessing global member data.
  *//* 
  *  Created : 14 Apr 2010
- *  Author  : Tim Massingham/Hazel Marsden
+ *  Author  : Hazel Marsden
+ *  Author  : Tim Massingham
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
+ *  Copyright (C) 2012 Disinformatics.org
  *
  *  This file is part of the AYB base calling software.
  *
@@ -187,10 +189,11 @@ static RETOPT output_results (const AYB ayb, const int blk) {
     TILE tile = get_AYB_tile(ayb);
     const unsigned int laneNum = tile->lane;
     const unsigned int tileNum = tile->tile;
+    const int blk_no = (blk==BLK_SINGLE)?1:blk+1;
 
     for (uint_fast32_t cl = 0; cl < ncluster; cl++){
         /* convert from 0-based cluster loop to 1-based for file */
-        xfprintf(fpout, "%c%s:%d:%d:%d:%d#0/%u\n", OUT_SYMBOL[OutputFormat], "Sample", laneNum, tileNum, 0, 0, cl + 1);
+        xfprintf(fpout, "%c%s:%d:%d:%d:%d/%d\n", OUT_SYMBOL[OutputFormat], sampleName, laneNum, tileNum, 0, cl+1, blk_no);
         show_AYB_bases(fpout, ayb, cl);
         /* quality score */
         if (OutputFormat == E_FASTQ) {

@@ -3,9 +3,10 @@
  * Public parts of Top Level Modelling.
  *//* 
  *  Created : 14 Apr 2010
- *  Author  : Tim Massingham/Hazel Marsden
+ *  Author  : Hazel Marsden
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
+ *  Copyright (C) 2012 Disinformatics.org
  *
  *  This file is part of the AYB base calling software.
  *

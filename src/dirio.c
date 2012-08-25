@@ -25,8 +25,10 @@
  *//*
  *  Created : 16 Mar 2010
  *  Author  : Hazel Marsden
+ *  Author  : Tim Massingham
  *
  *  Copyright (C) 2010 European Bioinformatics Institute
+ *  Copyright (C) 2012 Disinformatics.org
  *
  *  This file is part of the AYB base calling software.
  *
