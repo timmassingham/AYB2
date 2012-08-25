@@ -167,7 +167,7 @@ static real_t deltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n)
  *  Note the starting point and direction are implicitly encoded in the
  *  scalars a, b and the vector ratio[]. See linemin_obj for details.
  */
-static real_t ddeltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n){
+static real_t __attribute__((unused)) ddeltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n){
     if(NULL==ratio || !isfinite(lambda) || !isfinite(a) || !isfinite(b)){ return NAN; }
 
     real_t res = a + 2.0 * b * lambda;
@@ -182,7 +182,7 @@ static real_t ddeltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n
  *  Note the starting point and direction are implicitly encoded in the
  *  scalars a, b and the vector ratio[]. See linemin_obj for details.
  */
-static real_t d2deltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n){
+static real_t __attribute__((unused)) d2deltaObj(real_t lambda, real_t a, real_t b, real_t * ratio, int n){
     if(NULL==ratio || !isfinite(lambda) || !isfinite(a) || !isfinite(b)){ return NAN; }
 
     real_t res = 2.0 * b;
