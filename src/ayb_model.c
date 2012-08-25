@@ -190,6 +190,7 @@ static RETOPT output_results (const AYB ayb, const int blk) {
     const unsigned int laneNum = tile->lane;
     const unsigned int tileNum = tile->tile;
     const int blk_no = (blk==BLK_SINGLE)?1:blk+1;
+    const CSTRING sampleName = get_sample_name();
 
     for (uint_fast32_t cl = 0; cl < ncluster; cl++){
         /* convert from 0-based cluster loop to 1-based for file */

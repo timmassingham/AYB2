@@ -55,6 +55,7 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <err.h>
 #include "dirio.h"
 #include "message.h"
 
@@ -100,6 +101,8 @@ static CSTRING Input_Path = NULL;               ///< Input path, default or prog
 static CSTRING Output_Path = NULL;              ///< Output path, default or program argument.
 static CSTRING Spikearg_Path = NULL;            ///< Spike-in path, program argument.
 static CSTRING IntenSubstr = NULL;              ///< Substring an intensities file must contain.
+static CSTRING Sample_Name = "Sample";		///< Sample for these tiles.
+
 /**
  * File pattern match. Currently a prefix or the whole part of the filename before the substring.
  * Supplied as non-option program argument. Any path parts moved to pattern path.
@@ -1110,6 +1113,15 @@ void set_location(const CSTRING path, IOTYPE idx){
 }
 
 /**
+ * Set the sample name for tiles to be run.
+ */
+void set_sample_name(const CSTRING sample_name){
+	if(NULL==sample_name){
+	}
+	Sample_Name = copy_CSTRING(sample_name);
+}
+
+/**
  * Set the input filename pattern to match. Moves any path parts to pattern path.
  * Checks pattern argument supplied, and at least one input file found.
  * If a run-folder then set lane and tile range instead.
@@ -1246,10 +1258,17 @@ void tidyup_dirio(void) {
 LANETILE parse_lanetile_from_filename ( const char * fn){
 	LANETILE lt;
 	int ret = sscanf(fn,"%*[^0123456789]%u_%u",&lt.lane,&lt.tile);
+	if(2!=ret){
+		warnx("Failed to parse lane and tile numbers from %s. Using defaults",fn);
+	}
 	return lt;
 }
 
 LANETILE get_current_lanetile ( void ){
 	return LTCurrent;
+}
+
+CSTRING get_sample_name ( void ){
+	return Sample_Name;
 }
 

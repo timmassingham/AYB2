@@ -79,6 +79,7 @@ XFILE * open_spikein(int blk);
 bool run_folder(void);
 bool set_input_format(const char *inform_str);
 void set_location(const CSTRING path, IOTYPE mode);
+void set_sample_name(const CSTRING sample_name);
 bool set_pattern(const CSTRING pattern);
 void set_run_folder(void);
 bool spike_in(void);
@@ -88,5 +89,6 @@ void tidyup_dirio(void);
 
 LANETILE parse_lanetile_from_filename ( const char * fn);
 LANETILE get_current_lanetile ( void );
+CSTRING get_sample_name( void );
 
 #endif /* DIRIO_H_ */
