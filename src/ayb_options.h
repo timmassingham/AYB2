@@ -32,7 +32,7 @@
 
 #define PROGNAME "AYB"                          ///< Program name in generic text.
 #define AUTHOR "Hazel Marsden"                  ///< Author in generic text.
-#define CONTACT "hazelm@ebi.ac.uk"              ///< Contact details in generic text.
+#define CONTACT "ayb@ebi.ac.uk"                 ///< Contact details in generic text.
 
 /** Index into option structure for subsequent identification in command line. */
 typedef enum OptIndexT {E_SIMDATA = 0} OPTINDEX;
