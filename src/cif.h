@@ -6,7 +6,6 @@
  *  Authors : Tim Massingham/Hazel Marsden
  *
  *  Copyright (C) 2008,2009 by Tim Massingham
- *  tim.massingham@ebi.ac.uk
  *
  *  This file is part of the ciftool base-calling software.
  *

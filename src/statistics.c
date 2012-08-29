@@ -6,7 +6,6 @@
  *  Author : Tim Massingham
  *
  *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
- *  tim.massingham@ebi.ac.uk
  *
  *  This file is part of the AYB base-calling software.
  *
