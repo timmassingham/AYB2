@@ -13,6 +13,7 @@ SYNOPSIS
     [-g generr] [-i input path] [-k] [-l log level] [-n iterations]
     [-o output path] [-p threads] [-q] [-r] [-s header] [-t factor] [-w level]
     [-A Parameter A] [-K spike-in path] [-M Crosstalk] [-N Noise] [-Q quality tab]
+    [-S sample name]
     'prefix'[\+]/lane tile range ['prefix'[+]/lane tile range ...]
 
 *AYB* --help
@@ -210,6 +211,9 @@ Some examples of use are:
     escape sequence (\") or single quotes (\').    
     Use ANSI-C style bash quoting ($\'...') to allow escape sequences such as newline (\n) to be interpreted. 
     The output file name is `{filename}.runfile` (cif) or `{filename}_runfile.txt` (txt).
+
+*-S, --samplename* <name> [default: Sample]::
+    Sample name for incorporating in the name for each cluster.
 
 *-t,  --thin* <factor> [default: 1]::
     Factor used to thin out clusters. Only every 'factor' cluster, and those which are marked
