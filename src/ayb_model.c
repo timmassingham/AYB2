@@ -28,6 +28,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <err.h>
 #include "ayb.h"
 #include "ayb_model.h"
 #include "ayb_options.h"
@@ -191,10 +192,11 @@ static RETOPT output_results (const AYB ayb, const int blk) {
     const unsigned int tileNum = tile->tile;
     const int blk_no = (blk==BLK_SINGLE)?1:blk+1;
     const CSTRING sampleName = get_sample_name();
+    const LIST(CLUSTER) node = tile->clusterlist;
 
-    for (uint_fast32_t cl = 0; cl < ncluster; cl++){
+    for (uint_fast32_t cl = 0; cl < ncluster && NULL!=node ; cl++){
         /* convert from 0-based cluster loop to 1-based for file */
-        xfprintf(fpout, "%c%s:%d:%d:%d:%d/%d\n", OUT_SYMBOL[OutputFormat], sampleName, laneNum, tileNum, 0, cl+1, blk_no);
+        xfprintf(fpout, "%c%s:%d:%d:%d:%d/%d\n", OUT_SYMBOL[OutputFormat], sampleName, laneNum, tileNum, node->elt->x, node->elt->y, blk_no);
         show_AYB_bases(fpout, ayb, cl);
         /* quality score */
         if (OutputFormat == E_FASTQ) {
@@ -202,6 +204,7 @@ static RETOPT output_results (const AYB ayb, const int blk) {
             show_AYB_quals(fpout, ayb, cl);
         }
         xfputc('\n', fpout);
+	node = node->nxt;
     }
     xfclose(fpout);
     return E_CONTINUE;
@@ -544,7 +547,8 @@ void read_intensities_file(XFILE *fp, const LANETILE lanetile, unsigned int ncyc
 	    MainTile->tile = lanetile.tile;
             break;
 
-        default: ;
+        default:
+	    errx(EXIT_FAILURE,"Invalid input format in %s at %s:%d",__func__,__FILE__,__LINE__);
     }
 }
 

@@ -5,8 +5,8 @@
  *  Created : 2010
  *  Authors : Tim Massingham/Hazel Marsden
  *
- *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
- *  tim.massingham@ebi.ac.uk
+ *  Copyright (C) 2010 European Bioinformatics Institute
+ *  Copyright (C) 2012 Disinformatics.org
  *
  *  This file is part of the AYB base calling software.
  *
@@ -24,6 +24,7 @@
  *  along with AYB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
 #include "cluster.h"
 #include "nuc.h"
 #include "utility.h"
@@ -204,9 +205,9 @@ CLUSTER read_cif_CLUSTER(CIFDATA cif, const unsigned int cl, unsigned int ncycle
             signals->xint[cy * NBASE + base] = clipint(cif_get_int(cif, cl, base, cy));
         }
     }
-    /* x and y not available */
-//    cluster->x = x;
-//    cluster->y = y;
+    /* x and y not available. Fake using cluster number */
+    cluster->x = (int)floor( 0.5*(1+sqrt(1+8*cl)));
+    cluster->y = 1 + cl - (cluster->x * (cluster->x-1))/2;
     cluster->signals = signals;
     return cluster;
 

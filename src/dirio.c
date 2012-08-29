@@ -1259,7 +1259,7 @@ LANETILE parse_lanetile_from_filename ( const char * fn){
 	LANETILE lt;
 	int ret = sscanf(fn,"%*[^0123456789]%u_%u",&lt.lane,&lt.tile);
 	if(2!=ret){
-		warnx("Failed to parse lane and tile numbers from %s. Using defaults",fn);
+		warnx("Failed to parse lane and tile numbers from %s.\nWill use default if no others are found",fn);
 	}
 	return lt;
 }

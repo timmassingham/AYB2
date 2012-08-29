@@ -6,7 +6,7 @@
  *  Authors : Tim Massingham/Hazel Marsden
  *
  *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
- *  tim.massingham@ebi.ac.uk
+ *  Copyright (C) 2012 Disinformatics.org
  *
  *  This file is part of the AYB base calling software.
  *
@@ -25,6 +25,8 @@
  */
 
 #include <stdlib.h>
+#include <math.h>
+#include <string.h>
 #include "cif.h"
 #include "tile.h"
 
@@ -263,27 +265,58 @@ TILE read_cif_TILE(XFILE * fp, unsigned int ncycle) {
     return tile;
 }
 
+
+/**
+ * Read coordinates from pos file and add to tile array
+ */
+void add_coordinates_to_tile(TILE tile, const char *root, const unsigned int laneNum, const unsigned int tileNum){
+	if(NULL==tile){ return; }
+	if(NULL==root){ return; }
+	char * fn = calloc(strlen(root)+35,sizeof(char));
+	sprintf(fn,"%s/Data/Intensities/s_%d_%04d_pos.txt",root,laneNum,tileNum);
+
+	FILE * fp = fopen(fn,"r");
+	if(NULL==fp){
+		warnx("Failed to open coordinate file for L%uT%u",laneNum,tileNum);
+		return;
+	}
+	LIST(CLUSTER) cluster = tile->clusterlist;
+	while(NULL!=cluster){
+		float x,y;
+		int ret = fscanf(fp,"%f%f",&x,&y);
+		if(2!=ret){
+			errx(EXIT_FAILURE,"Mismatching number of clusters and coordinates in L%u/T%u",laneNum,tileNum);
+		}
+		cluster->elt->x = round(x*10.0)+1000;
+		cluster->elt->y = round(y*10.0)+1000;
+		cluster = cluster->nxt;
+	}
+	fclose(fp);
+	free(fn);
+}
+
 /**
  * Read a tile from a cif run-folder.
  * Returns a new TILE containing a list of clusters, in the same order as files.
  */
-TILE read_folder_TILE(const char *root, const unsigned int nlane, const unsigned int ntile, unsigned int ncycle) {
+TILE read_folder_TILE(const char *root, const unsigned int laneNum, const unsigned int tileNum, unsigned int ncycle) {
     CIFDATA cif = NULL;
     TILE tile = NULL;
 
     if (NULL==root) {return NULL;}
     
-    cif = readCIFfromDir(root, nlane, ntile, XFILE_RAW);
+    cif = readCIFfromDir(root, laneNum, tileNum, XFILE_RAW);
 
     if(NULL==cif){
-        warnx("Failed to read tile from run-folder; lane number %u tile number %u.", nlane, ntile);
+        warnx("Failed to read tile from run-folder; lane number %u tile number %u.", laneNum, tileNum);
     }
     else {
-        xfprintf(xstderr, "Information: Run-folder data found; lane number %u tile number %u\n", nlane, ntile);
+        xfprintf(xstderr, "Information: Run-folder data found; lane number %u tile number %u\n", laneNum, tileNum);
         tile = create_TILE_from_cif(cif, ncycle);
+	add_coordinates_to_tile(tile,root,laneNum,tileNum);
         /* store lane and tile since we have them */
-        tile->lane = nlane;
-        tile->tile = ntile;
+        tile->lane = laneNum;
+        tile->tile = tileNum;
     }
 
     free_cif(cif);
