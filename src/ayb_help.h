@@ -45,6 +45,7 @@
 "  -N  --N <filepath>\t\tPredetermined fixed Noise matrix file path\n"
 "\t\t\t\t(Must be accompanied by option A)\n"
 "  -Q  --qualtab <filepath>\tQuality calibration table\n"
+"  -S, --samplename <name>\tSample name for output\n"
 "\n"
 "  --help\t\t\tDisplay this help\n"
 "  --licence\t\t\tDisplay AYB licence information\n"
