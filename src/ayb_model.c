@@ -47,14 +47,14 @@
 static const unsigned int MIN_CYCLE = 2;        ///< Minimum cycles for modelling.
 
 /** Possible output format text. Match to OUTFORM enum. Used to match program argument and also as file extension. */
-static const char *OUTFORM_TEXT[] = {"fasta", "fastq"};
+static const char *OUTFORM_TEXT[] = {"fasta", "fasta.gz", "fasta.bz2", "fastq", "fastq.gz", "fastq.bz2"};
 /** New cluster symbol in sequence file. Match to OUTFORM enum. */
-static const int OUT_SYMBOL[] = {'>', '@'};
+static const int OUT_SYMBOL[] = {'>', '>', '>', '@', '@', '@'};
 
 /* members */
 
 /** Possible output formats, and number. */
-typedef enum OutFormT {E_FASTA, E_FASTQ, E_OUTFORM_NUM} OUTFORM;
+typedef enum OutFormT {E_FASTA, E_FASTAGZ, E_FASTABZ, E_FASTQ, E_FASTQGZ, E_FASTQBZ, E_OUTFORM_NUM} OUTFORM;
 static OUTFORM OutputFormat  = E_FASTQ;         ///< Selected output format.
 
 static unsigned int NIter = 5;                  ///< Number of iterations in base call loop.

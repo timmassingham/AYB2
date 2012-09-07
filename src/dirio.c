@@ -994,7 +994,7 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
     if (filename != NULL) {
         if (full_path(Output_Path, filename, &filepath)) {
             const char *mode_str = ((blk == BLK_APPEND) ? "a" : "w");
-            fp =  xfopen(filepath, XFILE_RAW, mode_str );
+            fp =  xfopen(filepath, XFILE_UNKNOWN, mode_str );
 
             if (xfisnull(fp)) {
                 message(E_OPEN_FAIL_SS, MSG_ERR, "Output", filepath);
@@ -1030,7 +1030,7 @@ XFILE * open_run_output(const CSTRING tag) {
 
         if (filename != NULL) {
             if (full_path(Output_Path, filename, &filepath)) {
-                fp =  xfopen(filepath, XFILE_RAW, "w" );
+                fp =  xfopen(filepath, XFILE_UNKNOWN, "w" );
 
                 if (xfisnull(fp)) {
                     message(E_OPEN_FAIL_SS, MSG_ERR, "Output", filepath);
