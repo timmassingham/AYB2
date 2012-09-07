@@ -122,7 +122,7 @@ Some examples of use are:
     input file processing, zero lambda count), errors and warnings.
 
 *-f,  --format* <format> [default: fastq]::
-	Output format (fasta/fastq).
+	Output format (fasta/fasta.gz/fasta.bz2/fastq/fastq.gz/fastq.bz2).
 
 *-g,  --generr* <num> [default: 38]::
 	Generalised error value (higher value for higher quality scores).
