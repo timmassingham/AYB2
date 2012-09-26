@@ -80,6 +80,7 @@ enum {OPT_HELP, OPT_LICENCE, OPT_VERSION};
 static struct option Longopts[] = {
     {"simdata",     required_argument,  NULL, 's'},   // Note!! index identified as E_SIMDATA = 0 in header file
     {"blockstring", required_argument,  NULL, 'b'},
+    {"concatenate", no_argument,        NULL, 'c'},
     {"dataformat",  required_argument,  NULL, 'd'},
     {"generr",      required_argument,  NULL, 'g'},
     {"logfile",     required_argument,  NULL, 'e'},
@@ -148,7 +149,7 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
     /* act on each option in turn */
     int ch;
 
-    while ((ch = getopt_long(argc, argv, "s:b:d:e:f:g:i:kl:m:n:o:p:qrt:w:z:A:K:M:N:Q:S:", Longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "s:b:cd:e:f:g:i:kl:m:n:o:p:qrt:w:z:A:K:M:N:Q:S:", Longopts, NULL)) != -1){
 
         switch(ch){
             case 's':
@@ -162,6 +163,11 @@ RETOPT read_options(const int argc, char ** const argv, int *nextarg) {
                     status = E_FAIL;
                 }
                 break;
+
+	    case 'c':
+		/* concatenate output to one file */
+		set_concatenate();
+		break;
 
             case 'd':
                 /* input format */

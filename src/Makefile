@@ -7,7 +7,7 @@ FC = gfortran
 CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -std=gnu99 -fopenmp
 LDFLAGS =  -lm -lz -lbz2 -lblas -llapack
 INCFLAGS = 
-DEFINES = -D_BSD_SOURCE
+DEFINES =
 objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o ayb.o calibration.o call_bases.o \
            cif.o cluster.o conjugate.o datablock.o dirio.o handler.o intensities.o lambda.o matrix.o \
            message.o mixnormal.o mpn.o nuc.o qual_table.o spikein.o statistics.o tile.o utility.o weibull.o xio.o

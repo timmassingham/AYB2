@@ -68,7 +68,7 @@ static const char PREFIXCHAR = '+';             ///< Indicates pattern to be tre
 static const char RANGECHAR = '-';              ///< Used to separate the min/max in a range of values.
 static const char DOT = '.';                    ///< Before file extension, used for tag location.
 static const char DELIM = '_';                  ///< Before tag, used for tag location.
-static const char BLOCKCHAR = 'a';              ///< Start for additional block suffix.
+static const char BLOCKCHAR = '1';              ///< Start for additional block suffix.
 
 /**
  * Possible input format text. Match to INFORM enum. Used to match program argument.
@@ -125,6 +125,8 @@ static LANETILE LTCurrent = {0, 0};             ///< Current run-folder lane and
 static CSTRING Current = NULL;                  ///< Current intensities file, used to create other filenames.
 static CSTRING Last_Input = NULL;               ///< Last non-intensities input file opened.
 static CSTRING Last_Spikein = NULL;             ///< Last spike-in file opened.
+
+static bool Concatenate_Results = false;	///< Concatenate result files
 
 
 /* private functions */
@@ -495,6 +497,28 @@ static CSTRING name_only(const CSTRING filepath) {
 }
 
 /**
+ * Create a new file name from sample 
+ */
+static CSTRING new_name_sample(const CSTRING sample_name, const CSTRING tag, int blk){
+	if( (NULL==sample_name) || (NULL==tag) ){ return NULL; }
+	size_t sampLen = strlen(sample_name);
+        size_t tagLen = strlen(tag);
+	size_t len = sampLen + tagLen + 2 + ((blk>=0)?2:0); // Space for '\0' and dot
+
+	CSTRING newname = calloc(len,sizeof(char));
+	strncpy(newname,sample_name,sampLen);
+	size_t pos = sampLen;
+	if(blk>=0){
+		newname[pos++] = DELIM;
+		newname[pos++] = BLOCKCHAR + blk;
+	}
+	newname[pos++] = '.';
+	strncpy(newname+pos,tag,tagLen);
+
+	return newname;
+}
+
+/**
  * Create a new file name by replacing the part between the last delimiter and the first dot with a new tag.
  * Add a block suffix to the name if non-negative blk supplied.
  * Also removes any compression suffix.
@@ -623,8 +647,7 @@ static XFILE * open_input_blk(const CSTRING location, const CSTRING tag, int blk
     if (Current == NULL) {
         /* use the tag on its own */
         filename = copy_CSTRING(tag);
-    }
-    else {
+    } else {
         /* create input file name from current intensities name */
         switch (Input_Format) {
             case E_TXT:
@@ -726,6 +749,13 @@ static bool set_lanetile(const CSTRING lanetilestr) {
     }
 
     return ok;
+}
+
+/**
+ * Set concatenate flag
+ */
+void set_concatenate(void){
+	Concatenate_Results = true;
 }
 
 /**
@@ -975,8 +1005,9 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
     if (Current == NULL) {
         /* use the tag on its own */
         filename = copy_CSTRING(tag);
-    }
-    else {
+    } else if (Concatenate_Results){
+	 filename = new_name_sample(Sample_Name,tag,blk);   
+    } else {
         /* create output file name from current intensities */
         switch (Input_Format) {
             case E_TXT:
@@ -993,7 +1024,7 @@ XFILE * open_output_blk(const CSTRING tag, int blk) {
 
     if (filename != NULL) {
         if (full_path(Output_Path, filename, &filepath)) {
-            const char *mode_str = ((blk == BLK_APPEND) ? "a" : "w");
+            const char *mode_str = ((blk == BLK_APPEND)||Concatenate_Results) ? "a" : "w";
             fp =  xfopen(filepath, XFILE_UNKNOWN, mode_str );
 
             if (xfisnull(fp)) {

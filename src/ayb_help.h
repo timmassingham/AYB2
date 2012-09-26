@@ -12,6 +12,7 @@
 "\t[default: all in a single block]\n"
 "\t(R=Read, I=Ignore, C=Concatenate onto previous block)\n"
 "\t(First R must precede first C)\n\n"
+"  -c  --concatenate\tConcatenate results for multiple tiles into a single file\n\n"
 "  -d  --dataformat <format>\tInput format [default: cif]\n"
 "\t\t\t\t(txt/cif)\n"
 "  -e  --logfile <filepath>\tFile path of message output [default: none]\n"

@@ -9,7 +9,7 @@ Illumina sequencing platform.
 
 SYNOPSIS
 --------
-*AYB* [-b blockstring] [-d input format] [-e log file] [-f output format] 
+*AYB* [-b blockstring] [-c] [-d input format] [-e log file] [-f output format] 
     [-g generr] [-i input path] [-k] [-l log level] [-n iterations]
     [-o output path] [-p threads] [-q] [-r] [-s header] [-t factor] [-w level]
     [-A Parameter A] [-K spike-in path] [-M Crosstalk] [-N Noise] [-Q quality tab]
@@ -112,6 +112,9 @@ Some examples of use are:
       only the first 50 bases of each are used e.g. because of poor quality.
     - R50I10C50 specifies a single 100 cycle block made up of two 50 cycle blocks 
       separated by an unwanted 10 cycle block e.g. a tag.
+
+*-c, --concatenate::
+	Concatenate results for multiple tiles into a single file.
 
 *-d,  --dataformat* <format> [default: cif]::
 	Input format (cif/txt).
