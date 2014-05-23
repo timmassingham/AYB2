@@ -265,6 +265,59 @@ TILE read_cif_TILE(XFILE * fp, unsigned int ncycle) {
     return tile;
 }
 
+/**
+ * Read coordinates from locs file and add to tile array
+ */
+void add_coordinates_to_tile_locs(TILE tile, const char *root, const unsigned int laneNum, const unsigned int tileNum){
+	if(NULL==tile){ return; }
+	if(NULL==root){ return; }
+	char * fn = calloc(strlen(root)+35,sizeof(char));
+	sprintf(fn,"%s/Data/Intensities/L%03d/s_%d_%04d.locs",root,laneNum,laneNum,tileNum);
+
+	FILE * fp = fopen(fn,"r");
+	if(NULL==fp){
+		warnx("Failed to open coordinate file for L%uT%u",laneNum,tileNum);
+		return;
+	}
+
+	uint32_t version_int, ncluster;
+	float version_float;
+	int64_t clusters_left;
+
+	if(fread(&version_int, sizeof(uint32_t), 1, fp) < 1 ||
+			fread(&version_float, sizeof(float), 1, fp) < 1 ||
+			fread(&ncluster, sizeof(uint32_t), 1, fp) < 1) {
+		warnx("Error on reading header from coordinate file for L%uT%u",laneNum,tileNum);
+		fclose(fp);
+		return;
+	}
+
+	if(version_int != 1 || version_float != 1.0) {
+		warnx("Unsupported version of locs file for L%uT%u",laneNum,tileNum);
+		fclose(fp);
+		return;
+	}
+
+	LIST(CLUSTER) cluster = tile->clusterlist;
+	for(clusters_left = ncluster; NULL != cluster; clusters_left--) {
+		float coord[2];
+
+		if(clusters_left < 1 || 2 != fread(coord, sizeof(float), 2, fp)) {
+			errx(EXIT_FAILURE,"Mismatching number of clusters and coordinates in L%u/T%u",laneNum,tileNum);
+		}
+
+		cluster->elt->x = round(coord[0]*10.0)+1000;
+		cluster->elt->y = round(coord[1]*10.0)+1000;
+		cluster = cluster->nxt;
+	}
+
+	if(clusters_left != 0) {
+		errx(EXIT_FAILURE,"Mismatching number of clusters and coordinates in L%u/T%u",laneNum,tileNum);
+	}
+
+	fclose(fp);
+	free(fn);
+}
 
 /**
  * Read coordinates from pos file and add to tile array
@@ -277,7 +330,8 @@ void add_coordinates_to_tile(TILE tile, const char *root, const unsigned int lan
 
 	FILE * fp = fopen(fn,"r");
 	if(NULL==fp){
-		warnx("Failed to open coordinate file for L%uT%u",laneNum,tileNum);
+		/* Fallback to load a .locs file. */
+		add_coordinates_to_tile_locs(tile, root, laneNum, tileNum);
 		return;
 	}
 	LIST(CLUSTER) cluster = tile->clusterlist;
