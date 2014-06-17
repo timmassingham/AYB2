@@ -271,7 +271,7 @@ TILE read_cif_TILE(XFILE * fp, unsigned int ncycle) {
 void add_coordinates_to_tile_locs(TILE tile, const char *root, const unsigned int laneNum, const unsigned int tileNum){
 	if(NULL==tile){ return; }
 	if(NULL==root){ return; }
-	char * fn = calloc(strlen(root)+35,sizeof(char));
+	char * fn = calloc(strlen(root)+38,sizeof(char));
 	sprintf(fn,"%s/Data/Intensities/L%03d/s_%d_%04d.locs",root,laneNum,laneNum,tileNum);
 
 	FILE * fp = fopen(fn,"r");
