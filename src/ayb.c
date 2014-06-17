@@ -773,7 +773,10 @@ void show_AYB_bases(XFILE * fp, const AYB ayb, const uint_fast32_t cl) {
     const uint_fast32_t ncycle = ayb->ncycle;
 
     for (uint_fast32_t cy = 0; cy < ncycle; cy++){
-        show_NUC(fp, ayb->bases.elt[cl * ncycle + cy]);
+        if (ayb->quals.elt[cl * ncycle + cy] > MIN_PHRED)
+            show_NUC(fp, ayb->bases.elt[cl * ncycle + cy]);
+        else
+            show_NUC(fp, NUC_AMBIG);
     }
 }
 
