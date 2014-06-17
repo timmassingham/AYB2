@@ -855,7 +855,11 @@ MAT calculate_covariance(AYB ayb, const bool do_full){
             wei[th_id] += ayb->we->x[cl];
         }
     }
-    
+
+    /* no cluster is allowed. */
+    if (V[0] == NULL)
+        ok = false;
+
     if (ok) {
         /* Accumulate from multi-thread */ 
         const int lda = V[0]->nrow;
