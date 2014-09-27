@@ -96,7 +96,7 @@ static const char * find_suffix ( const char * fn ){
 }
 
 /** gzip printf. */
-static int gzvprintf ( gzFile zfp, const char * fmt, va_list args ){
+static int __gzvprintf ( gzFile zfp, const char * fmt, va_list args ){
     int ret;
     char * buf;
 
@@ -310,7 +310,7 @@ int xfprintf( XFILE * fp, const char * fmt, ... ){
     switch( fp->mode ){
       case XFILE_UNKNOWN:
       case XFILE_RAW:   ret=vfprintf(fp->ptr.fh,fmt,args); break;
-      case XFILE_GZIP:  ret=gzvprintf(fp->ptr.zfh,fmt,args); break;
+      case XFILE_GZIP:  ret=__gzvprintf(fp->ptr.zfh,fmt,args); break;
       case XFILE_BZIP2: ret=BZ2_bzvprintf(fp->ptr.bzfh,fmt,args); break;
     }
     va_end(args);
