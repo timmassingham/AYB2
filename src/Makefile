@@ -13,49 +13,49 @@ objects =  ayb_main.o ayb_model.o ayb_options.o ayb_version.o ayb.o calibration.
            message.o mixnormal.o mpn.o nuc.o qual_table.o spikein.o statistics.o tile.o utility.o weibull.o xio.o
 
 AYB: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ $(LDFLAGS) $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ $(objects) $(LDFLAGS)
 	
 test: test-cluster test-matrix test-message test-mixnormal test-mpn test-nuc test-spikein test-tile test-xio
 
 test-cluster: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST cluster.c $(filter-out cluster.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 test-conjugate: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST conjugate.c $(filter-out conjugate.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST conjugate.c $(filter-out conjugate.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 test-matrix: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST matrix.c $(filter-out matrix.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST matrix.c $(filter-out matrix.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 test-message: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST message.c $(filter-out message.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST message.c $(filter-out message.o ayb_main.o,$(objects)) $(LDFLAGS)    
 
 test-mixnormal: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST mixnormal.c $(filter-out mixnormal.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST mixnormal.c $(filter-out mixnormal.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 test-mpn: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST mpn.c $(filter-out mpn.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST mpn.c $(filter-out mpn.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 test-nuc: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST nuc.c $(filter-out nuc.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST nuc.c $(filter-out nuc.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 test-spikein: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST spikein.c $(filter-out spikein.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST spikein.c $(filter-out spikein.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 test-statistics: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST statistics.c $(filter-out statistics.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST statistics.c $(filter-out statistics.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 test-tile: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST tile.c $(filter-out tile.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 test-weibull: statistics.o
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST weibull.c $< && \
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST weibull.c $< $(LDFLAGS) && \ 
 	   ln -fs $(BINDIR)/$@ $(BINDIR)/qweibull && \
 	   ln -fs $(BINDIR)/$@ $(BINDIR)/pweibull && \
 	   ln -fs $(BINDIR)/$@ $(BINDIR)/dweibull && \
 	   ln -fs $(BINDIR)/$@ $(BINDIR)/fweibull
 
 test-xio: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -o $(BINDIR)/$@ -DTEST xio.c $(filter-out xio.o ayb_main.o,$(objects))
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $(BINDIR)/$@ -DTEST xio.c $(filter-out xio.o ayb_main.o,$(objects)) $(LDFLAGS)
 
 ayb_options.o: ayb_options.c ayb_usage.h ayb_help.h
 ayb.o: ayb.c message.h
