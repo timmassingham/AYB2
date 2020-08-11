@@ -1,0 +1,30 @@
+package:
+  name: ayb2 
+  version: 2.11.h1
+
+source:
+  git_rev: v2.11.h1
+  git_url: https://github.com/hyeshik/AYB2
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+  host:
+    - zlib
+    - bzip2
+    - lapack
+    - openblas
+  run:
+    - lapack
+    - _openmp_mutex
+
+test:
+  commands:
+    - AYB --version
+
+about:
+  summary: Alternative Basecaller for Illumina Sequencers
+  home: https://github.com/hyeshik/AYB2
