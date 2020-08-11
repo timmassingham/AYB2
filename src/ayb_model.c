@@ -199,9 +199,15 @@ static RETOPT output_results (const AYB ayb, const int blk) {
         xfprintf(fpout, "%c%s:%d:%d:%d:%d/%d\n", OUT_SYMBOL[OutputFormat], sampleName, laneNum, tileNum, node->elt->x, node->elt->y, blk_no);
         show_AYB_bases(fpout, ayb, cl);
         /* quality score */
-        if (OutputFormat == E_FASTQ) {
+        switch (OutputFormat) {
+        case E_FASTQ :
+        case E_FASTQGZ :
+        case E_FASTQBZ :
             xfputs("\n+\n", fpout);
             show_AYB_quals(fpout, ayb, cl);
+            break;
+
+        default :;
         }
         xfputc('\n', fpout);
 	node = node->nxt;
